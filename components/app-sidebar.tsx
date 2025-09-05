@@ -74,7 +74,7 @@ export function AppSidebar({ dictionary, ...props }: AppSidebarProps) {
         <NavData items={dynamicNav.data} pathname={pathname} t={t} />
 
         <HideOnCollapse>
-          <NavSecondary items={dynamicNav.secondary} pathname={pathname} t={t} />
+        <NavSecondary items={dynamicNav.secondary} t={t} />
         </HideOnCollapse>
       </SidebarContent>
 

@@ -4,12 +4,19 @@ import { DynamicBreadcrumbs } from "@/components/dynamic-breadcrumbs"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { getDictionary } from "@/lib/dictionaries"
 
-// ✅ Hapus definisi tipe manual dari props
+// ✅ 1. Ubah tipe `params` menjadi sebuah Promise, sesuai pesan error
+type Props = {
+  children: React.ReactNode
+  params: Promise<{ lang: string }>
+}
+
 export default async function AppLayout({
   children,
   params,
-}) {
-  const dictionary = await getDictionary(params.lang)
+}: Props) {
+  // ✅ 2. Gunakan `await` pada `params` untuk mendapatkan objeknya
+  const resolvedParams = await params
+  const dictionary = await getDictionary(resolvedParams.lang)
 
   return (
     <SidebarProvider>

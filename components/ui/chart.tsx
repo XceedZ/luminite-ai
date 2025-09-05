@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import * as RechartsPrimitive from "recharts"
-
+import type { Payload } from "recharts/types/component/DefaultTooltipContent"
 import { cn } from "@/lib/utils"
 
 // Format: { THEME_NAME: CSS_SELECTOR }
@@ -106,7 +106,7 @@ const ChartTooltip = RechartsPrimitive.Tooltip
 
 function ChartTooltipContent({
   active,
-  payload,
+  payload, // Pastikan `payload` ada di sini
   className,
   indicator = "dot",
   hideLabel = false,
@@ -120,11 +120,25 @@ function ChartTooltipContent({
   labelKey,
 }: React.ComponentProps<typeof RechartsPrimitive.Tooltip> &
   React.ComponentProps<"div"> & {
+    payload?: Payload<string | number, string | number>[]
     hideLabel?: boolean
     hideIndicator?: boolean
     indicator?: "line" | "dot" | "dashed"
     nameKey?: string
     labelKey?: string
+    label?: string
+    labelClassName?: string
+    formatter?: (
+      value: number,
+      name: string,
+      item: unknown,
+      index: number,
+      payload: unknown
+    ) => React.ReactNode
+    labelFormatter?: (
+      label: string,
+      payload: Payload<string | number, string | number>[]
+    ) => React.ReactNode
   }) {
   const { config } = useChart()
 
@@ -186,8 +200,8 @@ function ChartTooltipContent({
 
           return (
             <div
-              key={item.dataKey}
-              className={cn(
+            key={item.name} // ✅ Gunakan item.name sebagai key
+            className={cn(
                 "[&>svg]:text-muted-foreground flex w-full flex-wrap items-stretch gap-2 [&>svg]:h-2.5 [&>svg]:w-2.5",
                 indicator === "dot" && "items-center"
               )}
@@ -256,11 +270,13 @@ function ChartLegendContent({
   payload,
   verticalAlign = "bottom",
   nameKey,
-}: React.ComponentProps<"div"> &
-  Pick<RechartsPrimitive.LegendProps, "payload" | "verticalAlign"> & {
-    hideIcon?: boolean
-    nameKey?: string
-  }) {
+}: React.ComponentProps<"div"> & {
+  // ✅ Hapus `Pick` dan definisikan props secara manual
+  payload?: Payload<string | number, string | number>[]
+  verticalAlign?: "top" | "middle" | "bottom"
+  hideIcon?: boolean
+  nameKey?: string
+}) {
   const { config } = useChart()
 
   if (!payload?.length) {
@@ -281,8 +297,8 @@ function ChartLegendContent({
 
         return (
           <div
-            key={item.value}
-            className={cn(
+          key={item.value || item.name}
+          className={cn(
               "[&>svg]:text-muted-foreground flex items-center gap-1.5 [&>svg]:h-3 [&>svg]:w-3"
             )}
           >

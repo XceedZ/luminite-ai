@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { type Icon, IconMoon, IconSun } from "@tabler/icons-react"
+// 'Icon' dihapus karena tidak dipakai
 import { useTheme } from "next-themes"
 
 import {
@@ -10,44 +10,31 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
+  // 'useSidebar' dihapus karena 'isMobile' tidak dipakai
 } from "@/components/ui/sidebar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { cn } from "@/lib/utils"
 
-// Tipe untuk item navigasi, ditambahkan 'name' untuk kunci translasi
-type NavSecondaryItem = {
-  name: string
-  title: string // 'title' dipertahankan untuk kompatibilitas jika masih dipakai di tempat lain
-  url: string
-  icon: Icon
-}
+import type { NavItem } from "@/config/nav"
 
 export function NavSecondary({
   items,
-  t, // Menerima fungsi translasi 't' sebagai prop
+  t,
   ...props
 }: {
-  items: NavSecondaryItem[]
+  items: NavItem[]
   t: (key: string) => string
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
-  const { isMobile } = useSidebar()
-  const { theme, setTheme } = useTheme()
+  // Variabel yang tidak terpakai dihapus
+  // const { isMobile } = useSidebar()
+  // const { theme, setTheme } = useTheme()
 
   return (
     <SidebarGroup {...props}>
       <SidebarGroupContent>
         <SidebarMenu>
-          {/* Item Menu Utama */}
           {items.map((item) => (
             <SidebarMenuItem key={item.name}>
               <SidebarMenuButton asChild tooltip={t(item.name)}>
-                <a href={item.url}>
+                <a href={item.href}>
                   <item.icon />
                   <span>{t(item.name)}</span>
                 </a>
