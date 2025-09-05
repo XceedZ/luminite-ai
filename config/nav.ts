@@ -7,6 +7,7 @@ import {
   IconBooks,
   IconSettings,
   IconUsers,
+  IconPlus,
   // Ikon yang ditambahkan
   IconBlocks,
   IconMessage,
@@ -25,6 +26,7 @@ export type NavItem = {
   title: string
   href: string
   icon: Icon // Menggunakan tipe 'Icon' yang lebih spesifik
+  hidden?: boolean // [PERUBAHAN] Tambahkan properti opsional `hidden`
   items?: NavItem[]
 }
 
@@ -34,6 +36,13 @@ export const mainNav: NavItem[] = [
     title: "Dashboard",
     href: "dashboard",
     icon: IconHome2,
+  },
+  {
+    name: "quickCreate",
+    title: "Quick Create", // Ini akan menjadi judul metadata & breadcrumb
+    href: "quick-create",
+    icon: IconPlus, // Gunakan ikon yang sesuai
+    hidden: true, // [PERUBAHAN] Item ini sekarang akan disembunyikan dari menu
   },
   // ✅ PERUBAHAN DI SINI
   {

@@ -27,5 +27,16 @@
   "library": "Perpustakaan",
   "prompts": "Prompt",
   "proposal": "Proposal",
-  "capture": "Tangkapan"
+  "capture": "Tangkapan",
+  "quickCreateTitle": "Asisten Keuangan",
+  "quickCreateSubtitle": "Ada yang bisa saya bantu terkait keuangan bisnis Anda hari ini?",
+  "inputPlaceholder": "Tanyakan apa saja...",
+  "generatingSuggestions": "Membuat sugesti...",
+  "resultThink": "Hasil Pemikiran",
+  "parseError": "Tidak dapat memproses hasil pemikiran.",
+  "generationStopped": "Respon dihentikan oleh pengguna.",
+  "copied": "Tersalin!",
+  "ariaUpload": "Unggah file",
+  "ariaSend": "Kirim pesan",
+  "ariaStop": "Hentikan respon"
 }

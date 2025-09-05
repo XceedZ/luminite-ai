@@ -27,5 +27,16 @@
   "library": "Library",
   "prompts": "Prompts",
   "proposal": "Proposal",
-  "capture": "Capture"
+  "capture": "Capture",
+  "quickCreateTitle": "Financial Assistant",
+  "quickCreateSubtitle": "How can I help with your business finances today?",
+  "inputPlaceholder": "Ask anything...",
+  "generatingSuggestions": "Generating suggestions...",
+  "resultThink": "Result Think",
+  "parseError": "Could not parse thinking result.",
+  "generationStopped": "Response generation was stopped by the user.",
+  "copied": "Copied!",
+  "ariaUpload": "Upload file",
+  "ariaSend": "Send message",
+  "ariaStop": "Stop generation"
 }

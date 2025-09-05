@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { ChevronRight } from "lucide-react"
-import { IconCirclePlusFilled, type Icon } from "@tabler/icons-react"
+import { IconPlus, type Icon } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 
 import {
@@ -28,6 +28,7 @@ type NavMainItem = {
   title: string
   href: string
   icon: Icon
+  hidden?: boolean // Pastikan tipe di sini juga diperbarui
   items?: NavMainItem[]
 }
 
@@ -41,6 +42,7 @@ export function NavMain({
   t: (key: string) => string
 }) {
   const isActive = (href: string) => pathname.startsWith(href)
+  const lang = pathname.split("/")[1] || "en"
 
   return (
     <SidebarGroup>
@@ -48,13 +50,16 @@ export function NavMain({
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
+              asChild
               tooltip={t("quickCreate")}
               className="h-10 justify-center text-base font-semibold cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
             >
-              <IconCirclePlusFilled className="flex-shrink-0" />
-              <HideOnCollapse>
-                <span>{t("quickCreate")}</span>
-              </HideOnCollapse>
+              <Link href={`/${lang}/quick-create`}>
+                <IconPlus className="flex-shrink-0" />
+                <HideOnCollapse>
+                  <span>{t("quickCreate")}</span>
+                </HideOnCollapse>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -62,7 +67,8 @@ export function NavMain({
         <SidebarGroupLabel>{t("mainMenu")}</SidebarGroupLabel>
 
         <SidebarMenu>
-          {items.map((item) =>
+          {/* [PERUBAHAN] Filter item yang memiliki `hidden: true` sebelum di-map */}
+          {items.filter(item => !item.hidden).map((item) =>
             item.items && item.items.length > 0 ? (
               <Collapsible
                 key={item.name}

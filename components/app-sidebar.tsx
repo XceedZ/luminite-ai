@@ -3,11 +3,11 @@
 import * as React from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 
-// ✅ 1. Impor `dataNav` bukan `cloudNav`
 import { dataNav, mainNav, secondaryNav } from "@/config/nav";
 import type { NavItem } from "@/config/nav";
-import { NavData } from "@/components/nav-data"; // ✅ 2. Impor `NavData`
+import { NavData } from "@/components/nav-data";
 import { NavMain } from "@/components/nav-main";
 import { NavSecondary } from "@/components/nav-secondary";
 import { NavUser } from "@/components/nav-user";
@@ -44,7 +44,7 @@ export function AppSidebar({ dictionary, ...props }: AppSidebarProps) {
 
     return {
       main: buildUrls(mainNav),
-      data: buildUrls(dataNav), // ✅ 3. Gunakan `dataNav` dan beri nama 'data'
+      data: buildUrls(dataNav),
       secondary: buildUrls(secondaryNav),
     };
   }, [lang]);
@@ -52,14 +52,14 @@ export function AppSidebar({ dictionary, ...props }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        {/* Menambahkan kembali `gap-2` untuk spasi */}
         <div className="flex h-14 items-center justify-start gap-2 px-3 group-data-[collapsible=icon]:justify-center">
           <div className="relative h-9 w-9 flex-shrink-0 group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9">
             <Image
               src="/image.png"
               alt="Luminite Logo"
               fill
-              className="object-contain"
+              // [PERUBAHAN] Kelas ditambahkan di sini untuk mengubah warna logo
+              className="object-contain invert dark:invert-0"
             />
           </div>
           <HideOnCollapse>
@@ -70,7 +70,6 @@ export function AppSidebar({ dictionary, ...props }: AppSidebarProps) {
 
       <SidebarContent>
         <NavMain items={dynamicNav.main} pathname={pathname} t={t} />
-        {/* ✅ 4. Gunakan komponen <NavData /> dengan props `dynamicNav.data` */}
         <NavData items={dynamicNav.data} pathname={pathname} t={t} />
 
         <HideOnCollapse>
@@ -86,3 +85,4 @@ export function AppSidebar({ dictionary, ...props }: AppSidebarProps) {
     </Sidebar>
   );
 }
+
