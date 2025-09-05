@@ -1,15 +1,16 @@
 "use client"
 
 import Link from "next/link"
-import { ChevronRight } from "lucide-react" // ✅ 1. Impor baru
-import { type Icon } from "@tabler/icons-react"
+import { ChevronRight } from "lucide-react"
+import { IconCirclePlusFilled, type Icon } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from "@/components/ui/collapsible" // ✅ 1. Impor baru
+} from "@/components/ui/collapsible"
+import { HideOnCollapse } from "@/components/ui/hide-on-collapse"
 import {
   SidebarGroup,
   SidebarGroupContent,
@@ -22,7 +23,6 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar"
 
-// Tipe tidak perlu diubah
 type NavMainItem = {
   name: string
   title: string
@@ -40,22 +40,30 @@ export function NavMain({
   pathname: string
   t: (key: string) => string
 }) {
-  // ✅ 2. Tambahkan fungsi helper untuk mengecek state aktif
   const isActive = (href: string) => pathname.startsWith(href)
 
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
-        {/* Tombol Quick Create tidak berubah */}
-        {/* ... (kode Quick Create Anda di sini) ... */}
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              tooltip={t("quickCreate")}
+              className="h-10 justify-center text-base font-semibold cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
+            >
+              <IconCirclePlusFilled className="flex-shrink-0" />
+              <HideOnCollapse>
+                <span>{t("quickCreate")}</span>
+              </HideOnCollapse>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
 
         <SidebarGroupLabel>{t("mainMenu")}</SidebarGroupLabel>
 
         <SidebarMenu>
           {items.map((item) =>
-            // ✅ 3. Logika Kondisional: Cek apakah ada submenu
             item.items && item.items.length > 0 ? (
-              // JIKA ADA SUBMENU: Render sebagai Collapsible
               <Collapsible
                 key={item.name}
                 asChild
@@ -89,7 +97,6 @@ export function NavMain({
                 </SidebarMenuItem>
               </Collapsible>
             ) : (
-              // JIKA TIDAK ADA SUBMENU: Render sebagai Link biasa
               <SidebarMenuItem key={item.name}>
                 <SidebarMenuButton
                   asChild
