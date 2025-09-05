@@ -2,26 +2,24 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { TopBar } from "@/components/top-bar"
 import { DynamicBreadcrumbs } from "@/components/dynamic-breadcrumbs"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { getDictionary } from "@/lib/dictionaries" // Impor fungsi kamus
+import { getDictionary } from "@/lib/dictionaries"
 
-// Layout ini sekarang menjadi Server Component
-export default function AppLayout({
+// ✅ 1. Tambahkan `async` pada deklarasi fungsi
+export default async function AppLayout({
   children,
   params,
 }: {
   children: React.ReactNode
   params: { lang: string }
 }) {
-  // Ambil kamus yang benar berdasarkan bahasa dari URL
-  const dictionary = getDictionary(params.lang)
+  // ✅ 2. Tambahkan `await` untuk mendapatkan objek kamus
+  const dictionary = await getDictionary(params.lang)
 
   return (
     <SidebarProvider>
-      {/* Teruskan kamus sebagai prop ke AppSidebar */}
       <AppSidebar dictionary={dictionary} />
       <SidebarInset>
         <TopBar>
-          {/* Anda juga bisa meneruskan kamus ke breadcrumbs */}
           <DynamicBreadcrumbs dictionary={dictionary} />
         </TopBar>
         {children}
@@ -29,4 +27,3 @@ export default function AppLayout({
     </SidebarProvider>
   )
 }
-
