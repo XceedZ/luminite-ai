@@ -382,7 +382,7 @@ export default function QuickCreateClientUI({
                 />
               </button>
               <Button
-                  variant="destructive"
+                  variant="secondary"
                   size="icon"
                   className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
                   onClick={() => handleRemoveFile(index)}
