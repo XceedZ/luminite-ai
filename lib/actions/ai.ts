@@ -276,7 +276,7 @@ async function classifyAndSummarize(prompt: string, imageCount: number, history:
     2. Classify the user's intent based on financial context for SMEs.
     3. **Elaborate on the user's true underlying request. Explain what the user actually wants to achieve with their prompt. This elaboration must be in the detected language.**
     4. Detect the user's mood (e.g., "neutral", "positive", "negative", "urgent").
-    **Previous Conversation History (use this for context):** ${historyText}
+    **Previous Conversation History (use this for context):** ${history}
     Return ONLY a valid JSON object with the keys "language", "intent", "summary" (which contains the elaboration from task 3), and "mood".
     
     ${imageContextInfo}
