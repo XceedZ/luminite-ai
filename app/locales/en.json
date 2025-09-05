@@ -38,5 +38,7 @@
   "copied": "Copied!",
   "ariaUpload": "Upload file",
   "ariaSend": "Send message",
-  "ariaStop": "Stop generation"
+  "ariaStop": "Stop generation",
+  "thinking": "Thinking…"
+
 }

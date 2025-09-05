@@ -5,25 +5,38 @@ import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Plus, SendHorizonal, ChevronDown, Copy, ThumbsUp, ThumbsDown, RefreshCw, Square } from "lucide-react"
-import { IconBoltFilled } from "@tabler/icons-react"
 import ReactMarkdown from "react-markdown"
 import { useAIStore } from "@/app/store/ai-store" 
 import { cn } from "@/lib/utils"
 import { generateSuggestions } from "@/lib/actions/ai"
-
-const iconMap: { [key: string]: React.ElementType } = {
-    IconBoltFilled: IconBoltFilled,
-    // Tambahkan ikon lain dari AI di sini jika ada, contoh:
-    // IconReceipt2: IconReceipt2,
-    // IconChartBar: IconChartBar,
-};
-
+import dynamic from 'next/dynamic';
+import { LucideProps } from 'lucide-react'; // Impor tipe props jika perlu
 // --- Komponen Ikon Dinamis ---
 const DynamicIcon = ({ name }: { name: string }) => {
-    // Gunakan mapping, dengan fallback ke IconBoltFilled
-    const IconComponent = iconMap[name] || IconBoltFilled;
+    // `dynamic` akan memuat komponen hanya saat dirender di client-side
+    const IconComponent = dynamic(
+      () =>
+        // Kita mengimpor seluruh library, TAPI...
+        import('@tabler/icons-react').then(mod => {
+          // ...kita hanya mengambil satu komponen yang namanya cocok dengan `props.name`
+          // Ini memastikan hanya kode untuk satu ikon yang dimuat.
+          const Icon = mod[name] as React.FC<LucideProps>;
+          if (Icon) {
+            return Icon;
+          }
+          // Fallback jika ikon tidak ditemukan
+          return mod['IconBoltFilled'] as React.FC<LucideProps>; 
+        }),
+      {
+        // Opsi untuk menampilkan sesuatu saat ikon sedang dimuat
+        loading: () => <span className="mr-2 h-4 w-4 animate-pulse bg-muted rounded-md" />,
+        // SSR false karena ikon tidak perlu ada di render pertama server
+        ssr: false, 
+      }
+    );
+  
     return <IconComponent className="mr-2 h-4 w-4" />;
-};
+  };
 
 // --- Komponen Pesan AI ---
 const AIMessage = ({ msg, onRegenerate, t }: { msg: any; onRegenerate: () => void; t: (key: string) => string }) => {
@@ -237,7 +250,7 @@ export default function QuickCreateClientUI({ dictionary }: { dictionary: any })
                 </div>
               </div>
             ))}
-            {isLoading && (<div className="flex flex-row items-center gap-3 text-left"><div className="h-5 w-5 border-2 border-border border-t-primary rounded-full animate-spin" /><p className="text-muted-foreground animate-pulse">Thinking...</p></div>)}
+            {isLoading && (<div className="flex flex-row items-center gap-3 text-left"><div className="h-5 w-5 border-2 border-border border-t-primary rounded-full animate-spin" /><p className="text-muted-foreground animate-pulse">{t('thinking')}</p>            </div>)}
           </div>
           {/* [PERUBAHAN] Wrapper input sekarang mengontrol lebar dan padding */}
           <div className="w-full max-w-4xl flex-shrink-0 px-4 pb-4">
