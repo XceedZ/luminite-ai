@@ -15,5 +15,17 @@
   "account": "Akun",
   "billing": "Tagihan",
   "notifications": "Notifikasi",
-  "logout": "Keluar"
+  "logout": "Keluar",
+  "mainMenu": "Utama",
+  "playground": "Playground",
+  "generalChat": "Obrolan Umum",
+  "waifuAI": "Studio Karakter",
+  "dataMenu": "Database",
+  "transactions": "Transaksi",
+  "reports": "Laporan",
+  "insights": "Pengetahuan",
+  "library": "Perpustakaan",
+  "prompts": "Prompt",
+  "proposal": "Proposal",
+  "capture": "Tangkapan"
 }

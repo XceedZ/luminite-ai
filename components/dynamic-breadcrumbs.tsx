@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
-import { cloudNav, mainNav, secondaryNav, type NavItem } from "@/config/nav"
+import { dataNav, mainNav, secondaryNav, type NavItem } from "@/config/nav"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/breadcrumb"
 
 // Gabungkan semua item navigasi agar lebih mudah dicari
-const allNavItems = [...mainNav, ...cloudNav, ...secondaryNav]
+const allNavItems = [...mainNav, ...dataNav, ...secondaryNav]
 
 // Fungsi helper untuk mencari item navigasi secara rekursif berdasarkan path-nya
 function findNavItem(path: string, navItems: NavItem[]): NavItem | null {

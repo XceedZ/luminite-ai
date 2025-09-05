@@ -15,5 +15,17 @@
   "account": "Account",
   "billing": "Billing",
   "notifications": "Notifications",
-  "logout": "Log out"
+  "logout": "Log out",
+  "mainMenu": "Main",
+  "playground": "Playgrounds",
+  "generalChat": "General Chat",
+  "waifuAI": "Character Studio",
+  "dataMenu": "Database",
+  "transactions": "Transactions",
+  "reports": "Reports",
+  "insights": "Insights",
+  "library": "Library",
+  "prompts": "Prompts",
+  "proposal": "Proposal",
+  "capture": "Capture"
 }
