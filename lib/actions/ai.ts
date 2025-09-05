@@ -2,8 +2,10 @@
 
 import { GoogleGenAI } from "@google/genai"
 
-const ai = new GoogleGenAI(process.env.GOOGLE_API_KEY || "")
-
+const ai = new GoogleGenAI({
+    apiKey: process.env.GOOGLE_API_KEY || ""
+  });
+  
 // [FINAL] Fungsi untuk menghasilkan 3 sugesti singkat
 export async function generateSuggestions() {
     console.log("AI: Generating initial suggestions...");
@@ -28,31 +30,30 @@ export async function generateSuggestions() {
     `;
   
     try {
-      const response = await ai.models.generateContent({
-        model: "models/gemma-3n-e4b-it",
-        contents: suggestionPrompt,
-      });
+        const response = await ai.models.generateContent({
+          model: "models/gemma-3n-e4b-it",
+          contents: suggestionPrompt,
+        });
       
-      const responseText = response.text;
-      const jsonMatch = responseText.match(/{[\s\S]*}/);
-  
-      if (jsonMatch && jsonMatch[0]) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        // [PERUBAHAN] Menambahkan console.log untuk hasil sugesti
-        console.log("Full Suggestions Result:", parsed.suggestions);
-        return parsed.suggestions || [];
-      } else {
-        throw new Error("Failed to extract valid JSON for suggestions.");
+        const responseText = response.text || "";
+        const jsonMatch = responseText.match(/{[\s\S]*}/);
+      
+        if (jsonMatch && jsonMatch[0]) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          console.log("Full Suggestions Result:", parsed.suggestions);
+          return parsed.suggestions || [];
+        } else {
+          throw new Error("Failed to extract valid JSON for suggestions.");
+        }
+      } catch (error) {
+        console.error("Suggestion AI Error:", error);
+        return [
+          { "text": "Catat pengeluaran", "icon": "IconReportMoney" },
+          { "text": "Ringkas cash flow", "icon": "IconCashMove" },
+          { "text": "Tips keuangan", "icon": "IconBulb" },
+        ];
       }
-    } catch (error) {
-      console.error("Suggestion AI Error:", error);
-      return [
-        { "text": "Catat pengeluaran", "icon": "IconReportMoney" },
-        { "text": "Ringkas cash flow", "icon": "IconCashMove" },
-        { "text": "Tips keuangan", "icon": "IconBulb" },
-      ];
-    }
-  }
+    }      
 
 // --- Fungsi Pipeline Chat Utama (Non-Streaming) ---
 
@@ -75,9 +76,9 @@ async function classifyAndSummarize(prompt: string): Promise<{ language: string;
         model: "models/gemma-3n-e4b-it",
         contents: classificationPrompt
       });
-      const responseText = response.text;
+      const responseText = response.text || "";
       const jsonMatch = responseText.match(/{[\s\S]*}/);
-      if (jsonMatch && jsonMatch[0]) {
+    if (jsonMatch && jsonMatch[0]) {
         const parsed = JSON.parse(jsonMatch[0]);
         console.log("AI Step 1 Result:", parsed);
         return { ...parsed, rawResponse: responseText };
@@ -114,17 +115,19 @@ async function generateFinalResponse(originalPrompt: string, intent: string, sum
     `;
   
     try {
-      const response = await ai.models.generateContent({
-          model: "models/gemma-3-27b-it",
-          contents: finalPrompt
-      });
-      return response.text;
-    } catch (error) {
-      console.error("Generation AI Error:", error);
-      throw new Error("Failed to generate final content from Google AI.");
+        const response = await ai.models.generateContent({
+            model: "models/gemma-3-27b-it",
+            contents: finalPrompt
+        });
+      
+        // ✅ fallback ke string kosong jika undefined
+        return response.text || "";
+      } catch (error) {
+        console.error("Generation AI Error:", error);
+        throw new Error("Failed to generate final content from Google AI.");
+      }
     }
-  }
-
+    
 export async function generateContent(prompt: string) {
   const startTime = Date.now();
   try {
