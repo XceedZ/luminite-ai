@@ -4,11 +4,12 @@ import * as React from "react"
 import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Plus, SendHorizonal, ChevronDown, Copy, ThumbsUp, ThumbsDown, RefreshCw, Square, X } from "lucide-react"
+import { Plus, SendHorizonal, ChevronDown, Copy, ThumbsUp, ThumbsDown, RefreshCw, Square, X, Loader2 } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import { useAIStore } from "@/app/store/ai-store" 
 import { cn } from "@/lib/utils"
 import { generateSuggestions } from "@/lib/actions/ai"
+
 import {
   Dialog,
   DialogContent,
@@ -226,12 +227,35 @@ const fileToBase64 = (file: File): Promise<{ mimeType: string, data: string }> =
   });
 };
 
-export default function QuickCreateClientUI({ dictionary }: { dictionary: any }) {
+function PageLoader() {
+    return (
+        <div className="flex h-full w-full flex-col items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+    )
+}
+
+export default function QuickCreateClientUI({ 
+  dictionary, 
+  sessionId 
+}: { 
+  dictionary: any;
+  sessionId?: string;
+}) {
   const t = (key: string) => dictionary[key] || key;
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [inputValue, setInputValue] = React.useState("");
-  const { messages, isLoading, generate, stopGeneration, addMessage } = useAIStore();
+  const { 
+    messages, 
+    isLoading,
+    isHistoryLoading,
+    generate, 
+    stopGeneration, 
+    addMessage, 
+    initializeSession, 
+    startNewChat 
+  } = useAIStore();
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const [uploadedFiles, setUploadedFiles] = React.useState<{ file: File, previewUrl: string }[]>([]);
   const [expandedResults, setExpandedResults] = React.useState<Record<number, boolean>>({});
@@ -240,17 +264,29 @@ export default function QuickCreateClientUI({ dictionary }: { dictionary: any })
   const [selectedImageUrl, setSelectedImageUrl] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    if (sessionId) {
+      initializeSession(sessionId);
+    } else {
+      startNewChat();
+    }
+  }, [sessionId, initializeSession, startNewChat]);
+  
+  React.useEffect(() => {
     const fetchSuggestions = async () => {
       setIsLoadingSuggestions(true);
       try {
         const suggestionData = await generateSuggestions();
         setSuggestions(suggestionData);
       } catch (error) { 
-        console.error("Failed to fetch suggestions:", error);
+        console.error("Gagal mengambil sugesti:", error);
       } finally { setIsLoadingSuggestions(false); }
     };
-    fetchSuggestions();
-  }, []);
+    if (!sessionId) {
+      fetchSuggestions();
+    } else {
+        setIsLoadingSuggestions(false);
+    }
+  }, [sessionId]);
   
   React.useEffect(() => {
     if (bottomRef.current) {
@@ -315,7 +351,7 @@ export default function QuickCreateClientUI({ dictionary }: { dictionary: any })
       await generate(textPrompt, false, imageParts);
 
     } catch (error) {
-      console.error("Error processing files:", error);
+      console.error("Gagal memproses file:", error);
       addMessage({ role: 'user', content: textPrompt });
       await generate(textPrompt, false);
     }
@@ -339,14 +375,14 @@ export default function QuickCreateClientUI({ dictionary }: { dictionary: any })
               <button onClick={() => setSelectedImageUrl(file.previewUrl)} className="overflow-hidden rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
                 <Image
                     src={file.previewUrl}
-                    alt={`Preview ${index + 1}`}
+                    alt={`Pratinjau ${index + 1}`}
                     width={80}
                     height={80}
                     className="h-20 w-20 object-cover transition-transform hover:scale-105"
                 />
               </button>
               <Button
-                  variant="secondary"
+                  variant="destructive"
                   size="icon"
                   className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
                   onClick={() => handleRemoveFile(index)}
@@ -359,6 +395,10 @@ export default function QuickCreateClientUI({ dictionary }: { dictionary: any })
     ) : null
   );
 
+  if (isHistoryLoading) {
+    return <PageLoader />;
+  }
+
   return (
     <>
       <Dialog open={!!selectedImageUrl} onOpenChange={(isOpen) => !isOpen && setSelectedImageUrl(null)}>
@@ -367,7 +407,7 @@ export default function QuickCreateClientUI({ dictionary }: { dictionary: any })
             <DialogTitle>{t('imagePreview') || 'Image Preview'}</DialogTitle>
           </DialogHeader>
           {selectedImageUrl && (
-            <div className="relative mt-4 h-[50vh] w-full">
+            <div className="relative mt-4 h-[70vh] w-full">
               <Image
                 src={selectedImageUrl}
                 alt="Image Preview"
@@ -386,9 +426,9 @@ export default function QuickCreateClientUI({ dictionary }: { dictionary: any })
         />
         <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40rem] h-[40rem] bg-primary/10 rounded-full -z-10 blur-3xl" aria-hidden="true"/>
         
-        {messages.length === 0 ? (
+        {messages.length === 0 && !isLoading && !isHistoryLoading ? (
           <main className="w-full max-w-4xl flex flex-col items-center justify-center flex-grow text-center p-4">
-            <Image src="/image.png" alt="Luminite Logo" width={64} height={64} className="mb-6 invert dark:invert-0"/>
+            <Image src="/image.png" alt="Logo Luminite" width={64} height={64} className="mb-6 invert dark:invert-0"/>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">{t('quickCreateTitle')}</h1>
             <p className="mt-3 text-lg text-muted-foreground max-w-4xl">{t('quickCreateSubtitle')}</p>
             <div className="mt-8 w-full">
@@ -445,7 +485,7 @@ export default function QuickCreateClientUI({ dictionary }: { dictionary: any })
                             <button key={imgIndex} onClick={() => setSelectedImageUrl(imgSrc)} className="overflow-hidden rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
                               <Image
                                 src={imgSrc}
-                                alt={`Uploaded image ${imgIndex + 1}`}
+                                alt={`Gambar Terunggah ${imgIndex + 1}`}
                                 width={120} height={120}
                                 className="rounded-md object-cover transition-transform hover:scale-105"
                               />
@@ -460,7 +500,7 @@ export default function QuickCreateClientUI({ dictionary }: { dictionary: any })
                       )}
                     </>
                   ) : msg.content === t('generationStopped') ? (
-                    <p className="text-sm italic text-muted-foreground">{msg.content}</p>
+                    <p className="text-sm italic text-muted-foreground">{t('generationStopped')}</p>
                   ) : (
                     <AIMessage msg={msg} onRegenerate={() => handleRegenerate(index)} t={t} />
                   )}
@@ -495,3 +535,4 @@ export default function QuickCreateClientUI({ dictionary }: { dictionary: any })
     </>
   )
 }
+

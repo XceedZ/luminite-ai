@@ -1,4 +1,5 @@
 import { mainNav, dataNav, secondaryNav, type NavItem } from "@/config/nav"; // Sesuaikan path ke nav.ts Anda
+import { IconCircle } from "@tabler/icons-react";
 
 // Gabungkan semua array navigasi menjadi satu untuk pencarian
 const allNavItems: NavItem[] = [...mainNav, ...dataNav, ...secondaryNav];
@@ -56,7 +57,7 @@ export function buildBreadcrumbs(path: string): NavItem[] {
         name: segment,
         title: segment.charAt(0).toUpperCase() + segment.slice(1).replace("-", " "),
         href: currentPath,
-        icon: () => null, // Placeholder icon
+        icon: IconCircle, // ✅ gunakan ikon default sebagai placeholder
       });
     }
   }

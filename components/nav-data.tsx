@@ -26,7 +26,7 @@ type NavDataItem = {
   name: string
   title: string
   href: string
-  icon: Icon
+  icon?: Icon  // ✅ jadi optional
   items?: NavDataItem[]
 }
 

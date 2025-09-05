@@ -39,6 +39,25 @@
   "ariaUpload": "Upload file",
   "ariaSend": "Send message",
   "ariaStop": "Stop generation",
-  "thinking": "Thinking…"
-
+  "thinking": "Thinking…",
+  "history": "History",
+  "rename": "Rename",
+  "copyLink": "Copy Link",
+  "openInNewTab": "Open in New Tab",
+  "deleteChat": "Delete Chat",
+  "more": "More",
+  "linkCopied": "Link copied to clipboard!",
+  "copyLinkFailed": "Failed to copy link.",
+  "chatRenamedSuccess": "Chat renamed to",
+  "renameError": "Title cannot be empty or unchanged.",
+  "chatDeletedSuccess": "Chat has been deleted.",
+  "renameChat": "Rename Chat",
+  "renameChatDescription": "Enter a new name for the chat:",
+  "newTitle": "New Title",
+  "cancel": "Cancel",
+  "saveChanges": "Save Changes",
+  "deleteChatConfirmTitle": "Are you absolutely sure?",
+  "deleteChatConfirmDescription": "This will permanently delete the chat",
+  "actionCannotBeUndone": "This action cannot be undone.",
+  "delete": "Delete"
 }

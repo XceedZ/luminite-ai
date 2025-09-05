@@ -39,6 +39,26 @@
   "ariaUpload": "Unggah file",
   "ariaSend": "Kirim pesan",
   "ariaStop": "Hentikan respon",
-  "thinking": "Berpikir…"
+  "thinking": "Berpikir…",
+  "history": "Riwayat",
+  "rename": "Ubah Nama",
+  "copyLink": "Salin Tautan",
+  "openInNewTab": "Buka di Tab Baru",
+  "deleteChat": "Hapus Obrolan",
+  "more": "Lainnya",
+  "linkCopied": "Tautan berhasil disalin!",
+  "copyLinkFailed": "Gagal menyalin tautan.",
+  "chatRenamedSuccess": "Obrolan diganti nama menjadi",
+  "renameError": "Judul tidak boleh kosong atau sama.",
+  "chatDeletedSuccess": "Obrolan telah dihapus.",
+  "renameChat": "Ganti Nama Obrolan",
+  "renameChatDescription": "Masukkan nama baru untuk obrolan:",
+  "newTitle": "Judul Baru",
+  "cancel": "Batal",
+  "saveChanges": "Simpan Perubahan",
+  "deleteChatConfirmTitle": "Apakah Anda benar-benar yakin?",
+  "deleteChatConfirmDescription": "Tindakan ini akan menghapus obrolan secara permanen",
+  "actionCannotBeUndone": "Tindakan ini tidak dapat dibatalkan.",
+  "delete": "Hapus"
 
 }

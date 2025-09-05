@@ -27,7 +27,7 @@ type NavMainItem = {
   name: string
   title: string
   href: string
-  icon: Icon
+  icon?: Icon // <-- Ubah di sini, tambahkan '?'
   hidden?: boolean // Pastikan tipe di sini juga diperbarui
   items?: NavMainItem[]
 }
@@ -46,8 +46,10 @@ export function NavMain({
 
   return (
     <SidebarGroup>
-      <SidebarGroupContent className="flex flex-col gap-2">
-        <SidebarMenu>
+      {/* [MODIFIKASI] Hapus 'gap-2' dari sini untuk mengontrol spasi secara manual */}
+      <SidebarGroupContent className="flex flex-col">
+        {/* [MODIFIKASI] Tambahkan margin bawah hanya setelah tombol "Quick Create" */}
+        <SidebarMenu className="mb-2">
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
@@ -67,7 +69,7 @@ export function NavMain({
         <SidebarGroupLabel>{t("mainMenu")}</SidebarGroupLabel>
 
         <SidebarMenu>
-          {/* [PERUBAHAN] Filter item yang memiliki `hidden: true` sebelum di-map */}
+          {/* Filter item yang memiliki `hidden: true` sebelum di-map */}
           {items.filter(item => !item.hidden).map((item) =>
             item.items && item.items.length > 0 ? (
               <Collapsible

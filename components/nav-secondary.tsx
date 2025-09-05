@@ -34,10 +34,11 @@ export function NavSecondary({
           {items.map((item) => (
             <SidebarMenuItem key={item.name}>
               <SidebarMenuButton asChild tooltip={t(item.name)}>
-                <a href={item.href}>
-                  <item.icon />
-                  <span>{t(item.name)}</span>
-                </a>
+              <a href={item.href}>
+  {item.icon && <item.icon />} {/* ✅ cek dulu */}
+  <span>{t(item.name)}</span>
+</a>
+
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}

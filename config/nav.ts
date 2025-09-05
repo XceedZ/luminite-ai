@@ -18,6 +18,8 @@ import {
   IconFileDescription,
   IconFileAi,
 } from "@tabler/icons-react"
+import type { ComponentType } from "react";
+import type { IconProps, TablerIcon } from "@tabler/icons-react";
 
 // Tipe ini akan menjadi satu-satunya sumber kebenaran
 // dan akan digunakan di semua komponen navigasi.
@@ -25,7 +27,7 @@ export type NavItem = {
   name: string
   title: string
   href: string
-  icon: Icon // Menggunakan tipe 'Icon' yang lebih spesifik
+  icon?: TablerIcon // ✅ langsung pakai TablerIcon
   hidden?: boolean // [PERUBAHAN] Tambahkan properti opsional `hidden`
   items?: NavItem[]
 }
@@ -127,6 +129,24 @@ export const dataNav: NavItem[] = [
       },
     ],
   },
+]
+
+export const navHistory: NavItem[] = [
+  {
+      name: "history-chat",
+      title: "General Chat",
+      href: "playground/general-chat",
+  },
+  {
+      name: "history-analytics",
+      title: "Analytics",
+      href: "analytics",
+  },
+  {
+      name: "history-proposal",
+      title: "Proposal",
+      href: "library/proposal",
+  }
 ]
 
 export const secondaryNav: NavItem[] = [

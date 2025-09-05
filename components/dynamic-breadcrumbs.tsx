@@ -1,10 +1,13 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
+import * as React from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
-import { dataNav, mainNav, secondaryNav, type NavItem } from "@/config/nav"
+// Impor yang diperlukan untuk logika breadcrumb
+import { dataNav, mainNav, secondaryNav, type NavItem } from "@/config/nav";
+// [PERBAIKAN] Impor fungsi yang benar: getChatSession (singular)
+import { getChatSession } from '@/lib/actions/ai';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -12,70 +15,98 @@ import {
   BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb"
+} from "@/components/ui/breadcrumb";
+
+type Props = {
+  dictionary: { [key: string]: string };
+};
 
 // Gabungkan semua item navigasi agar lebih mudah dicari
-const allNavItems = [...mainNav, ...dataNav, ...secondaryNav]
+const allNavItems: NavItem[] = [];
+mainNav.forEach(item => {
+    allNavItems.push(item);
+    if (item.items) allNavItems.push(...item.items);
+});
+dataNav.forEach(item => {
+    allNavItems.push(item);
+    if (item.items) allNavItems.push(...item.items);
+});
+secondaryNav.forEach(item => {
+    allNavItems.push(item);
+    if (item.items) allNavItems.push(...item.items);
+});
 
-// Fungsi helper untuk mencari item navigasi secara rekursif berdasarkan path-nya
+// Fungsi helper untuk mencari item navigasi berdasarkan path-nya
 function findNavItem(path: string, navItems: NavItem[]): NavItem | null {
   for (const item of navItems) {
-    // Cocokkan path URL (misal: /projects/active) dengan href dari config (misal: projects/active)
-    if (`/${item.href}` === path) {
-      return item
-    }
-    if (item.items) {
-      const subItem = findNavItem(path, item.items)
-      if (subItem) return subItem
+    if (item.href === path) { // Cocokkan href dari config
+      return item;
     }
   }
-  return null
+  return null;
 }
 
-export function DynamicBreadcrumbs({
-  dictionary,
-}: {
-  dictionary: { [key: string]: string }
-}) {
-  const pathname = usePathname()
+/**
+ * Komponen ini adalah Client Component yang secara dinamis
+ * membangun breadcrumb, termasuk mengambil judul obrolan jika perlu.
+ */
+export function DynamicBreadcrumbs({ dictionary }: Props) {
+  const t = (key: string) => dictionary[key] || key;
+  
+  const pathname = usePathname();
+  const [sessionTitle, setSessionTitle] = React.useState<string | null>(null);
 
-  // Buat fungsi translasi 't' dari kamus yang diterima
-  const t = React.useCallback((key: string): string => dictionary[key] || key, [
-    dictionary,
-  ])
-
-  // Contoh: /id/projects/active -> ['', 'id', 'projects', 'active']
-  const segments = pathname.split("/").filter(Boolean)
-
+  const segments = pathname.split('/').filter(Boolean);
   if (segments.length <= 1) {
-    return null // Jangan tampilkan apa pun di halaman root bahasa (misal: /id)
+    return null;
   }
+  
+  const lang = segments[0];
+  const pathSegments = segments.slice(1);
 
-  // Hapus segmen bahasa untuk membangun path (misal: ['projects', 'active'])
-  const pathSegments = segments.slice(1)
+  const isChatHistoryPage = pathSegments[0] === 'quick-create' && pathSegments.length > 1;
+  const sessionId = isChatHistoryPage ? pathSegments[1] : null;
+
+  React.useEffect(() => {
+    setSessionTitle(null);
+
+    if (sessionId) {
+      const fetchTitle = async () => {
+        // [PERBAIKAN] Panggil fungsi yang benar: getChatSession (singular)
+        const session = await getChatSession(sessionId);
+        if (session) {
+          // Sekarang 'session' adalah objek tunggal, bukan array, jadi .title akan berfungsi
+          setSessionTitle(session.title);
+        }
+      };
+      
+      fetchTitle();
+    }
+  }, [sessionId]);
 
   return (
     <Breadcrumb>
       <BreadcrumbList>
         <BreadcrumbItem>
-          {/* Tautan "Home" sekarang ditranslasikan menggunakan kunci 'dashboard' */}
           <BreadcrumbLink asChild>
-            <Link href={`/${segments[0]}/dashboard`}>{t("dashboard")}</Link>
+            <Link href={`/${lang}/dashboard`}>{t("dashboard")}</Link>
           </BreadcrumbLink>
         </BreadcrumbItem>
 
         {pathSegments.map((segment, index) => {
-          // Buat path relatif untuk pencarian (misal: /projects, lalu /projects/active)
-          const pathWithoutLang = `/${pathSegments.slice(0, index + 1).join("/")}`
-          const fullPathWithLang = `/${segments[0]}${pathWithoutLang}`
-          const isLast = index === pathSegments.length - 1
+          const pathWithoutLang = pathSegments.slice(0, index + 1).join("/");
+          const fullPathWithLang = `/${lang}/${pathWithoutLang}`;
+          const isLast = index === pathSegments.length - 1;
 
-          // Cari item navigasi untuk mendapatkan 'name' sebagai kunci translasi
-          const navItem = findNavItem(pathWithoutLang, allNavItems)
-          // Gunakan hasil translasi. Jika tidak ditemukan, gunakan segmen URL sebagai fallback.
-          const title = navItem
+          const navItem = findNavItem(pathWithoutLang, allNavItems);
+          
+          let title = navItem
             ? t(navItem.name)
-            : segment.charAt(0).toUpperCase() + segment.slice(1)
+            : segment.charAt(0).toUpperCase() + segment.slice(1);
+
+          if (isLast && sessionId && sessionTitle) {
+            title = sessionTitle;
+          }
 
           return (
             <React.Fragment key={fullPathWithLang}>
@@ -90,10 +121,10 @@ export function DynamicBreadcrumbs({
                 )}
               </BreadcrumbItem>
             </React.Fragment>
-          )
+          );
         })}
       </BreadcrumbList>
     </Breadcrumb>
-  )
+  );
 }
 

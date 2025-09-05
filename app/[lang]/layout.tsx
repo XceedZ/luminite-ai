@@ -3,8 +3,9 @@ import { TopBar } from "@/components/top-bar"
 import { DynamicBreadcrumbs } from "@/components/dynamic-breadcrumbs"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { getDictionary } from "@/lib/dictionaries"
+import { Toaster } from "@/components/ui/sonner" // [BARU] Impor Toaster
 
-// ✅ 1. Ubah tipe `params` menjadi sebuah Promise, sesuai pesan error
+// Tipe `params` sudah benar sebagai Promise
 type Props = {
   children: React.ReactNode
   params: Promise<{ lang: string }>
@@ -14,7 +15,7 @@ export default async function AppLayout({
   children,
   params,
 }: Props) {
-  // ✅ 2. Gunakan `await` pada `params` untuk mendapatkan objeknya
+  // Menggunakan `await` pada `params` untuk mendapatkan objeknya
   const resolvedParams = await params
   const dictionary = await getDictionary(resolvedParams.lang)
 
@@ -27,6 +28,8 @@ export default async function AppLayout({
         </TopBar>
         {children}
       </SidebarInset>
+      {/* [BARU] Tambahkan komponen Toaster di sini */}
+      <Toaster richColors position="top-right" />
     </SidebarProvider>
   )
 }
