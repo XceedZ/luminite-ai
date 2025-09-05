@@ -261,7 +261,7 @@ export async function generateSuggestions() {
 
 // --- Fungsi Pipeline Chat Utama (Non-Streaming) ---
 
-async function classifyAndSummarize(prompt: string, imageCount: number): Promise<{ language: string; intent: string; summary: string; mood: string; rawResponse: string }> {
+async function classifyAndSummarize(prompt: string, imageCount: number, history: StoredMessage[]): Promise<{ language: string; intent: string; summary: string; mood: string; rawResponse: string }> {
   console.log(`AI Step 1: Classifying prompt with ${imageCount} image(s)...`);
 
   // [MODIFIKASI] Sisipkan konteks gambar dengan cara yang minimal
@@ -276,6 +276,7 @@ async function classifyAndSummarize(prompt: string, imageCount: number): Promise
     2. Classify the user's intent based on financial context for SMEs.
     3. **Elaborate on the user's true underlying request. Explain what the user actually wants to achieve with their prompt. This elaboration must be in the detected language.**
     4. Detect the user's mood (e.g., "neutral", "positive", "negative", "urgent").
+    **Previous Conversation History (use this for context):** ${historyText}
     Return ONLY a valid JSON object with the keys "language", "intent", "summary" (which contains the elaboration from task 3), and "mood".
     
     ${imageContextInfo}
@@ -396,7 +397,7 @@ export async function generateContent(
 
   try {
     const history = await getChatHistory(currentSessionId!);
-    const classificationResult = await classifyAndSummarize(prompt, images?.length || 0);
+    const classificationResult = await classifyAndSummarize(prompt, images?.length || 0, history);
     
     const finalResponseText = await generateFinalResponse(
       prompt,
