@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { findNavItemByHref } from "@/lib/nav-utils";
 import QuickCreateClientUI from "./quick-create-client";
-
+export const dynamic = 'force-dynamic';
 // Fungsi untuk memuat dictionary berdasarkan locale
 const getDictionary = async (lang: string) => {
   try {

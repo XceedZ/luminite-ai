@@ -2,8 +2,9 @@
 
 import { create } from 'zustand'
 import { generateContent } from '@/lib/actions/ai' 
+import type { ImagePart } from '@/lib/actions/ai';
 
-// [PERBAIKAN] Interface disesuaikan dengan data yang sebenarnya dari ai.ts
+// Interface ThinkingResult tidak perlu diubah
 interface ThinkingResult {
   classification: { 
     intent: string; 
@@ -15,9 +16,11 @@ interface ThinkingResult {
   duration: number;
 }
 
+// [MODIFIKASI] Tambahkan properti 'images' agar sesuai dengan data dari komponen
 interface Message {
   role: 'user' | 'model';
   content: string;
+  images?: string[]; // URL pratinjau gambar
   thinkingResult?: ThinkingResult;
 }
 
@@ -25,8 +28,10 @@ interface AIState {
   messages: Message[];
   isLoading: boolean;
   isCancelled: boolean; 
-  error: string | null; // [PERBAIKAN] Tambahkan kembali properti error
-  generate: (prompt: string, isRegenerate?: boolean) => Promise<void>;
+  error: string | null;
+  // [BARU] Tambahkan definisi fungsi addMessage di sini
+  addMessage: (message: Message) => void;
+  generate: (prompt: string, isRegenerate?: boolean, images?: ImagePart[]) => Promise<void>;
   stopGeneration: (message: string) => void;
 }
 
@@ -34,7 +39,14 @@ export const useAIStore = create<AIState>()((set, get) => ({
   messages: [],
   isLoading: false,
   isCancelled: false,
-  error: null, // [PERBAIKAN] Inisialisasi properti error
+  error: null,
+
+  // [BARU] Implementasi fungsi addMessage
+  addMessage: (message) => {
+    set((state) => ({
+      messages: [...state.messages, message]
+    }));
+  },
 
   stopGeneration: (message) => {
     set(state => ({
@@ -48,54 +60,57 @@ export const useAIStore = create<AIState>()((set, get) => ({
     console.log("Generation stopped by user on client-side.");
   },
 
-  generate: async (prompt, isRegenerate = false) => {
-    if (!prompt || get().isLoading) return;
-
-    set((state) => ({
-      isLoading: true,
-      isCancelled: false, // Selalu reset status pembatalan di awal
-      messages: isRegenerate 
-        ? state.messages 
-        : [...state.messages, { role: 'user', content: prompt }],
-    }));
-
+  // [MODIFIKASI] Fungsi generate disederhanakan
+  generate: async (prompt, isRegenerate = false, images = []) => {
+    // Pengecekan isLoading dipindah ke komponen klien untuk mencegah pengiriman ganda
+    
+    // Langsung set state loading. Logika penambahan pesan pengguna dihapus.
+    set({ isLoading: true, isCancelled: false });
+  
     try {
-      const result = await generateContent(prompt);
-
+      // Panggil server action untuk mendapatkan hasil dari AI
+      const result = await generateContent(prompt, images);
+  
       if (get().isCancelled) {
         console.log("Process was cancelled during await, not adding AI response.");
         return; 
       }
-
+  
       if (result.error) throw new Error(result.error as string);
-      
-      // [PERBAIKAN] Tambahkan pengecekan untuk memastikan result.classification ada
       if (!result.classification || typeof result.duration === 'undefined') {
         throw new Error("Invalid result structure from AI action.");
       }
-
+  
+      // Buat pesan dari model AI
       const modelMessage: Message = {
         role: 'model',
         content: result.text || "",
         thinkingResult: {
           classification: result.classification,
-          duration: Number(result.duration), // Pastikan durasi adalah number
+          duration: Number(result.duration),
         }
       };
-
+  
+      // Tambahkan pesan model ke state
       set((state) => ({
         messages: [...state.messages, modelMessage],
       }));
-
+  
     } catch (e: unknown) {
       if (!get().isCancelled) {
-          const error = e as Error;
-          set({ error: error.message || "An unknown error occurred." });
+        const error = e as Error;
+        // Tambahkan pesan error ke chat agar pengguna tahu ada masalah
+        set(state => ({
+          error: error.message || "An unknown error occurred.",
+          messages: [...state.messages, {
+            role: 'model',
+            content: `Maaf, terjadi kesalahan: ${error.message}`
+          }]
+        }));
       }
     } finally {
-      // Selalu set isLoading menjadi false di akhir.
+      // Matikan loading setelah semua proses selesai
       set({ isLoading: false });
     }
-  },
+  },  
 }));
-
