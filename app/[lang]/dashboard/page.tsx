@@ -1,12 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
 import { DataTable } from "@/components/data-table"
-
-// Kita tidak lagi memerlukan SectionCards karena kita akan mendefinisikan grid di sini
-// import { SectionCards } from "@/components/section-cards"
-
-// Pastikan file data.json berada di folder yang sama
+import type { Metadata } from "next";
 import data from "./data.json"
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+};
 
 export default function DashboardPage() {
   return (
