@@ -1,0 +1,19 @@
+{
+  "quickCreate": "Quick Create",
+  "dashboard": "Dashboard",
+  "lifecycle": "Lifecycle",
+  "analytics": "Analytics",
+  "projects": "Projects",
+  "activeProjects": "Active Projects",
+  "archived": "Archived",
+  "team": "Team",
+  "settings": "Settings",
+  "light": "Light",
+  "dark": "Dark",
+  "system": "System",
+  "theme": "Theme",
+  "account": "Account",
+  "billing": "Billing",
+  "notifications": "Notifications",
+  "logout": "Log out"
+}

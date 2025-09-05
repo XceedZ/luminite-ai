@@ -1,36 +1,54 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Next.js App Router Monorepo
 
-## Getting Started
+This repository contains a boilerplate for a **Next.js** application using the **App Router**, designed for simplicity and scalability. It includes a modular architecture with built-in internationalization (**i18n**) and a structured component library based on **shadcn/ui**.
 
-First, run the development server:
+## ✨ Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Next.js App Router**: Utilizes the latest routing and rendering model for modern web applications.  
+- **shadcn/ui**: A beautifully-designed, modular component library to accelerate UI development.  
+- **i18n (Internationalization)**: A clean, file-based routing and translation system to support multiple languages.  
+- **Modular Structure**: The codebase is organized by feature, making it easy to manage and scale.  
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🚀 Getting Started
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Follow these steps to get your local development environment up and running.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 1. Clone the repository
+git clone https://github.com/your-username/your-repo-name.git  
+cd your-repo-name  
 
-## Learn More
+### 2. Install dependencies
+npm install  
+# or  
+yarn install  
+# or  
+pnpm install  
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Run the development server
+npm run dev  
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Open your browser and navigate to **http://localhost:3000**. You should see the application running.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📂 Project Structure
 
-## Deploy on Vercel
+This project follows a dynamic routing pattern for internationalization:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+app/  
+  [lang]/  
+    dashboard/  
+      page.tsx  
+      translations.json  
+components/  
+middleware.ts  
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **app/[lang]/**: Core of the i18n setup. Captures the language segment (`en`, `id`, etc.) for every route.  
+- **app/[lang]/dashboard/**: Contains the Dashboard module. Renders at `/en/dashboard` and `/id/dashboard`.  
+- **app/[lang]/dashboard/translations.json**: All translations for the Dashboard module, grouped by language.  
+- **middleware.ts**: Handles redirects, ensuring `/en` or `/id` forward to `/en/dashboard` or `/id/dashboard`.  
+- **components/**: Houses all reusable UI components.  
+
+## 📚 Learn More
+
+- [Next.js Documentation](https://nextjs.org/docs)  
+- [shadcn/ui Documentation](https://ui.shadcn.com)  
+- [Next.js App Router Internationalization](https://nextjs.org/docs/app/building-your-application/routing/internationalization)  

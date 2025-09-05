@@ -1,0 +1,19 @@
+{
+  "quickCreate": "Buat Cepat",
+  "dashboard": "Dasbor",
+  "lifecycle": "Siklus Hidup",
+  "analytics": "Analitik",
+  "projects": "Proyek",
+  "activeProjects": "Proyek Aktif",
+  "archived": "Diarsipkan",
+  "team": "Tim",
+  "settings": "Pengaturan",
+  "light": "Cerah",
+  "dark": "Gelap",
+  "system": "Sistem",
+  "theme": "Tema",
+  "account": "Akun",
+  "billing": "Tagihan",
+  "notifications": "Notifikasi",
+  "logout": "Keluar"
+}
