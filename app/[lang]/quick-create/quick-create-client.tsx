@@ -9,36 +9,116 @@ import ReactMarkdown from "react-markdown"
 import { useAIStore } from "@/app/store/ai-store" 
 import { cn } from "@/lib/utils"
 import { generateSuggestions } from "@/lib/actions/ai"
-import dynamic from 'next/dynamic';
-import { LucideProps } from 'lucide-react'; // Impor tipe props jika perlu
-// --- Komponen Ikon Dinamis ---
-const DynamicIcon = ({ name }: { name: string }) => {
-    // `dynamic` akan memuat komponen hanya saat dirender di client-side
-    const IconComponent = dynamic(
-      () =>
-        // Kita mengimpor seluruh library, TAPI...
-        import('@tabler/icons-react').then(mod => {
-          // ...kita hanya mengambil satu komponen yang namanya cocok dengan `props.name`
-          // Ini memastikan hanya kode untuk satu ikon yang dimuat.
-          const Icon = mod[name] as React.FC<LucideProps>;
-          if (Icon) {
-            return Icon;
-          }
-          // Fallback jika ikon tidak ditemukan
-          return mod['IconBoltFilled'] as React.FC<LucideProps>; 
-        }),
-      {
-        // Opsi untuk menampilkan sesuatu saat ikon sedang dimuat
-        loading: () => <span className="mr-2 h-4 w-4 animate-pulse bg-muted rounded-md" />,
-        // SSR false karena ikon tidak perlu ada di render pertama server
-        ssr: false, 
-      }
-    );
+import {
+    IconBolt,
+    IconCash,
+    IconCashMove,
+    IconCashBanknote,
+    IconCashRegister,
+    IconReceipt2,
+    IconReportMoney,
+    IconChartBar,
+    IconChartPie,
+    IconChartHistogram,
+    IconChartLine,
+    IconShoppingCart,
+    IconShoppingBag,
+    IconCreditCard,
+    IconCreditCardPay,
+    IconCreditCardRefund,
+    IconCalendarStats,
+    IconCalendarEvent,
+    IconPigMoney,
+    IconBuildingBank,
+    IconBuildingStore,
+    IconFileInvoice,
+    IconFileSpreadsheet,
+    IconFileText,
+    IconBriefcase,
+    IconUsers,
+    IconUserDollar,
+    IconUserCheck,
+    IconUserCog,
+    IconCurrencyDollar,
+    IconCurrencyEuro,
+    IconCurrencyBitcoin,
+    IconCurrencyRupee,
+    IconCurrencyYen,
+    IconWallet,
+    IconClipboardList,
+    IconClipboardText,
+    IconTarget,
+    IconGauge,
+    IconTrendingUp,
+    IconTrendingDown,
+    IconBulb,
+    IconNotes,
+    IconListCheck,
+    IconDatabase,
+    IconSettings,
+    IconWorld,
+    IconServer,
+    IconCloud,
+  } from "@tabler/icons-react";
   
-    return <IconComponent className="mr-2 h-4 w-4" />;
+  const ICON_MAP: Record<string, React.FC<any>> = {
+    IconBolt,
+    IconCash,
+    IconCashMove,
+    IconCashBanknote,
+    IconCashRegister,
+    IconReceipt2,
+    IconReportMoney,
+    IconChartBar,
+    IconChartPie,
+    IconChartHistogram,
+    IconChartLine,
+    IconShoppingCart,
+    IconShoppingBag,
+    IconCreditCard,
+    IconCreditCardPay,
+    IconCreditCardRefund,
+    IconCalendarStats,
+    IconCalendarEvent,
+    IconPigMoney,
+    IconBuildingBank,
+    IconBuildingStore,
+    IconFileInvoice,
+    IconFileSpreadsheet,
+    IconFileText,
+    IconBriefcase,
+    IconUsers,
+    IconUserDollar,
+    IconUserCheck,
+    IconUserCog,
+    IconCurrencyDollar,
+    IconCurrencyEuro,
+    IconCurrencyBitcoin,
+    IconCurrencyRupee,
+    IconCurrencyYen,
+    IconWallet,
+    IconClipboardList,
+    IconClipboardText,
+    IconTarget,
+    IconGauge,
+    IconTrendingUp,
+    IconTrendingDown,
+    IconBulb,
+    IconNotes,
+    IconListCheck,
+    IconDatabase,
+    IconSettings,
+    IconWorld,
+    IconServer,
+    IconCloud,
   };
+  
+  export const DynamicIcon = ({ name }: { name: string }) => {
+    const IconComponent = ICON_MAP[name] || IconBulb; // fallback default
+    return <IconComponent className="mr-2 h-4 w-4" />;
+  };  
 
-// --- Komponen Pesan AI ---
+  // --- Komponen Pesan AI ---
 const AIMessage = ({ msg, onRegenerate, t }: { msg: any; onRegenerate: () => void; t: (key: string) => string }) => {
   const [feedback, setFeedback] = React.useState<'like' | 'dislike' | null>(null);
   const [isCopied, setIsCopied] = React.useState(false);
@@ -149,7 +229,7 @@ export default function QuickCreateClientUI({ dictionary }: { dictionary: any })
         setSuggestions(suggestionData);
       } catch (error) { 
         console.error("Failed to fetch suggestions:", error);
-        setSuggestions([{ text: "Catat pengeluaran", icon: "IconBoltFilled" }, { text: "Ringkas cash flow", icon: "IconBoltFilled" }, { text: "Analisis penjualan", icon: "IconBoltFilled" }]);
+        setSuggestions([{ text: "Catat pengeluaran", icon: "IconBolt" }, { text: "Ringkas cash flow", icon: "IconBolt" }, { text: "Analisis penjualan", icon: "IconBolt" }]);
       } finally { setIsLoadingSuggestions(false); }
     };
     fetchSuggestions();
