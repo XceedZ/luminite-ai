@@ -6,7 +6,6 @@ import { usePathname } from 'next/navigation';
 
 // Impor yang diperlukan untuk logika breadcrumb
 import { dataNav, mainNav, secondaryNav, type NavItem } from "@/config/nav";
-// [PERBAIKAN] Impor fungsi yang benar: getChatSession (singular)
 import { getChatSession } from '@/lib/actions/ai';
 import {
   Breadcrumb,
@@ -72,10 +71,8 @@ export function DynamicBreadcrumbs({ dictionary }: Props) {
 
     if (sessionId) {
       const fetchTitle = async () => {
-        // [PERBAIKAN] Panggil fungsi yang benar: getChatSession (singular)
         const session = await getChatSession(sessionId);
         if (session) {
-          // Sekarang 'session' adalah objek tunggal, bukan array, jadi .title akan berfungsi
           setSessionTitle(session.title);
         }
       };
@@ -85,8 +82,10 @@ export function DynamicBreadcrumbs({ dictionary }: Props) {
   }, [sessionId]);
 
   return (
-    <Breadcrumb>
-      <BreadcrumbList>
+    <Breadcrumb className="w-full">
+      {/* [MODIFIKASI] Tambahkan max-w-full dan overflow-hidden untuk memastikan pembatasan bekerja */}
+      <BreadcrumbList className="max-w-full
+       overflow-hidden">
         <BreadcrumbItem>
           <BreadcrumbLink asChild>
             <Link href={`/${lang}/dashboard`}>{t("dashboard")}</Link>
@@ -113,9 +112,13 @@ export function DynamicBreadcrumbs({ dictionary }: Props) {
               <BreadcrumbSeparator />
               <BreadcrumbItem>
                 {isLast ? (
-                  <BreadcrumbPage>{title}</BreadcrumbPage>
+                  // [MODIFIKASI] Tambahkan kelas 'truncate' di sini
+                  <BreadcrumbPage className="truncate max-w-[20vw] md:max-w-full">
+                    {title}
+                  </BreadcrumbPage>
                 ) : (
-                  <BreadcrumbLink asChild>
+                  // [MODIFIKASI] Tambahkan kelas 'truncate' di sini
+                  <BreadcrumbLink asChild className="truncate max-w-[60vw] md:max-w-full">
                     <Link href={fullPathWithLang}>{title}</Link>
                   </BreadcrumbLink>
                 )}
@@ -127,4 +130,3 @@ export function DynamicBreadcrumbs({ dictionary }: Props) {
     </Breadcrumb>
   );
 }
-

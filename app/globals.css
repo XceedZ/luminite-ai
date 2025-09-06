@@ -16,11 +16,44 @@
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
+  
+  /* [UPDATE] Menambahkan variabel chart baru di sini */
   --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-chart-6: var(--chart-6);
+  --color-chart-7: var(--chart-7);
+  --color-chart-8: var(--chart-8);
+  --color-chart-9: var(--chart-9);
+  --color-chart-10: var(--chart-10);
+  --color-chart-11: var(--chart-11);
+  --color-chart-12: var(--chart-12);
+  --color-chart-13: var(--chart-13);
+  --color-chart-14: var(--chart-14);
+  --color-chart-15: var(--chart-15);
+  --color-chart-16: var(--chart-16);
+  --color-chart-17: var(--chart-17);
+  --color-chart-18: var(--chart-18);
+  --color-chart-19: var(--chart-19);
+  --color-chart-20: var(--chart-20);
+  --color-chart-21: var(--chart-21);
+  --color-chart-22: var(--chart-22);
+  --color-chart-23: var(--chart-23);
+  --color-chart-24: var(--chart-24);
+  --color-chart-25: var(--chart-25);
+  --color-chart-26: var(--chart-26);
+  --color-chart-27: var(--chart-27);
+  --color-chart-28: var(--chart-28);
+  --color-chart-29: var(--chart-29);
+  --color-chart-30: var(--chart-30);
+  --color-chart-31: var(--chart-31);
+  --color-chart-32: var(--chart-32);
+  --color-chart-33: var(--chart-33);
+  --color-chart-34: var(--chart-34);
+  --color-chart-35: var(--chart-35);
+  
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -43,6 +76,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
+/* Definisi variabel global */
 :root {
   --radius: 0.625rem;
   --background: oklch(1 0 0);
@@ -63,11 +97,6 @@
   --border: oklch(0.92 0.004 286.32);
   --input: oklch(0.92 0.004 286.32);
   --ring: oklch(0.705 0.015 286.067);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.141 0.005 285.823);
   --sidebar-primary: oklch(0.21 0.006 285.885);
@@ -76,6 +105,45 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.705 0.015 286.067);
+
+  /* Warna Chart (Light Mode) */
+  --chart-1: oklch(0.646 0.222 41.116); /* Oranye */
+  --chart-2: oklch(0.6 0.118 184.704);  /* Cyan */
+  --chart-3: oklch(0.398 0.07 227.392); /* Biru */
+  --chart-4: oklch(0.828 0.189 84.429); /* Lime */
+  --chart-5: oklch(0.769 0.188 70.08);  /* Kuning */
+  
+  /* [BARU] Tambahan warna chart untuk Light Mode */
+  --chart-6: oklch(0.65 0.15 320);     /* Magenta */
+  --chart-7: oklch(0.65 0.15 20);      /* Merah */
+  --chart-8: oklch(0.65 0.15 280);     /* Ungu */
+  --chart-9: oklch(0.65 0.15 150);     /* Hijau Mint */
+  --chart-10: oklch(0.65 0.15 240);    /* Indigo */
+  --chart-11: oklch(0.65 0.15 90);     /* Hijau Cerah */
+  --chart-12: oklch(0.65 0.15 350);    /* Mawar */
+  --chart-13: oklch(0.65 0.15 210);    /* Biru Langit */
+  --chart-14: oklch(0.65 0.15 50);     /* Emas */
+  --chart-15: oklch(0.65 0.15 120);    /* Hijau Limau */
+  --chart-16: oklch(0.75 0.12 300);    /* Lavender */
+  --chart-17: oklch(0.75 0.12 0);      /* Merah Pucat */
+  --chart-18: oklch(0.75 0.12 260);    /* Violet Pucat */
+  --chart-19: oklch(0.75 0.12 170);    /* Aqua */
+  --chart-20: oklch(0.75 0.12 220);    /* Biru Pucat */
+  --chart-21: oklch(0.75 0.12 70);     /* Kuning Pucat */
+  --chart-22: oklch(0.75 0.12 330);    /* Pink Pucat */
+  --chart-23: oklch(0.75 0.12 190);    /* Cyan Pucat */
+  --chart-24: oklch(0.75 0.12 30);     /* Peach */
+  --chart-25: oklch(0.75 0.12 100);    /* Chartreuse */
+  --chart-26: oklch(0.55 0.18 310);    /* Ungu Gelap */
+  --chart-27: oklch(0.55 0.18 10);     /* Merah Bata */
+  --chart-28: oklch(0.55 0.18 270);    /* Ungu Tua */
+  --chart-29: oklch(0.55 0.18 160);    /* Teal */
+  --chart-30: oklch(0.55 0.18 230);    /* Biru Tua */
+  --chart-31: oklch(0.55 0.18 80);     /* Zaitun */
+  --chart-32: oklch(0.55 0.18 340);    /* Merah Marun */
+  --chart-33: oklch(0.55 0.18 200);    /* Biru Baja */
+  --chart-34: oklch(0.55 0.18 40);     /* Coklat */
+  --chart-35: oklch(0.55 0.18 130);    /* Hijau Hutan */
 }
 
 .dark {
@@ -97,11 +165,6 @@
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.552 0.016 285.938);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.21 0.006 285.885);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
@@ -110,6 +173,45 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.552 0.016 285.938);
+  
+  /* Warna Chart (Dark Mode) */
+  --chart-1: oklch(0.488 0.243 264.376); /* Ungu */
+  --chart-2: oklch(0.696 0.17 162.48);  /* Hijau */
+  --chart-3: oklch(0.769 0.188 70.08);  /* Kuning */
+  --chart-4: oklch(0.627 0.265 303.9);  /* Magenta */
+  --chart-5: oklch(0.645 0.246 16.439);  /* Oranye */
+
+  /* [BARU] Tambahan warna chart untuk Dark Mode */
+  --chart-6: oklch(0.7 0.2 320);       /* Magenta Cerah */
+  --chart-7: oklch(0.7 0.2 20);        /* Merah Cerah */
+  --chart-8: oklch(0.7 0.2 280);       /* Ungu Cerah */
+  --chart-9: oklch(0.7 0.2 150);       /* Hijau Mint Cerah */
+  --chart-10: oklch(0.7 0.2 240);      /* Indigo Cerah */
+  --chart-11: oklch(0.7 0.2 90);       /* Hijau Neon */
+  --chart-12: oklch(0.7 0.2 350);      /* Mawar Cerah */
+  --chart-13: oklch(0.7 0.2 210);      /* Biru Langit Cerah */
+  --chart-14: oklch(0.7 0.2 50);       /* Emas Cerah */
+  --chart-15: oklch(0.7 0.2 120);      /* Hijau Limau Cerah */
+  --chart-16: oklch(0.8 0.15 300);     /* Lavender Cerah */
+  --chart-17: oklch(0.8 0.15 0);       /* Merah Pucat Cerah */
+  --chart-18: oklch(0.8 0.15 260);     /* Violet Pucat Cerah */
+  --chart-19: oklch(0.8 0.15 170);     /* Aqua Cerah */
+  --chart-20: oklch(0.8 0.15 220);     /* Biru Pucat Cerah */
+  --chart-21: oklch(0.8 0.15 70);      /* Kuning Pucat Cerah */
+  --chart-22: oklch(0.8 0.15 330);     /* Pink Pucat Cerah */
+  --chart-23: oklch(0.8 0.15 190);     /* Cyan Pucat Cerah */
+  --chart-24: oklch(0.8 0.15 30);      /* Peach Cerah */
+  --chart-25: oklch(0.8 0.15 100);     /* Chartreuse Cerah */
+  --chart-26: oklch(0.6 0.22 310);     /* Ungu Gelap Terang */
+  --chart-27: oklch(0.6 0.22 10);      /* Merah Bata Terang */
+  --chart-28: oklch(0.6 0.22 270);     /* Ungu Tua Terang */
+  --chart-29: oklch(0.6 0.22 160);     /* Teal Terang */
+  --chart-30: oklch(0.6 0.22 230);     /* Biru Tua Terang */
+  --chart-31: oklch(0.6 0.22 80);      /* Zaitun Terang */
+  --chart-32: oklch(0.6 0.22 340);     /* Merah Marun Terang */
+  --chart-33: oklch(0.6 0.22 200);     /* Biru Baja Terang */
+  --chart-34: oklch(0.6 0.22 40);      /* Coklat Terang */
+  --chart-35: oklch(0.6 0.22 130);     /* Hijau Hutan Terang */
 }
 
 @layer base {

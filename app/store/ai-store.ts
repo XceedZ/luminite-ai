@@ -5,25 +5,16 @@ import { persist } from 'zustand/middleware'
 import { generateContent, getChatHistory, getChatSessions, getChatSession,   renameChatSession,
   deleteChatSession
  } from '@/lib/actions/ai' 
-import type { ImagePart, StoredMessage } from '@/lib/actions/ai';
+import type { ImagePart, StoredMessage, AIGeneratedChart, ThinkingResult, AIGeneratedTable } from '@/lib/actions/ai'; // [UPDATE] Impor tipe AIGeneratedTable
 import type { ChatHistoryItem } from '@/components/nav-history';
-
-interface ThinkingResult {
-  classification: { 
-    intent: string; 
-    summary: string; 
-    rawResponse: string;
-    language: string;
-    mood: string;
-  };
-  duration: number;
-}
 
 interface Message {
   role: 'user' | 'model';
   content: string;
   images?: string[];
-  thinkingResult?: ThinkingResult;
+  thinkingResult?: ThinkingResult | null;
+  chart?: AIGeneratedChart | null;
+  table?: AIGeneratedTable | null; // [BARU] Tambahkan properti tabel
 }
 
 interface AIState {
@@ -39,7 +30,7 @@ interface AIState {
   fetchChatSessions: () => Promise<void>; 
   startNewChat: () => void;
   addMessage: (message: Message) => void;
-  generate: (prompt: string, isRegenerate?: boolean, images?: ImagePart[]) => Promise<void>;
+  generate: (prompt: string, lang: string, isRegenerate?: boolean, images?: ImagePart[]) => Promise<void>;
   stopGeneration: (message: string) => void;
   renameChat: (sessionId: string, newTitle: string) => Promise<void>;
   deleteChat: (sessionId: string) => Promise<{ isActiveChat: boolean }>;
@@ -52,20 +43,17 @@ export const useAIStore = create<AIState>()(
       messages: [],
       chatSessions: [],
       isLoading: false,
-      // [PERBAIKAN] Mulai state dengan isSessionsLoading: true
-      // Ini akan memastikan kerangka ditampilkan pada render pertama.
       isSessionsLoading: true, 
       isHistoryLoading: false,
       isCancelled: false,
       error: null,
 
       fetchChatSessions: async () => {
-        // [MODIFIKASI] Logika ini mencegah reload yang tidak perlu
         if (get().chatSessions.length > 0) {
-          set({ isSessionsLoading: false }); // Jika sudah ada data, matikan loading
+          set({ isSessionsLoading: false });
           return;
         }
-        set({ isSessionsLoading: true }); // Pastikan loading aktif saat mengambil data
+        set({ isSessionsLoading: true });
         try {
           const sessions = await getChatSessions();
           set({ chatSessions: sessions });
@@ -83,9 +71,13 @@ export const useAIStore = create<AIState>()(
         set({ isHistoryLoading: true, messages: [], sessionId });
         try {
           const history: StoredMessage[] = await getChatHistory(sessionId);
+          // [UPDATE] Petakan juga `table` dari data yang diambil
           const formattedMessages: Message[] = history.map(msg => ({
             role: msg.role,
             content: msg.content,
+            chart: msg.chart ?? undefined,
+            table: msg.table ?? undefined, // Tambahkan ini
+            thinkingResult: msg.thinkingResult ?? undefined,
           }));
           set({ messages: formattedMessages });
         } catch (error) {
@@ -118,7 +110,6 @@ export const useAIStore = create<AIState>()(
         const updatedSessions = originalSessions.map(session =>
           session.id === sessionId ? { ...session, title: newTitle } : session
         );
-        // Perbarui state secara optimis
         set({ chatSessions: updatedSessions });
 
         try {
@@ -128,18 +119,14 @@ export const useAIStore = create<AIState>()(
           }
         } catch (error) {
           console.error("Gagal mengganti nama obrolan:", error);
-          // Jika gagal, kembalikan ke state semula
           set({ chatSessions: originalSessions });
-          // Anda bisa menambahkan notifikasi error untuk pengguna di sini
         }
       },
 
-      // [BARU] Implementasi untuk menghapus obrolan
       deleteChat: async (sessionIdToDelete: string) => {
         const originalSessions = get().chatSessions;
         const updatedSessions = originalSessions.filter(session => session.id !== sessionIdToDelete);
         
-        // Perbarui state secara optimis
         set({ chatSessions: updatedSessions });
 
         const isActiveChat = get().sessionId === sessionIdToDelete;
@@ -149,69 +136,68 @@ export const useAIStore = create<AIState>()(
           if (!result.success) {
             throw new Error(result.error || 'Gagal menghapus di server.');
           }
-          // Jika obrolan yang aktif dihapus, reset state sesi
           if (isActiveChat) {
             set({ sessionId: null, messages: [] });
           }
           return { isActiveChat };
         } catch (error) {
           console.error("Gagal menghapus obrolan:", error);
-          // Jika gagal, kembalikan ke state semula
           set({ chatSessions: originalSessions });
           return { isActiveChat: false };
         }
       },
       
-      generate: async (prompt, isRegenerate = false, images = []) => {
+      generate: async (prompt: string, lang: string, isRegenerate = false, images: ImagePart[] = []) => {
         set({ isLoading: true, isCancelled: false });
       
         try {
           const result = await generateContent(prompt, get().sessionId, images);
       
-          if (get().isCancelled) return; 
+          if (get().isCancelled) return;
           if (result.error) throw new Error(result.error as string);
-          
+      
           set({ sessionId: result.sessionId });
-
+      
           if (result.title) {
             const newSessionItem: ChatHistoryItem = {
               id: result.sessionId,
               title: result.title,
-              href: `/quick-create/${result.sessionId}`
+              href: `/${lang}/quick-create/${result.sessionId}`, // ✅ sekarang lang valid
             };
             set(state => ({
-              chatSessions: [newSessionItem, ...state.chatSessions]
+              chatSessions: [newSessionItem, ...state.chatSessions],
             }));
           }
-
+      
           const modelMessage: Message = {
-            role: 'model',
+            role: "model",
             content: result.text || "",
             thinkingResult: {
               classification: result.classification,
-              duration: Number(result.duration),
-            }
+              duration: result.duration,
+            },
+            chart: result.chart,
+            table: result.table,
           };
       
-          set((state) => ({
+          set(state => ({
             messages: [...state.messages, modelMessage],
           }));
-      
         } catch (e: unknown) {
           if (!get().isCancelled) {
             const error = e as Error;
             set(state => ({
               error: error.message || "Terjadi kesalahan.",
-              messages: [...state.messages, {
-                role: 'model',
-                content: `Maaf, terjadi kesalahan: ${error.message}`
-              }]
+              messages: [
+                ...state.messages,
+                { role: "model", content: `Maaf, terjadi kesalahan: ${error.message}` },
+              ],
             }));
           }
         } finally {
           set({ isLoading: false });
         }
-      },  
+      },        
     }),
     {
       name: 'luminite-chat-storage',

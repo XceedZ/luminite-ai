@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation" // [PERUBAHAN] Impor usePathname
 import { toast } from "sonner"
 import {
   ArrowUpRight,
@@ -91,6 +91,7 @@ export function NavHistory({
 }) {
   const { isMobile } = useSidebar()
   const router = useRouter()
+  const pathname = usePathname() // [PERUBAHAN] Dapatkan path URL saat ini
   const { sessionId, renameChat, deleteChat } = useAIStore()
 
   // State baru untuk melacak jumlah item yang terlihat
@@ -144,8 +145,11 @@ export function NavHistory({
     const deletedTitle = actionTarget.title;
     const { isActiveChat } = await deleteChat(actionTarget.id);
     toast.success(`Chat "${deletedTitle}" has been deleted.`);
+    
+    // [PERUBAHAN UTAMA] Pastikan navigasi menyertakan segmen bahasa
     if (isActiveChat) {
-      router.push('/quick-create');
+      const lang = pathname.split('/')[1] || 'en'; // Ekstrak 'en', 'id', dll.
+      router.push(`/${lang}/quick-create`); // Navigasi ke path yang benar
     }
     setIsDeleteDialogOpen(false);
   };

@@ -1,14 +1,16 @@
 "use client"
 
 import * as React from "react"
-import Image from "next/image"
+import { useRouter, usePathname } from "next/navigation" 
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Plus, SendHorizonal, ChevronDown, Copy, ThumbsUp, ThumbsDown, RefreshCw, Square, X, Loader2 } from "lucide-react"
 import ReactMarkdown from "react-markdown"
-import { useAIStore } from "@/app/store/ai-store" 
+import { useAIStore } from "@/app/store/ai-store"
 import { cn } from "@/lib/utils"
 import { generateSuggestions } from "@/lib/actions/ai"
+import { ChartDisplay } from "@/components/ChartDisplay";
+import { TableDisplay } from "@/components/TableDisplay";
 
 import {
   Dialog,
@@ -69,55 +71,7 @@ import {
   } from "@tabler/icons-react";
   
   const ICON_MAP: Record<string, React.FC<any>> = {
-    IconBolt,
-    IconCash,
-    IconCashMove,
-    IconCashBanknote,
-    IconCashRegister,
-    IconReceipt2,
-    IconReportMoney,
-    IconChartBar,
-    IconChartPie,
-    IconChartHistogram,
-    IconChartLine,
-    IconShoppingCart,
-    IconShoppingBag,
-    IconCreditCard,
-    IconCreditCardPay,
-    IconCreditCardRefund,
-    IconCalendarStats,
-    IconCalendarEvent,
-    IconPigMoney,
-    IconBuildingBank,
-    IconBuildingStore,
-    IconFileInvoice,
-    IconFileSpreadsheet,
-    IconFileText,
-    IconBriefcase,
-    IconUsers,
-    IconUserDollar,
-    IconUserCheck,
-    IconUserCog,
-    IconCurrencyDollar,
-    IconCurrencyEuro,
-    IconCurrencyBitcoin,
-    IconCurrencyRupee,
-    IconCurrencyYen,
-    IconWallet,
-    IconClipboardList,
-    IconClipboardText,
-    IconTarget,
-    IconGauge,
-    IconTrendingUp,
-    IconTrendingDown,
-    IconBulb,
-    IconNotes,
-    IconListCheck,
-    IconDatabase,
-    IconSettings,
-    IconWorld,
-    IconServer,
-    IconCloud,
+    IconBolt, IconCash, IconCashMove, IconCashBanknote, IconCashRegister, IconReceipt2, IconReportMoney, IconChartBar, IconChartPie, IconChartHistogram, IconChartLine, IconShoppingCart, IconShoppingBag, IconCreditCard, IconCreditCardPay, IconCreditCardRefund, IconCalendarStats, IconCalendarEvent, IconPigMoney, IconBuildingBank, IconBuildingStore, IconFileInvoice, IconFileSpreadsheet, IconFileText, IconBriefcase, IconUsers, IconUserDollar, IconUserCheck, IconUserCog, IconCurrencyDollar, IconCurrencyEuro, IconCurrencyBitcoin, IconCurrencyRupee, IconCurrencyYen, IconWallet, IconClipboardList, IconClipboardText, IconTarget, IconGauge, IconTrendingUp, IconTrendingDown, IconBulb, IconNotes, IconListCheck, IconDatabase, IconSettings, IconWorld, IconServer, IconCloud,
   };
   
   export const DynamicIcon = ({ name }: { name: string }) => {
@@ -125,50 +79,54 @@ import {
     return <IconComponent className="mr-2 h-4 w-4" />;
   };  
 
-const AIMessage = ({ msg, onRegenerate, t }: { msg: any; onRegenerate: () => void; t: (key: string) => string }) => {
+// [MODIFIKASI] Komponen AIMessage sekarang hanya untuk menampilkan teks Markdown
+const AIMessage = ({ msg }: { msg: any }) => {
+  return (
+    <div className="w-full max-w-prose animate-in fade-in-0 duration-500">
+      <div className="max-w-none prose prose-zinc dark:prose-invert">
+        <ReactMarkdown
+          components={{
+            h1: ({node, ...props}) => <h1 {...props} className="text-3xl font-bold mt-5 mb-3 text-foreground" />,
+            h2: ({node, ...props}) => <h2 {...props} className="text-2xl font-bold mt-4 mb-2 text-foreground border-b pb-1" />,
+            h3: ({node, ...props}) => <h3 {...props} className="text-xl font-semibold mt-3 mb-1 text-foreground" />,
+            ul: ({node, ...props}) => <ul {...props} className="list-disc list-inside my-3 space-y-1" />,
+            ol: ({node, ...props}) => <ol {...props} className="list-decimal list-inside my-3 space-y-1" />,
+            li: ({node, ...props}) => <li {...props} className="pl-2" />,
+            a: ({node, ...props}) => <a {...props} className="text-primary underline hover:opacity-80" target="_blank" rel="noopener noreferrer" />,
+            strong: ({node, ...props}) => <strong {...props} className="font-semibold text-foreground" />,
+            code: ({node, ...props}) => <code {...props} className="bg-muted text-muted-foreground px-1.5 py-1 rounded-md font-mono text-sm" />,
+            p: ({node, ...props}) => <p {...props} className="mb-3 leading-relaxed" />,
+          }}
+        >
+          {msg.content}
+        </ReactMarkdown>
+      </div>
+    </div>
+  );
+};
+
+// [MODIFIKASI BARU] Tombol aksi dipisahkan menjadi komponen sendiri
+const MessageActions = ({ msg, onRegenerate, t }: { msg: any; onRegenerate: () => void; t: (key: string) => string }) => {
   const [feedback, setFeedback] = React.useState<'like' | 'dislike' | null>(null);
   const [isCopied, setIsCopied] = React.useState(false);
 
   const handleCopy = () => {
-    if(msg.content) {
-      navigator.clipboard.writeText(msg.content);
+    // Salin teks, atau jika tidak ada, salin deskripsi tabel/chart
+    const textToCopy = msg.content || msg.table?.description || msg.chart?.description || '';
+    if (textToCopy) {
+      navigator.clipboard.writeText(textToCopy);
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
     }
   };
-  
+
   return (
-    <div className="group relative flex flex-col gap-2 w-full max-w-prose">
-      <div className="animate-in fade-in-0 duration-500">
-        <div className="max-w-none prose prose-zinc dark:prose-invert">
-          <ReactMarkdown
-            components={{
-              h1: ({node, ...props}) => <h1 {...props} className="text-3xl font-bold mt-5 mb-3 text-foreground" />,
-              h2: ({node, ...props}) => <h2 {...props} className="text-2xl font-bold mt-4 mb-2 text-foreground border-b pb-1" />,
-              h3: ({node, ...props}) => <h3 {...props} className="text-xl font-semibold mt-3 mb-1 text-foreground" />,
-              ul: ({node, ...props}) => <ul {...props} className="list-disc list-inside my-3 space-y-1" />,
-              ol: ({node, ...props}) => <ol {...props} className="list-decimal list-inside my-3 space-y-1" />,
-              li: ({node, ...props}) => <li {...props} className="pl-2" />,
-              a: ({node, ...props}) => <a {...props} className="text-primary underline hover:opacity-80" target="_blank" rel="noopener noreferrer" />,
-              strong: ({node, ...props}) => <strong {...props} className="font-semibold text-foreground" />,
-              code: ({node, ...props}) => <code {...props} className="bg-muted text-muted-foreground px-1.5 py-1 rounded-md font-mono text-sm" />,
-              p: ({node, ...props}) => <p {...props} className="mb-3 leading-relaxed" />,
-            }}
-          >
-            {msg.content}
-          </ReactMarkdown>
-        </div>
-      </div>
-      
-      {msg.content && (
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground">
-          <Button variant="ghost" size="icon" onClick={handleCopy} className="h-7 w-7 hover:text-foreground"><Copy className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => setFeedback('like')} className={cn("h-7 w-7 hover:text-foreground", feedback === 'like' && 'text-primary')}><ThumbsUp className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={() => setFeedback('dislike')} className={cn("h-7 w-7 hover:text-foreground", feedback === 'dislike' && 'text-destructive')}><ThumbsDown className="h-4 w-4" /></Button>
-          <Button variant="ghost" size="icon" onClick={onRegenerate} className="h-7 w-7 hover:text-foreground"><RefreshCw className="h-4 w-4" /></Button>
-          {isCopied && <span className="text-xs ml-2 animate-in fade-in-0">{t('copied')}</span>}
-        </div>
-      )}
+    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground">
+      <Button variant="ghost" size="icon" onClick={handleCopy} className="h-7 w-7 hover:text-foreground"><Copy className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="icon" onClick={() => setFeedback('like')} className={cn("h-7 w-7 hover:text-foreground", feedback === 'like' && 'text-primary')}><ThumbsUp className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="icon" onClick={() => setFeedback('dislike')} className={cn("h-7 w-7 hover:text-foreground", feedback === 'dislike' && 'text-destructive')}><ThumbsDown className="h-4 w-4" /></Button>
+      <Button variant="ghost" size="icon" onClick={onRegenerate} className="h-7 w-7 hover:text-foreground"><RefreshCw className="h-4 w-4" /></Button>
+      {isCopied && <span className="text-xs ml-2 animate-in fade-in-0">{t('copied')}</span>}
     </div>
   );
 };
@@ -237,12 +195,15 @@ function PageLoader() {
 
 export default function QuickCreateClientUI({ 
   dictionary, 
-  sessionId 
+  sessionId: pageSessionId
 }: { 
   dictionary: any;
   sessionId?: string;
 }) {
   const t = (key: string) => dictionary[key] || key;
+  const router = useRouter();
+  const pathname = usePathname();
+  const lang = pathname.split('/')[1] || 'en';
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [inputValue, setInputValue] = React.useState("");
@@ -254,7 +215,8 @@ export default function QuickCreateClientUI({
     stopGeneration, 
     addMessage, 
     initializeSession, 
-    startNewChat 
+    startNewChat,
+    sessionId: storeSessionId
   } = useAIStore();
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const [uploadedFiles, setUploadedFiles] = React.useState<{ file: File, previewUrl: string }[]>([]);
@@ -264,13 +226,23 @@ export default function QuickCreateClientUI({
   const [selectedImageUrl, setSelectedImageUrl] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (sessionId) {
-      initializeSession(sessionId);
+    if (pageSessionId) {
+      initializeSession(pageSessionId);
     } else {
       startNewChat();
     }
-  }, [sessionId, initializeSession, startNewChat]);
+  }, [pageSessionId, initializeSession, startNewChat]);
   
+  React.useEffect(() => {
+    if (!pageSessionId && storeSessionId) {
+      window.history.replaceState(null, "", `/${lang}/quick-create/${storeSessionId}`);
+    }
+  
+    if (pageSessionId && !storeSessionId && !isHistoryLoading) {
+      window.history.replaceState(null, "", `/${lang}/quick-create`);
+    }
+  }, [storeSessionId, pageSessionId, isHistoryLoading, lang]);
+    
   React.useEffect(() => {
     const fetchSuggestions = async () => {
       setIsLoadingSuggestions(true);
@@ -281,12 +253,12 @@ export default function QuickCreateClientUI({
         console.error("Gagal mengambil sugesti:", error);
       } finally { setIsLoadingSuggestions(false); }
     };
-    if (!sessionId) {
+    if (!pageSessionId) {
       fetchSuggestions();
     } else {
         setIsLoadingSuggestions(false);
     }
-  }, [sessionId]);
+  }, [pageSessionId]);
   
   React.useEffect(() => {
     if (bottomRef.current) {
@@ -326,46 +298,39 @@ export default function QuickCreateClientUI({
     e.preventDefault();
     const textPrompt = inputValue.trim();
     const filesToSubmit = uploadedFiles;
-
-    if ((!textPrompt && filesToSubmit.length === 0) || isLoading) return;
-
+  
+    if (textPrompt.length < 1 || isLoading) return;
+  
     setInputValue("");
     setUploadedFiles([]);
     filesToSubmit.forEach(f => URL.revokeObjectURL(f.previewUrl));
-
+  
     try {
       const imageParts = await Promise.all(
         filesToSubmit.map(f => fileToBase64(f.file))
       );
-
       const imageDataUrls = imageParts.map(part => `data:${part.mimeType};base64,${part.data}`);
-
-      const userMessage = {
-        role: 'user' as const,
-        content: textPrompt,
-        images: imageDataUrls
-      };
-
+  
+      const userMessage = { role: 'user' as const, content: textPrompt, images: imageDataUrls };
       addMessage(userMessage);
-      
-      await generate(textPrompt, false, imageParts);
-
+  
+      await generate(textPrompt, lang, false, imageParts);
     } catch (error) {
       console.error("Gagal memproses file:", error);
       addMessage({ role: 'user', content: textPrompt });
-      await generate(textPrompt, false);
+      await generate(textPrompt, lang, false);
     }
-  };
+  };  
   
   const handleRegenerate = (index: number) => {
     const userPrompt = messages[index - 1]?.content;
     if (userPrompt && !isLoading) {
       useAIStore.setState(state => ({ messages: state.messages.slice(0, index) }));
-      generate(userPrompt, true);
+      generate(userPrompt, lang, true);
     }
   };
 
-  const isSubmitDisabled = isLoading || (inputValue.trim().length === 0 && uploadedFiles.length === 0);
+  const isSubmitDisabled = isLoading || inputValue.trim().length < 1;
 
   const FilePreview = () => (
     uploadedFiles.length > 0 ? (
@@ -373,7 +338,7 @@ export default function QuickCreateClientUI({
         {uploadedFiles.map((file, index) => (
             <div key={index} className="relative">
               <button onClick={() => setSelectedImageUrl(file.previewUrl)} className="overflow-hidden rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
-                <Image
+                <img
                     src={file.previewUrl}
                     alt={`Pratinjau ${index + 1}`}
                     width={80}
@@ -408,11 +373,10 @@ export default function QuickCreateClientUI({
           </DialogHeader>
           {selectedImageUrl && (
             <div className="relative mt-4 h-[70vh] w-full">
-              <Image
+              <img
                 src={selectedImageUrl}
                 alt="Image Preview"
-                fill
-                className="object-contain"
+                className="object-contain w-full h-full"
               />
             </div>
           )}
@@ -428,7 +392,7 @@ export default function QuickCreateClientUI({
         
         {messages.length === 0 && !isLoading && !isHistoryLoading ? (
           <main className="w-full max-w-4xl flex flex-col items-center justify-center flex-grow text-center p-4">
-            <Image src="/image.png" alt="Logo Luminite" width={64} height={64} className="mb-6 invert dark:invert-0"/>
+            <img src="/image.png" alt="Logo Luminite" width={64} height={64} className="mb-6 invert dark:invert-0"/>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground">{t('quickCreateTitle')}</h1>
             <p className="mt-3 text-lg text-muted-foreground max-w-4xl">{t('quickCreateSubtitle')}</p>
             <div className="mt-8 w-full">
@@ -451,7 +415,8 @@ export default function QuickCreateClientUI({
           <div className="flex flex-col flex-grow w-full h-0 items-center">
             <div className="flex-grow w-full max-w-4xl overflow-y-auto px-4 space-y-8 pt-4 pb-4">
               {messages.map((msg, index) => (
-                <div key={index} className={cn("flex w-full flex-col gap-2 text-left", msg.role === 'user' ? 'items-end' : 'items-start')}>
+                // ▼▼▼ BAGIAN YANG DIPERBAIKI ADA DI DALAM BLOK INI ▼▼▼
+                <div key={index} className={cn("flex w-full flex-col gap-2 text-left", msg.role === 'user' ? 'items-end' : 'items-start group relative')}>
                   
                   {msg.role === 'model' && msg.thinkingResult && (
                     <div className="w-full max-w-prose self-start">
@@ -483,7 +448,7 @@ export default function QuickCreateClientUI({
                         <div className="flex flex-wrap justify-end gap-2 max-w-prose">
                           {msg.images.map((imgSrc: string, imgIndex: number) => (
                             <button key={imgIndex} onClick={() => setSelectedImageUrl(imgSrc)} className="overflow-hidden rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2">
-                              <Image
+                              <img
                                 src={imgSrc}
                                 alt={`Gambar Terunggah ${imgIndex + 1}`}
                                 width={120} height={120}
@@ -502,9 +467,35 @@ export default function QuickCreateClientUI({
                   ) : msg.content === t('generationStopped') ? (
                     <p className="text-sm italic text-muted-foreground">{t('generationStopped')}</p>
                   ) : (
-                    <AIMessage msg={msg} onRegenerate={() => handleRegenerate(index)} t={t} />
+                    <>
+                      {/* Selalu render teks pengantar jika ada */}
+                      {msg.content && <AIMessage msg={msg} />}
+                  
+                      {/* Tampilkan separator HANYA jika ada teks DAN tabel/chart */}
+                      {msg.content && (msg.table || msg.chart) && (
+                        <div className="my-4 w-full max-w-prose border-t border-border" />
+                      )}
+                  
+                      {/* Tampilkan tabel jika ada */}
+                      {msg.table && (
+                        <div className="w-full max-w-prose self-start">
+                          <TableDisplay table={msg.table} />
+                        </div>
+                      )}
+                  
+                      {/* Tampilkan chart jika ada */}
+                      {msg.chart && (
+                        <div className="w-full max-w-prose self-start">
+                          <ChartDisplay chart={msg.chart} />
+                        </div>
+                      )}
+                  
+                      {/* Tampilkan tombol aksi di paling bawah */}
+                      <MessageActions msg={msg} onRegenerate={() => handleRegenerate(index)} t={t} />
+                    </>
                   )}
                 </div>
+                 // ▲▲▲ AKHIR DARI BLOK YANG DIPERBAIKI ▲▲▲
               ))}
               {isLoading && (
                   <div className="flex flex-row items-center gap-3 text-left">
@@ -535,4 +526,3 @@ export default function QuickCreateClientUI({
     </>
   )
 }
-
