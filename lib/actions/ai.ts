@@ -117,7 +117,7 @@ const ai = new GoogleGenAI({
       }
   
       const response = await ai.models.generateContent({
-        model: "models/gemma-3-4b-it", 
+        model: "models/gemma-3-12b-it", 
         contents: [{ role: 'user', parts: promptParts }]
       });
   
@@ -136,8 +136,11 @@ const ai = new GoogleGenAI({
         return parsed;
       }
       
-      return { needsMoreData: true, followUpQuestion: "Maaf, saya kesulitan memahami struktur data Anda. Bisa coba lagi dengan format yang lebih jelas?" };
-    } catch (error) {
+      return {
+        needsMoreData: true,
+        followUpQuestion: "Sepertinya informasi yang tersedia belum cukup. Bisakah Anda memberikan data tambahan atau lebih spesifik?"
+      };
+          } catch (error) {
       console.error("Gagal melakukan summarisasi data:", error);
       return { needsMoreData: true, followUpQuestion: "Maaf, terjadi kesalahan server saat menganalisis data." };
     }

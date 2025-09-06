@@ -1,46 +1,31 @@
-import type { Metadata } from "next";
+import "server-only";
 import { getDictionary } from "@/lib/dictionaries";
-import { findNavItemByHref } from "@/lib/nav-utils";
 import QuickCreateClientUI from "./quick-create-client";
+import type { Metadata } from "next";
+import { findNavItemByHref } from "@/lib/nav-utils";
 
-// Pastikan halaman ini selalu dinamis untuk mencerminkan data terbaru
 export const dynamic = 'force-dynamic';
 
 type Props = {
   params: {
     lang: string;
-    // 'sessionId' adalah array string opsional karena nama folder [[...sessionId]]
-    sessionId?: string[]; 
+    sessionId?: string[];
   };
 };
 
-/**
- * Fungsi ini membuat metadata halaman (seperti judul tab browser)
- * secara dinamis berdasarkan item navigasi.
- */
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  // Kita menggunakan 'quick-create' sebagai href statis untuk menemukan judul yang benar
+export async function generateMetadata(props: Props): Promise<Metadata> {
   const navItem = findNavItemByHref("quick-create");
-  if (!navItem) {
-    return { title: "Quick Create" };
-  }
   return {
-    title: navItem.title,
+    title: navItem?.title || "Quick Create",
   };
 }
 
-/**
- * Ini adalah Halaman Server dinamis yang menangani:
- * - /quick-create (obrolan baru, params.sessionId akan undefined)
- * - /quick-create/[id] (memuat obrolan yang ada)
- */
-export default async function QuickCreatePage({ params }: Props) {
-  const dictionary = await getDictionary(params.lang);
-  
-  // Ekstrak ID sesi dari parameter URL.
-  const sessionId = params.sessionId?.[0];
+// Jangan destructure 'params' langsung dalam parameter
+export default async function QuickCreatePage(props: Props) {
+  // Akses 'params' dari props
+  const dictionary = await getDictionary(props.params.lang);
 
-  // Teruskan dictionary dan sessionId ke komponen klien Anda
+  const sessionId = props.params.sessionId?.[0];
+
   return <QuickCreateClientUI dictionary={dictionary} sessionId={sessionId} />;
 }
-

@@ -1,14 +1,14 @@
 "use client"
 
 import { create } from 'zustand'
-import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime'
-import { 
-  generateContent, getChatHistory, getChatSessions, 
-  renameChatSession, deleteChatSession 
-} from '@/lib/actions/ai' 
+import {
+  generateContent, getChatHistory, getChatSessions,
+  renameChatSession, deleteChatSession
+} from '@/lib/actions/ai'
 import type { ImagePart, StoredMessage, AIGeneratedChart, ThinkingResult, AIGeneratedTable } from '@/lib/actions/ai';
 import type { ChatHistoryItem } from '@/components/nav-history';
 
+// Definisikan tipe untuk pesan dalam state
 interface Message {
   role: 'user' | 'model';
   content: string;
@@ -18,40 +18,48 @@ interface Message {
   table?: AIGeneratedTable | null;
 }
 
+// Definisikan tipe untuk keseluruhan state store
 interface AIState {
   messages: Message[];
-  chatSessions: ChatHistoryItem[]; 
+  chatSessions: ChatHistoryItem[];
   isLoading: boolean;
-  isSessionsLoading: boolean; 
-  isHistoryLoading: boolean; 
-  isCancelled: boolean; 
+  isSessionsLoading: boolean;
+  isHistoryLoading: boolean;
+  isCancelled: boolean;
   error: string | null;
-  // [PERBAIKAN] Tambahkan flag baru dan setter-nya
+
+  // State untuk melacak sesi aktif tanpa bergantung pada URL/props
+  currentSessionId: string | null;
+
+  // Flag untuk mencegah fetch data yang tidak perlu setelah navigasi pertama
   sessionJustCreated: boolean;
   setSessionJustCreated: (value: boolean) => void;
+
+  // Actions
   initializeSession: (sessionId: string) => Promise<void>;
-  fetchChatSessions: (force?: boolean) => Promise<void>; 
+  fetchChatSessions: (force?: boolean) => Promise<void>;
   startNewChat: () => void;
   addMessage: (message: Message) => void;
-  generate: (prompt: string, lang: string, sessionId: string | null, isRegenerate?: boolean, images?: ImagePart[]) => Promise<string | null>;
+  generate: (prompt: string, lang: string, isRegenerate?: boolean, images?: ImagePart[]) => Promise<string | null>;
   stopGeneration: (message: string) => void;
   renameChat: (sessionId: string, newTitle: string) => Promise<void>;
-  deleteChat: (sessionIdToDelete: string, activeSessionId: string | null) => Promise<{ isActiveChat: boolean }>;
+  deleteChat: (sessionIdToDelete: string) => Promise<{ isActiveChat: boolean }>;
 }
 
 export const useAIStore = create<AIState>()(
     (set, get) => ({
+      // Initial State
       messages: [],
       chatSessions: [],
       isLoading: false,
-      isSessionsLoading: true, 
+      isSessionsLoading: true,
       isHistoryLoading: false,
       isCancelled: false,
       error: null,
-      // [PERBAIKAN] Inisialisasi state baru
+      currentSessionId: null,
       sessionJustCreated: false,
 
-      // [PERBAIKAN] Tambahkan aksi setter untuk flag
+      // Actions
       setSessionJustCreated: (value) => set({ sessionJustCreated: value }),
 
       fetchChatSessions: async (force = false) => {
@@ -71,7 +79,7 @@ export const useAIStore = create<AIState>()(
       },
 
       initializeSession: async (sessionId: string) => {
-        set({ isHistoryLoading: true, messages: [] });
+        set({ isHistoryLoading: true, messages: [], currentSessionId: sessionId });
         try {
           const history: StoredMessage[] = await getChatHistory(sessionId);
           const formattedMessages: Message[] = history.map(msg => ({
@@ -80,6 +88,7 @@ export const useAIStore = create<AIState>()(
             chart: msg.chart ?? undefined,
             table: msg.table ?? undefined,
             thinkingResult: msg.thinkingResult ?? undefined,
+            // Note: Gambar dari history tidak dimuat ulang di sini, sesuaikan jika perlu
           }));
           set({ messages: formattedMessages });
         } catch (error) {
@@ -90,7 +99,7 @@ export const useAIStore = create<AIState>()(
       },
 
       startNewChat: () => {
-        set({ messages: [] });
+        set({ messages: [], currentSessionId: null });
       },
 
       addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
@@ -112,8 +121,8 @@ export const useAIStore = create<AIState>()(
         }
       },
 
-      deleteChat: async (sessionIdToDelete, activeSessionId) => {
-        const isActiveChat = activeSessionId === sessionIdToDelete;
+      deleteChat: async (sessionIdToDelete) => {
+        const isActiveChat = get().currentSessionId === sessionIdToDelete;
         try {
           const result = await deleteChatSession(sessionIdToDelete);
           if (!result.success) throw new Error(result.error || 'Gagal menghapus di server.');
@@ -130,9 +139,11 @@ export const useAIStore = create<AIState>()(
         }
       },
       
-      generate: async (prompt, lang, sessionId, isRegenerate = false, images = []) => {
+      generate: async (prompt, lang, isRegenerate = false, images = []) => {
+        // Gunakan ID sesi dari state, bukan dari parameter fungsi
+        const sessionId = get().currentSessionId;
         set({ isLoading: true, isCancelled: false });
-        let newSessionId: string | null = null;
+
         try {
           const result = await generateContent(prompt, sessionId, images);
       
@@ -140,9 +151,11 @@ export const useAIStore = create<AIState>()(
           if (result.error) throw new Error(result.error as string);
       
           const isNewSession = !sessionId && result.sessionId;
-          newSessionId = result.sessionId;
+          const newSessionId = result.sessionId;
       
-          if (isNewSession) {
+          // Jika ini sesi baru, update state internal dan refresh daftar sesi
+          if (isNewSession && newSessionId) {
+            set({ currentSessionId: newSessionId });
             await get().fetchChatSessions(true);
           }
       
