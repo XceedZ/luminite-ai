@@ -22,9 +22,11 @@ const ai = new GoogleGenAI({
   export type StoredMessage = {
     role: 'user' | 'model';
     content: string;
-    chart?: AIGeneratedChart | null; // ✅
-    thinkingResult?: ThinkingResult | null; // [UPDATE] Tambahkan hasil "thinking" ke data yang disimpan
-    table?: AIGeneratedTable | null; // [UPDATE] Tambahkan tabel ke data yang disimpan
+    // [DIPERBARUI] Tipe chart disederhanakan kembali. 
+    // Objek konfirmasi tidak akan disimpan di sini lagi.
+    chart?: AIGeneratedChart | null; 
+    thinkingResult?: ThinkingResult | null;
+    table?: AIGeneratedTable | null;
   }
 
   export type ThinkingResult = {
@@ -76,36 +78,34 @@ const ai = new GoogleGenAI({
     images?: ImagePart[] 
   ): Promise<{ data?: any[]; needsMoreData?: boolean; followUpQuestion?: string }> {
     const relevantData = history.map(msg => {
-      // Buat riwayat lebih detail untuk AI
       const content = msg.content;
       const tableData = msg.table ? `\n[Previously Generated Table Data]:\n${JSON.stringify(msg.table.rows)}` : '';
       return `${msg.role}: ${content}${tableData}`;
     }).join('\n');
   
-    // [MODIFIKASI] Prompt diperbarui dengan strategi ganda (gambar baru atau data lama)
+    // [MODIFIKASI] Prompt diperbarui dengan instruksi tipe data yang sangat tegas
     const summarizationPrompt = `
-      Your task is to extract structured data points into a JSON array of objects. Follow this strategy:
-  
-      **Strategy:**
-      1.  **Check for New Images:** First, check if new images are provided with the latest user request. If yes, your primary goal is to extract structured data **directly from those new images**.
-      2.  **Check Conversation History:** If NO new images are provided, your goal is to search the conversation history for structured data that was already generated in a previous turn (e.g., inside "[Previously Generated Table Data]"). **Re-use that existing structured data**.
-      3.  **If Neither Exists:** If you cannot find data from a new image OR from the history, then and only then should you return the 'insufficient' format.
-  
-      **Example Output Format:**
-      { "data": [
-          { "tanggal": "01 Februari 2024", "keterangan": "Kas", "debit": 150000000, "kredit": 0 },
-          { "tanggal": "01 Februari 2024", "keterangan": "Modal", "debit": 0, "kredit": 150000000 }
-        ]
-      }
-  
+      Your task is to extract structured data points from the conversation history into a JSON array of objects.
+
       **Response Format (JSON ONLY):**
       - If data is sufficient: { "data": [ ... ] }
-      - If data is insufficient: { "needsMoreData": true, "followUpQuestion": "Maaf, saya kesulitan memahami struktur data Anda. Bisa coba lagi dengan format yang lebih jelas?" }
-  
+      - If data is insufficient: { "needsMoreData": true, "followUpQuestion": "Maaf, data tidak cukup. Bisa berikan data yang lebih lengkap?" }
+
+      **CRITICAL DATA FORMATTING RULES:**
+      1.  **Numbers must be Numbers:** All numeric values (like amounts, prices, quantities) MUST be formatted as integers or floats.
+      2.  **NO Separators:** DO NOT use thousands separators (like '.' or ',') in numbers.
+      3.  **NO Currency Symbols:** DO NOT include currency symbols (like 'Rp' or '$') inside the numeric values.
+
+      **Correct Example:**
+      { "item": "Laptop", "price": 15000000 }
+
+      **Incorrect Example:**
+      { "item": "Laptop", "price": "Rp 15.000.000" }
+
       **Full Conversation History (for context):**
       ${relevantData}
   
-      **JSON Output:**
+      **JSON Output (following all rules):**
     `;
   
     try {
@@ -122,14 +122,20 @@ const ai = new GoogleGenAI({
       });
   
       const responseText = response.text || "";
-      const jsonMatch = responseText.match(/{[\s\S]*}/);
-  
-      if (jsonMatch && jsonMatch[0]) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.data) {
-          return parsed;
-        }
+      
+      // Menggunakan metode ekstraksi JSON yang lebih andal
+      let jsonString = "{}";
+      const firstBrace = responseText.indexOf('{');
+      const lastBrace = responseText.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        jsonString = responseText.substring(firstBrace, lastBrace + 1);
       }
+
+      const parsed = JSON.parse(jsonString);
+      if (parsed.data) {
+        return parsed;
+      }
+      
       return { needsMoreData: true, followUpQuestion: "Maaf, saya kesulitan memahami struktur data Anda. Bisa coba lagi dengan format yang lebih jelas?" };
     } catch (error) {
       console.error("Gagal melakukan summarisasi data:", error);
@@ -137,77 +143,123 @@ const ai = new GoogleGenAI({
     }
   }
 
+// [NEW] Define a richer return type to handle both successful chart generation
+// and cases where user confirmation is required.
+type ChartGenerationResult =
+  | { type: 'chart'; chart: AIGeneratedChart }
+  | { type: 'confirmation_needed'; message: string };
+
+
   async function generateChart(
     summarizedData: any[],
-    language: string,
+    language: string, 
     history: StoredMessage[],
-    summary: string // Tambahkan parameter summary
-  ): Promise<AIGeneratedChart | null> {
+    summary: string
+): Promise<ChartGenerationResult | null> {
     const historyText = history.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-
-    // [UPDATE] Prompt sekarang menggunakan 'summary' yang sudah dihitung untuk akurasi lebih tinggi
+    
+    // Prompt ini sudah bekerja dengan sempurna. JANGAN DIUBAH.
     const chartPrompt = `
-      Analyze the provided information to generate a complete JSON object for a Shadcn chart.
-  
-      **User's Goal (from conversation summary):** "${summary}"
-      
-      Instructions:
-      1.  **Chart Type ("type")**: 
-          - Based on the user's goal above, determine the chart type. If the summary says "area chart" or "grafik area", you MUST use "area". If it says "bar chart", you MUST use "bar", and so on. Prioritize the user's specific request from the summary.
-          - If no specific type is mentioned in the summary, choose the best one based on the data.
-      2.  **title**: Create a descriptive title in ${language}.
-      3.  **description**: Create a brief, one-sentence description in ${language}.
-      4.  **config**: Create a config object for the data's keys.
-          - For data like [{ "name": "A", "value": 10 }], the config key is "value".
-          - For data like [{ "month": "Jan", "desktop": 100 }], the config keys are "desktop".
-          - Define a "label" (in ${language}) and a "color" (using "var(--chart-N)") for each key.
+      You are a JSON generation engine. Your ONLY task is to create a complete and valid JSON object for a Shadcn chart, or ask for confirmation if necessary.
 
-      Example Output:
+      ## 1. Context & Data Provided
+      - **User's Goal (Summary):** "${summary}"
+      - **Language:** ${language}
+      - **Conversation History:** ${historyText}
+      - **Structured Data for Chart:** ${JSON.stringify(summarizedData, null, 2)}
+
+      ## 2. Your Strict Decision-Making Process
+      First, analyze the "User's Goal (Summary)" to decide your action.
+
+      - **ACTION: GENERATE CHART**
+        - If the summary contains keywords like "line chart", "bar chart", "area chart", etc.
+        - OR if the summary is a general request like "create a chart" or "visualize this".
+        - **If this is your action, proceed to Section 3 to build the JSON.**
+
+      - **ACTION: ASK FOR CONFIRMATION**
+        - Only do this if the user's request is truly ambiguous (e.g., "what are my options?") AND the other rules don't apply.
+        - If this is your action, your entire response MUST be this JSON format: \`{"confirmation_needed": "Your clarifying question here."}\`
+
+      ## 3. Chart JSON Generation Rules
+      If your action is to GENERATE CHART, you MUST build the JSON object by following these steps precisely:
+
+      1.  **"type" (string):**
+          - Look at the summary. If it says "area chart", you MUST use "area". If it says "bar chart", you MUST use "bar". Prioritize the user's specific request.
+          - If no type is mentioned, default to "bar" for comparing categories or "line" for time-series data.
+
+      2.  **"title" (string):** Create a descriptive title for the chart in ${language}.
+
+      3.  **"description" (string):** Create a brief, one-sentence description in ${language}.
+
+      4.  **"data" (array):** Use the EXACT "Structured Data for Chart" provided above. DO NOT modify it.
+
+      5.  **"config" (object):** Create a config object for the data's keys.
+          - The keys of the config object MUST match the numeric or categorical keys from the data objects (e.g., "cash_in", "net_cash_flow"). DO NOT include the category key (e.g., "month").
+          - For each key, define a "label" (in ${language}) and a "color" (using "var(--chart-N)", incrementing N for each key).
+
+      **Example of a Perfect Output:**
+      \`\`\`json
       {
-        "type": "area",
-        "title": "Company Stock Value",
-        "description": "Comparing stock values of top companies.",
+        "type": "bar",
+        "title": "Arus Kas Bulanan",
+        "description": "Perbandingan kas masuk dan kas keluar setiap bulan.",
         "data": [
-          { "name": "BMRI", "value": 936000 },
-          { "name": "BBCA", "value": 1600000 }
+          { "month": "Jan 2025", "cash_in": 480000000, "cash_out": 300000000 },
+          { "month": "Feb 2025", "cash_in": 500000000, "cash_out": 310000000 }
         ],
         "config": {
-          "value": { "label": "Value", "color": "var(--chart-1)" }
+          "cash_in": { "label": "Kas Masuk", "color": "var(--chart-1)" },
+          "cash_out": { "label": "Kas Keluar", "color": "var(--chart-2)" }
         }
       }
-  
-      **IMPORTANT**: Your entire response MUST be ONLY the single, valid JSON object.
-  
-      Conversation History (for context):
-      ${historyText}
+      \`\`\`
 
-      Structured Data (to be used in the chart):
-      ${JSON.stringify(summarizedData, null, 2)}
-      
-      JSON Output:
+      ## 4. Final Output Rules (Absolute Requirement)
+      - Your entire response MUST be a single, raw, valid JSON object.
+      - No introductory text. No explanations. No markdown \`\`\`.
+      - Start with \`{\` and end with \`}\`.
     `;
-  
+
     try {
       const response = await ai.models.generateContent({
-        model: "models/gemma-3n-e4b-it",
-        contents: chartPrompt
+        model: "models/gemma-3-12b-it",
+        contents: [{ role: "user", parts: [{ text: chartPrompt }] }],
       });
       
-      const responseText = response.text || "";
-      const jsonMatch = responseText.match(/{[\s\S]*}/);
-      
-      if (jsonMatch && jsonMatch[0]) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        parsed.data = summarizedData;
-        if (parsed.type && parsed.data && parsed.config && parsed.title) {
-          return parsed as AIGeneratedChart;
-        }
+      const responseText = response.text || "{}";
+      console.log("[RAW CHART RESPONSE] Raw text from AI:", responseText);
+
+      let jsonString = "{}";
+      const firstBrace = responseText.indexOf('{');
+      const lastBrace = responseText.lastIndexOf('}');
+
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        jsonString = responseText.substring(firstBrace, lastBrace + 1);
       }
+      
+      const parsed = JSON.parse(jsonString);
+
+      // [FINAL FIX] Ganti kondisi pengecekan agar sesuai dengan output AI yang sudah benar.
+      // Hapus logika transformasi yang tidak diperlukan lagi.
+      if (parsed.type && parsed.title && parsed.data && parsed.config) {
+        // AI sudah menghasilkan format yang benar, langsung kembalikan.
+        return {
+          type: 'chart',
+          chart: parsed as AIGeneratedChart,
+        };
+      } else if (parsed.confirmation_needed && typeof parsed.confirmation_needed === 'string') {
+        return {
+          type: 'confirmation_needed',
+          message: parsed.confirmation_needed,
+        };
+      }
+  
     } catch (error) {
       console.error("Chart AI Error:", error);
     }
+    
     return null;
-  }
+}
 
   async function generateTable(
     summarizedData: any[],
@@ -552,31 +604,39 @@ async function classifyAndSummarize(
 ): Promise<{ language: string; intent: string; summary: string; mood: string; rawResponse: string }> {
   const historyText = history.map(msg => `${msg.role}: ${msg.content}`).join('\n');
   
-  // [MODIFIKASI] Prompt diperbarui untuk deteksi data tabel secara proaktif
   const classificationPromptText = `
-    Analyze the user's text prompt, the provided images (if any), AND the preceding conversation history to understand the full context. Your tasks are:
-    1.  Detect the user's language.
-    2.  Classify the user's intent based on the following rules, in order of priority:
+  Analyze the user's latest text prompt, any provided images, AND the preceding conversation history to understand the full context. Perform the following tasks:
 
-        **[VERY IMPORTANT - HIGHEST PRIORITY RULE]**
-        -   If the user's prompt is a general request (like "summarize this", "explain this data", "what is this?"), BUT the provided text or image contains highly structured, multi-column data (like a financial journal, a list of expenses with dates, a sales report, etc.), you **MUST** classify the intent as **"data_tabulation"**. Your goal is to present structured data in the best possible format, which is a table.
+  1.  **Detect the user's language.**
 
-        **[Standard Rules]**
-        -   If the user explicitly asks for a "chart", "graph", "visualize", classify as **"data_visualization"**.
-        -   If the user explicitly asks for a "table", "tabel", "list", "daftar", classify as **"data_tabulation"**.
-        -   If the user uploads a receipt or invoice and asks for categorization, classify as **"expense_entry"**.
-        -   For anything else, classify as **"general_question"**, **"data_analysis"**, or **"image_description"** as appropriate.
+  2.  **Classify the user's intent according to these rules (apply in order):**
 
-    3.  Elaborate on the user's true underlying request based on the full context.
-    4.  Detect the user's mood.
-    Return ONLY a valid JSON object with the keys "language", "intent", "summary", and "mood".
+    **[RULE SET 1: HIGHEST PRIORITY]**
+    - If the user's prompt is a general request (e.g., "summarize this", "explain this data") AND the provided text/images contain highly structured, multi-column data (like financial journals, tables, reports), classify as **"data_tabulation"**. The goal is to present structured data in the best table format first.
+
+    **[RULE SET 2: STANDARD RULES]**
     
-    **Conversation History (for context):**
-    ${historyText}
+    - **First, check for meta-questions:** If the user is asking a question ABOUT charts or data (e.g., "what other types?", "suggest a chart", "what is a bar chart?", "jenis apa lagi?", "saran grafik"), classify this as **"general_question"**. The user wants an explanation, not an immediate chart.
 
-    **Latest User Prompt:** "${prompt}"
+    - **Then, check for creation commands:**
+      - If the user explicitly asks to CREATE a "chart", "graph", or "visualization", classify as **"data_visualization"**.
+      - If the user explicitly asks to CREATE a "table", "tabel", "list", or "daftar", classify as **"data_tabulation"**.
+    
+    - If the user uploads a receipt or invoice and asks for categorization, classify as **"expense_entry"**.
+    - If there is no preceding conversation history AND no structured data is provided, classify as **"general_chat"**.
+    - For all other cases, classify as **"general_question"**.
 
-    JSON Output:
+  3.  **Summarize the user's true underlying request** based on the full context.
+
+  4.  **Detect the user's mood.**
+
+  Return **ONLY** a JSON object with keys: "language", "intent", "summary", and "mood".
+
+  **Conversation History:** ${historyText}
+
+  **Latest User Prompt:** "${prompt}"
+
+  JSON Output:
   `;
 
   try {
@@ -597,7 +657,7 @@ async function classifyAndSummarize(
 
     if (jsonMatch && jsonMatch[0]) {
       const parsed = JSON.parse(jsonMatch[0]);
-      console.log("AI Step 1 (Proactive Table Detection) Result:", parsed);
+      console.log("AI Step 1 (Classification with Meta-Question Check) Result:", parsed);
       return { ...parsed, rawResponse: responseText };
     }
     throw new Error("Failed to extract valid JSON from classification response.");
@@ -711,121 +771,153 @@ async function generateFinalResponse(
   
 // [MODIFIKASI] generateContent sekarang memanggil classifyAndSummarize dengan jumlah gambar
 export async function generateContent(
-  prompt: string, 
+  prompt: string,
   sessionId: string | null,
-  images?: ImagePart[]
-): Promise<{ 
-  sessionId: string; 
-  title?: string; 
-  classification: any; 
+  images?: ImagePart[],
+  isRegeneration?: boolean
+): Promise<{
+  sessionId: string;
+  title?: string;
+  classification: any;
   duration: number;
-  text?: string; 
+  text?: string;
   chart?: AIGeneratedChart | null;
   table?: AIGeneratedTable | null;
-  error?: string 
+  error?: string
 }> {
+  console.log(`[START] generateContent called with prompt: "${prompt}" and sessionId: ${sessionId}`);
   const startTime = Date.now();
   let currentSessionId = sessionId;
   const isNewChat = !currentSessionId;
 
   if (isNewChat) {
     currentSessionId = nanoid();
+    console.log(`[INFO] New chat detected. Generated new sessionId: ${currentSessionId}`);
   }
 
   try {
+    if (isRegeneration && currentSessionId) {
+      console.log(`[REGEN] Popping last message from history for session: ${currentSessionId}`);
+      await redis.rpop(`chat:${currentSessionId}`);
+    }
     const fullHistory = await getChatHistory(currentSessionId!);
     const historyForAnalysis = [...fullHistory, { role: 'user', content: prompt } as StoredMessage];
-    
+    console.log(`[DATA] Fetched ${fullHistory.length} messages from history.`);
+
+    // 1. Log the result of the initial classification
     const classificationResult = await classifyAndSummarize(prompt, historyForAnalysis, images);
+    console.log('[DEBUG] Classification Result:', JSON.stringify(classificationResult, null, 2));
 
     let finalResponseText: string | undefined;
     let chart: AIGeneratedChart | null = null;
     let table: AIGeneratedTable | null = null;
 
     if (['data_visualization', 'data_tabulation'].includes(classificationResult.intent)) {
+      console.log(`[FLOW] Intent is data-related: "${classificationResult.intent}". Proceeding to summarize data.`);
+
+      // 2. Log the result of data summarization
       const summaryResult = await summarizeDataForChartOrTable(
-        historyForAnalysis, 
+        historyForAnalysis,
         classificationResult.language,
         classificationResult.intent,
-        images // <--- Pastikan ini ada
-    );
+        images
+      );
+      console.log('[DEBUG] Data Summary Result:', JSON.stringify(summaryResult, null, 2));
 
-        if (summaryResult.needsMoreData) {
-            finalResponseText = summaryResult.followUpQuestion;
-        } else if (summaryResult.data) {
-            if (classificationResult.intent === 'data_visualization') {
-                chart = await generateChart(
-                  summaryResult.data, 
-                  classificationResult.language, 
-                  historyForAnalysis, 
-                  classificationResult.summary
-                );
-                // [MODIFIKASI] Setelah chart dibuat, panggil final response untuk teks pengantar
-                if (chart) {
-                    finalResponseText = await generateFinalResponse(
-                        prompt,
-                        classificationResult.intent,
-                        classificationResult.summary,
-                        classificationResult.language,
-                        fullHistory,
-                        images
-                    );
-                }
-            } else if (classificationResult.intent === 'data_tabulation') {
-                table = await generateTable(
-                  summaryResult.data,
-                  classificationResult.language,
-                  classificationResult.summary
-                );
-                // [MODIFIKASI] Setelah tabel dibuat, panggil final response untuk teks pengantar
-                if (table) {
-                    finalResponseText = await generateFinalResponse(
-                        prompt,
-                        classificationResult.intent,
-                        classificationResult.summary,
-                        classificationResult.language,
-                        fullHistory,
-                        images
-                    );
-                }
-            }
-        }
-    }
 
-    // Panggilan ini sekarang hanya akan berjalan jika BUKAN intent tabulasi/visualisasi
-    if (!finalResponseText) {
-        finalResponseText = await generateFinalResponse(
-            prompt,
-            classificationResult.intent,
-            classificationResult.summary,
+      if (summaryResult.needsMoreData) {
+        finalResponseText = summaryResult.followUpQuestion;
+        console.log('[FLOW] Model needs more data. Setting follow-up question.');
+      } else if (summaryResult.data) {
+        console.log('[FLOW] Data successfully summarized. Proceeding to generate output.');
+        if (classificationResult.intent === 'data_visualization') {
+          // 3. Log the result of chart generation
+          const chartResult = await generateChart(
+            summaryResult.data,
             classificationResult.language,
-            fullHistory,
-            images
-        );
+            historyForAnalysis,
+            classificationResult.summary
+          );
+          console.log('[DEBUG] Chart Generation Result:', JSON.stringify(chartResult, null, 2));
+
+          if (chartResult?.type === 'confirmation_needed') {
+            finalResponseText = chartResult.message;
+            chart = null; // Ensure no chart is sent
+            console.log('[FLOW] Chart generation requires confirmation. Setting confirmation message.');
+          } else if (chartResult?.type === 'chart') {
+            chart = chartResult.chart;
+            console.log('[SUCCESS] Chart successfully generated. Generating introductory text.');
+            // Generate final text only if the chart is successful
+            finalResponseText = await generateFinalResponse(
+                prompt, classificationResult.intent, classificationResult.summary,
+                classificationResult.language, fullHistory, images
+            );
+          } else {
+            console.log('[WARN] Failed to generate a chart from the data.');
+            finalResponseText = classificationResult.language === 'English'
+              ? "I'm sorry, I was unable to generate a chart from that data."
+              : "Maaf, saya tidak berhasil membuat grafik dari data tersebut.";
+          }
+        } else if (classificationResult.intent === 'data_tabulation') {
+          // 4. Log the result of table generation
+          table = await generateTable(
+            summaryResult.data,
+            classificationResult.language,
+            classificationResult.summary
+          );
+          console.log('[DEBUG] Table Generation Result:', table ? 'Table generated' : 'Table generation failed');
+
+          if (table) {
+            console.log('[SUCCESS] Table successfully generated. Generating introductory text.');
+            finalResponseText = await generateFinalResponse(
+                prompt, classificationResult.intent, classificationResult.summary,
+                classificationResult.language, fullHistory, images
+            );
+          }
+        }
+      }
     }
-    
+
+    if (!finalResponseText) {
+      console.log('[FLOW] Intent is not data-related or data flow did not produce text. Generating general response.');
+      finalResponseText = await generateFinalResponse(
+        prompt, classificationResult.intent, classificationResult.summary,
+        classificationResult.language, fullHistory, images
+      );
+    }
+
+    // 5. Log the final generated text before saving
+    console.log(`[DEBUG] Final response text: "${finalResponseText}"`);
+
     const duration = parseFloat(((Date.now() - startTime) / 1000).toFixed(1));
     const thinkingResult: ThinkingResult = {
-        classification: classificationResult,
-        duration: duration,
-      };
+      classification: classificationResult,
+      duration: duration,
+    };
 
-    await saveMessageToHistory(currentSessionId!, { role: 'user', content: prompt });
-    await saveMessageToHistory(currentSessionId!, { 
-        role: 'model', 
-        content: finalResponseText!,
-        chart: chart,
-        table: table,
-        thinkingResult: thinkingResult
-    });
-    
+    if (!isRegeneration) {
+      console.log(`[DATA] Saving user message to history for sessionId: ${currentSessionId}`);
+      await saveMessageToHistory(currentSessionId!, { role: 'user', content: prompt, /* tambahkan images jika ada */ });
+  }
+  
+  // Simpan respons model (selalu disimpan, baik baru maupun regenerasi)
+  console.log(`[DATA] Saving model response to history for sessionId: ${currentSessionId}`);
+  await saveMessageToHistory(currentSessionId!, {
+    role: 'model',
+    content: finalResponseText!,
+    chart: chart,
+    table: table,
+    thinkingResult: thinkingResult
+  });
+
     let title;
     if (isNewChat) {
-        title = await generateTitleForChat(prompt, classificationResult.language, images);
-        await redis.set(`session:${currentSessionId}`, title);
+      title = await generateTitleForChat(prompt, classificationResult.language, images);
+      await redis.set(`session:${currentSessionId}`, title);
+      console.log(`[INFO] New chat title generated and saved: "${title}"`);
     }
-    
-    return { 
+
+    const finalResult = {
       sessionId: currentSessionId!,
       title: title,
       classification: classificationResult,
@@ -834,9 +926,16 @@ export async function generateContent(
       chart: chart,
       table: table,
     };
+
+    // 6. Log the final object being returned by the function
+    console.log('[END] Returning final result:', JSON.stringify(finalResult, null, 2));
+    return finalResult;
+
   } catch (error: any) {
-    return { 
-      sessionId: currentSessionId!, 
+    // 7. Log any errors that occur
+    console.error('[ERROR] An exception was caught in generateContent:', error);
+    return {
+      sessionId: currentSessionId!,
       error: error.message || "Terjadi kesalahan.",
       classification: {},
       duration: 0,

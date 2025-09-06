@@ -8,7 +8,7 @@ import { Plus, SendHorizonal, ChevronDown, Copy, ThumbsUp, ThumbsDown, RefreshCw
 import ReactMarkdown from "react-markdown"
 import { useAIStore } from "@/app/store/ai-store"
 import { cn } from "@/lib/utils"
-import { generateSuggestions } from "@/lib/actions/ai"
+import { generateSuggestions, AIGeneratedChart, ImagePart } from "@/lib/actions/ai"
 import { ChartDisplay } from "@/components/ChartDisplay";
 import { TableDisplay } from "@/components/TableDisplay";
 
@@ -79,7 +79,6 @@ import {
     return <IconComponent className="mr-2 h-4 w-4" />;
   };  
 
-// [MODIFIKASI] Komponen AIMessage sekarang hanya untuk menampilkan teks Markdown
 const AIMessage = ({ msg }: { msg: any }) => {
   return (
     <div className="w-full max-w-prose animate-in fade-in-0 duration-500">
@@ -105,13 +104,11 @@ const AIMessage = ({ msg }: { msg: any }) => {
   );
 };
 
-// [MODIFIKASI BARU] Tombol aksi dipisahkan menjadi komponen sendiri
 const MessageActions = ({ msg, onRegenerate, t }: { msg: any; onRegenerate: () => void; t: (key: string) => string }) => {
   const [feedback, setFeedback] = React.useState<'like' | 'dislike' | null>(null);
   const [isCopied, setIsCopied] = React.useState(false);
 
   const handleCopy = () => {
-    // Salin teks, atau jika tidak ada, salin deskripsi tabel/chart
     const textToCopy = msg.content || msg.table?.description || msg.chart?.description || '';
     if (textToCopy) {
       navigator.clipboard.writeText(textToCopy);
@@ -155,7 +152,8 @@ const InputSection = ({ inputValue, setInputValue, handleSubmit, handlePlusClick
         (<Button className="cursor-pointer" type="submit" variant="ghost" size="icon" aria-label={t('ariaSend')} disabled={isSubmitDisabled}><SendHorizonal className="h-5 w-5 text-primary" /></Button>)}
       </div>
     </form>
-    {suggestions && (
+    {/* [PERBAIKAN] Tampilkan suggestions HANYA jika array-nya ada dan tidak kosong */}
+    {suggestions && suggestions.length > 0 && (
       <div className="w-full overflow-x-auto scrollbar-thin mt-4">
         <div className="flex w-max mx-auto gap-2 p-2 items-center">
           {isLoadingSuggestions ? (<p className="text-xs text-muted-foreground animate-pulse flex-shrink-0">{t('generatingSuggestions')}</p>) : 
@@ -216,7 +214,8 @@ export default function QuickCreateClientUI({
     addMessage, 
     initializeSession, 
     startNewChat,
-    sessionId: storeSessionId
+    sessionJustCreated,
+    setSessionJustCreated
   } = useAIStore();
   const bottomRef = React.useRef<HTMLDivElement>(null);
   const [uploadedFiles, setUploadedFiles] = React.useState<{ file: File, previewUrl: string }[]>([]);
@@ -226,23 +225,18 @@ export default function QuickCreateClientUI({
   const [selectedImageUrl, setSelectedImageUrl] = React.useState<string | null>(null);
 
   React.useEffect(() => {
+    if (sessionJustCreated) {
+      setSessionJustCreated(false);
+      return;
+    }
+    
     if (pageSessionId) {
       initializeSession(pageSessionId);
     } else {
       startNewChat();
     }
-  }, [pageSessionId, initializeSession, startNewChat]);
+  }, [pageSessionId, initializeSession, startNewChat, sessionJustCreated, setSessionJustCreated]);
   
-  React.useEffect(() => {
-    if (!pageSessionId && storeSessionId) {
-      window.history.replaceState(null, "", `/${lang}/quick-create/${storeSessionId}`);
-    }
-  
-    if (pageSessionId && !storeSessionId && !isHistoryLoading) {
-      window.history.replaceState(null, "", `/${lang}/quick-create`);
-    }
-  }, [storeSessionId, pageSessionId, isHistoryLoading, lang]);
-    
   React.useEffect(() => {
     const fetchSuggestions = async () => {
       setIsLoadingSuggestions(true);
@@ -253,12 +247,18 @@ export default function QuickCreateClientUI({
         console.error("Gagal mengambil sugesti:", error);
       } finally { setIsLoadingSuggestions(false); }
     };
-    if (!pageSessionId) {
+
+    // [PERBAIKAN] Kondisi untuk memuat dan menampilkan suggestions
+    // Hanya muat jika TIDAK ada sessionId DAN TIDAK ada pesan.
+    if (!pageSessionId && messages.length === 0) {
       fetchSuggestions();
     } else {
-        setIsLoadingSuggestions(false);
+      // Jika ada sesi atau pesan, pastikan suggestions kosong dan tidak loading.
+      setSuggestions([]);
+      setIsLoadingSuggestions(false);
     }
-  }, [pageSessionId]);
+    // [PERBAIKAN] Tambahkan messages.length sebagai dependensi
+  }, [pageSessionId, messages.length]);
   
   React.useEffect(() => {
     if (bottomRef.current) {
@@ -314,20 +314,45 @@ export default function QuickCreateClientUI({
       const userMessage = { role: 'user' as const, content: textPrompt, images: imageDataUrls };
       addMessage(userMessage);
   
-      await generate(textPrompt, lang, false, imageParts);
+      const newSessionId = await generate(textPrompt, lang, pageSessionId ?? null, false, imageParts);
+
+      if (newSessionId && !pageSessionId) {
+        setSessionJustCreated(true);
+        router.push(`/${lang}/quick-create/${newSessionId}`);
+      }
     } catch (error) {
       console.error("Gagal memproses file:", error);
       addMessage({ role: 'user', content: textPrompt });
-      await generate(textPrompt, lang, false);
+      await generate(textPrompt, lang, pageSessionId ?? null, false);
     }
   };  
   
-  const handleRegenerate = (index: number) => {
-    const userPrompt = messages[index - 1]?.content;
-    if (userPrompt && !isLoading) {
-      useAIStore.setState(state => ({ messages: state.messages.slice(0, index) }));
-      generate(userPrompt, lang, true);
+  const handleRegenerate = async (index: number) => {
+    // 1. Ambil pesan pengguna terakhir secara keseluruhan (bukan hanya teksnya)
+    const lastUserMessage = messages[index - 1];
+
+    // 2. Pastikan pesan itu ada, dari pengguna, dan tidak sedang loading
+    if (!lastUserMessage || lastUserMessage.role !== 'user' || isLoading) {
+      return;
     }
+
+    const userPrompt = lastUserMessage.content;
+    
+    // 3. Konversi kembali data URL gambar menjadi format ImagePart untuk backend
+    let imageParts: ImagePart[] = [];
+    if (lastUserMessage.images && lastUserMessage.images.length > 0) {
+      imageParts = lastUserMessage.images.map((dataUrl: string) => {
+        const [header, data] = dataUrl.split(',');
+        const mimeType = header.match(/:(.*?);/)?.[1] || 'image/png';
+        return { mimeType, data };
+      });
+    }
+
+    // 4. Hapus respons AI lama dari state UI
+    useAIStore.setState(state => ({ messages: state.messages.slice(0, index) }));
+    
+    // 5. Panggil fungsi generate dengan flag isRegeneration dan data gambar
+    await generate(userPrompt, lang, pageSessionId ?? null, true, imageParts);
   };
 
   const isSubmitDisabled = isLoading || inputValue.trim().length < 1;
@@ -415,7 +440,6 @@ export default function QuickCreateClientUI({
           <div className="flex flex-col flex-grow w-full h-0 items-center">
             <div className="flex-grow w-full max-w-4xl overflow-y-auto px-4 space-y-8 pt-4 pb-4">
               {messages.map((msg, index) => (
-                // ▼▼▼ BAGIAN YANG DIPERBAIKI ADA DI DALAM BLOK INI ▼▼▼
                 <div key={index} className={cn("flex w-full flex-col gap-2 text-left", msg.role === 'user' ? 'items-end' : 'items-start group relative')}>
                   
                   {msg.role === 'model' && msg.thinkingResult && (
@@ -468,34 +492,28 @@ export default function QuickCreateClientUI({
                     <p className="text-sm italic text-muted-foreground">{t('generationStopped')}</p>
                   ) : (
                     <>
-                      {/* Selalu render teks pengantar jika ada */}
                       {msg.content && <AIMessage msg={msg} />}
                   
-                      {/* Tampilkan separator HANYA jika ada teks DAN tabel/chart */}
-                      {msg.content && (msg.table || msg.chart) && (
+                      {msg.content && (msg.table || (msg.chart && (msg.chart as any).type !== 'confirmation_needed')) && (
                         <div className="my-4 w-full max-w-prose border-t border-border" />
                       )}
                   
-                      {/* Tampilkan tabel jika ada */}
                       {msg.table && (
                         <div className="w-full max-w-prose self-start">
                           <TableDisplay table={msg.table} />
                         </div>
                       )}
                   
-                      {/* Tampilkan chart jika ada */}
-                      {msg.chart && (
+                      {msg.chart && (msg.chart as any).type !== 'confirmation_needed' && (
                         <div className="w-full max-w-prose self-start">
-                          <ChartDisplay chart={msg.chart} />
+                          <ChartDisplay chart={msg.chart as AIGeneratedChart} />
                         </div>
                       )}
                   
-                      {/* Tampilkan tombol aksi di paling bawah */}
                       <MessageActions msg={msg} onRegenerate={() => handleRegenerate(index)} t={t} />
                     </>
                   )}
                 </div>
-                 // ▲▲▲ AKHIR DARI BLOK YANG DIPERBAIKI ▲▲▲
               ))}
               {isLoading && (
                   <div className="flex flex-row items-center gap-3 text-left">
@@ -518,6 +536,8 @@ export default function QuickCreateClientUI({
                 stopGeneration={() => stopGeneration(t('generationStopped'))}
                 t={t}
                 isSubmitDisabled={isSubmitDisabled}
+                suggestions={suggestions} 
+                isLoadingSuggestions={isLoadingSuggestions}
               />
             </div>
           </div>
@@ -526,3 +546,4 @@ export default function QuickCreateClientUI({
     </>
   )
 }
+

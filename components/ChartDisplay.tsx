@@ -1,282 +1,155 @@
 "use client"
 
+import { useMemo, ReactNode } from "react";
 import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-  Pie,
-  PieChart,
-  Cell,
-  Line,
-  LineChart,
+  Area, AreaChart, Bar, BarChart, CartesianGrid, ResponsiveContainer,
+  XAxis, YAxis, Tooltip, Legend, Pie, PieChart, Cell, Line, LineChart,
 } from "recharts"
 
 import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
+    Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card"
 import {
-    ChartContainer,
-    ChartLegend,
-    ChartLegendContent,
-    ChartTooltip,
-    ChartTooltipContent,
+    ChartContainer, ChartLegend, ChartLegendContent,
 } from "@/components/ui/chart"
 
-// Definisikan tipe untuk prop 'chart'
+// --- Tipe Data ---
 interface AIGeneratedChart {
   type: 'bar' | 'area' | 'line' | 'pie';
   title: string;
   description?: string;
   data: any[];
-  config: {
-    [key: string]: {
-      label: string;
-      color: string;
-    };
-  };
+  config: { [key: string]: { label: string; color: string; }; };
 }
 
-// Fungsi untuk memformat angka menjadi mata uang Rupiah
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(value);
-
-// Fungsi untuk memformat angka besar menjadi format ringkas
-const formatCompactNumber = (value: number) => {
-  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-  return value.toString();
+// --- Fungsi Format Angka ---
+const formatNumber = (value: number) => {
+    return new Intl.NumberFormat('id-ID').format(value);
 };
 
+// --- Komponen Utama ---
 export function ChartDisplay({ chart }: { chart: AIGeneratedChart }) {
-    if (!chart || !chart.data || chart.data.length === 0 || !chart.config) {
-        return <div className="text-center text-muted-foreground p-4">Konfigurasi chart tidak valid atau tidak ada data.</div>;
+    
+    const chartData = useMemo(() => {
+        if (!chart || !chart.data || chart.data.length === 0) return [];
+        if (chart.type === 'pie') {
+            const totals: { [key: string]: number } = {};
+            const configKeys = Object.keys(chart.config);
+            configKeys.forEach(key => { totals[key] = 0; });
+            chart.data.forEach(item => {
+                configKeys.forEach(key => {
+                    if (typeof item[key] === 'number') totals[key] += item[key];
+                });
+            });
+            return configKeys.map(key => ({
+                name: chart.config[key].label,
+                value: totals[key],
+                originalKey: key 
+            }));
+        }
+        return chart.data;
+    }, [chart]);
+
+    if (!chart || chartData.length === 0) {
+        return <div className="text-center text-muted-foreground p-4">Data tidak dapat ditampilkan atau format tidak dikenali.</div>;
     }
 
+    const CustomTooltip = ({ active, payload, label }: any) => {
+        if (active && payload && payload.length) {
+            // [STYLE] Font tooltip diperkecil dan diberi sedikit penyesuaian margin
+            return (
+                <div className="p-2 text-xs border rounded-lg shadow-sm bg-background">
+                    <p className="mb-1 font-bold text-sm">{label}</p>
+                    <div className="space-y-1">
+                        {payload.map((pld: any) => (
+                            <div key={pld.dataKey || pld.name} className="flex items-center gap-2">
+                                <span
+                                    className="w-2.5 h-2.5 rounded-full shrink-0"
+                                    style={{ backgroundColor: pld.color || pld.payload.fill }}
+                                />
+                                <div className="flex flex-1 justify-between">
+                                    <p className="text-muted-foreground">{pld.name}:</p>
+                                    <p className="ml-2 font-bold">{formatNumber(pld.value)}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+        return null;
+    };
+    
     const renderChart = () => {
+        const configKeys = Object.keys(chart.config);
+        const xAxisKey = Object.keys(chartData[0] || {}).find(key => !configKeys.includes(key) && key !== 'name' && key !== 'value') || 'month';
+
         switch (chart.type) {
-            case 'bar': {
-                // [PERBAIKAN] Logika untuk Agregasi Data Transaksi Mentah
-                // Kita akan mengubah data dari daftar transaksi menjadi ringkasan per kategori.
-                const summary: { [key: string]: { name: string; value: number } } = {};
-
-                chart.data.forEach(transaction => {
-                    // Abaikan entri "Kas" karena itu hanya penyeimbang, bukan kategori pengeluaran/pendapatan.
-                    if (transaction.keterangan && transaction.keterangan !== "Kas") {
-                        const key = transaction.keterangan;
-                        // Ambil nilai transaksi, baik dari debit maupun kredit
-                        const value = transaction.debit > 0 ? transaction.debit : transaction.kredit;
-
-                        if (!summary[key]) {
-                            summary[key] = { name: key, value: 0 };
-                        }
-                        summary[key].value += value;
-                    }
-                });
-                
-                // Ubah objek summary menjadi array yang bisa digunakan oleh chart
-                const processedData = Object.values(summary);
-
-                const xAxisKey = 'name';
-                const yAxisKey = 'value';
-
+            case 'bar':
                 return (
-                  <BarChart
-                    // [PERBAIKAN] Gunakan data yang sudah diproses
-                    data={processedData}
-                    layout="vertical" // Layout vertikal lebih cocok untuk label kategori yang panjang
-                    margin={{ top: 10, right: 30, left: 20, bottom: 0 }}
-                  >
-                    <CartesianGrid horizontal={false} />
-                    <XAxis
-                      type="number"
-                      stroke="var(--muted-foreground)"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value) => formatCompactNumber(Number(value))}
-                    />
-                    <YAxis
-                      type="category"
-                      dataKey={xAxisKey}
-                      stroke="var(--muted-foreground)"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                      width={150} // Beri ruang lebih untuk label
-                    />
-                    <ChartTooltip
-                      cursor={false}
-                      content={
-                        <ChartTooltipContent
-                          formatter={(value) => formatCurrency(Number(value))}
-                          labelClassName="font-bold"
-                          indicator="dot"
-                        />
-                      }
-                    />
-                    <Bar dataKey={yAxisKey} radius={4}>
-                      {/* [PERBAIKAN] Gunakan data yang sudah diproses */}
-                      {processedData.map((entry) => {
-                          const colorKey = entry[xAxisKey];
-                          return (
-                            <Cell
-                              key={`cell-${colorKey}`}
-                              fill={chart.config[colorKey]?.color || `hsl(var(--chart-1))`}
-                            />
-                          )
-                        })}
-                    </Bar>
+                  <BarChart data={chartData} margin={{ left: 10, right: 10 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey={xAxisKey} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false}/>
+                    <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => formatNumber(value as number)}/>
+                    {/* [HOVER EFFECT] Menambahkan cursor sorot */}
+                    <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }} content={<CustomTooltip />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    {configKeys.map((key) => (
+                      <Bar key={key} dataKey={key} name={chart.config[key].label} fill={chart.config[key]?.color} radius={[4, 4, 0, 0]}/>
+                    ))}
                   </BarChart>
                 );
-            }
-            case 'area':
-            case 'line': {
-                const ChartComponent = chart.type === 'area' ? AreaChart : LineChart;
-                const DataComponent = chart.type === 'area' ? Area : Line;
-                
-                // Ambil kunci untuk sumbu Y (seri data) langsung dari config
-                const yAxisKeys = Object.keys(chart.config);
 
-                // Tentukan kunci sumbu X dengan mencari kunci di data yang bukan merupakan seri data
-                const potentialXAxisKeys = Object.keys(chart.data[0] || {});
-                const xAxisKey = potentialXAxisKeys.find(key => !yAxisKeys.includes(key) && key !== 'keterangan') || 'tanggal';
-
-                return (
-                  <ChartComponent
-                    data={chart.data}
-                    margin={{ top: 10, right: 10, left: 10, bottom: 0 }}
-                  >
-                    <defs>
-                      {yAxisKeys.map((key) => (
-                        <linearGradient key={key} id={`fill-${key}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop
-                            offset="5%"
-                            stopColor={chart.config[key]?.color}
-                            stopOpacity={0.8}
-                          />
-                          <stop
-                            offset="95%"
-                            stopColor={chart.config[key]?.color}
-                            stopOpacity={0.1}
-                          />
-                        </linearGradient>
-                      ))}
-                    </defs>
-
-                    <CartesianGrid vertical={false} />
-                    <XAxis
-                      dataKey={xAxisKey}
-                      stroke="var(--muted-foreground)"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      stroke="var(--muted-foreground)"
-                      fontSize={12}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(value) => formatCompactNumber(Number(value))}
-                    />
-                    <ChartTooltip
-                      cursor={false}
-                      content={
-                        <ChartTooltipContent
-                          formatter={(value) => formatCurrency(Number(value))}
-                          labelClassName="font-bold"
-                          indicator="dot"
-                        />
-                      }
-                    />
-                    <ChartLegend content={<ChartLegendContent />} />
-                    
-                    {yAxisKeys.map((key) => (
-                      <DataComponent
-                        key={key}
-                        dataKey={key}
-                        type="natural"
-                        fill={chart.type === 'area' ? `url(#fill-${key})` : 'transparent'}
-                        stroke={chart.config[key]?.color}
-                        strokeWidth={2}
-                        dot={true}
-                      />
-                    ))}
-                  </ChartComponent>
-                );
-            }
-            case 'pie': {
-                // [PERBAIKAN] Tambahkan logika agregasi data untuk Pie Chart
-                const summary: { [key: string]: { name: string; value: number } } = {};
-
-                chart.data.forEach(transaction => {
-                    // Untuk Pie Chart, kita hanya ingin melihat alokasi dana (pengeluaran dan pendapatan),
-                    // jadi kita abaikan entri akuntansi seperti "Kas" dan "Modal".
-                    const ignoredKeys = ["Kas", "Modal"];
-                    if (transaction.keterangan && !ignoredKeys.includes(transaction.keterangan)) {
-                        const key = transaction.keterangan;
-                        const value = transaction.debit > 0 ? transaction.debit : transaction.kredit;
-
-                        if (!summary[key]) {
-                            summary[key] = { name: key, value: 0 };
-                        }
-                        summary[key].value += value;
-                    }
-                });
-
-                const processedData = Object.values(summary);
-
-                const nameKey = 'name';
-                const valueKey = 'value';
-                
+            case 'pie':
                 return (
                     <PieChart>
-                        <ChartTooltip
-                            cursor={false}
-                            content={
-                                <ChartTooltipContent
-                                    formatter={(value) => formatCurrency(Number(value))}
-                                    indicator="dot"
-                                />
-                            }
-                        />
-                        <Pie
-                            // [PERBAIKAN] Gunakan data yang sudah diproses
-                            data={processedData}
-                            dataKey={valueKey}
-                            nameKey={nameKey}
-                            cx="50%"
-                            cy="50%"
-                            outerRadius={120}
-                            labelLine={false}
-                            label={({ name, percent = 0 }) => `${(percent * 100).toFixed(0)}%`}
-                        >
-                            {/* [PERBAIKAN] Gunakan data yang sudah diproses dan config untuk warna */}
-                            {processedData.map((entry) => (
-                                <Cell
-                                    key={`cell-${entry.name}`}
-                                    fill={chart.config[entry.name]?.color || `hsl(var(--chart-1))`}
-                                />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Pie data={chartData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={120} labelLine={false} label={({ name, percent = 0 }) => `${(percent * 100).toFixed(0)}%`}>
+                            {chartData.map((entry: any) => (
+                                <Cell key={`cell-${entry.name}`} fill={chart.config[entry.originalKey]?.color || `hsl(var(--chart-1))`} />
                             ))}
                         </Pie>
                         <ChartLegend content={<ChartLegendContent nameKey="name" />} />
                     </PieChart>
                 );
-            }
+
+            case 'area':
+            case 'line':
+                const ChartComponent = chart.type === 'area' ? AreaChart : LineChart;
+                const DataComponent = chart.type === 'area' ? Area : Line;
+                return (
+                  <ChartComponent data={chartData} margin={{ left: 10, right: 10 }}>
+                    <defs>
+                      {configKeys.map((key) => (
+                        <linearGradient key={key} id={`fill-${key}`} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor={chart.config[key]?.color} stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor={chart.config[key]?.color} stopOpacity={0.1}/>
+                        </linearGradient>
+                      ))}
+                    </defs>
+                    <CartesianGrid vertical={false} />
+                    <XAxis dataKey={xAxisKey} stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false}/>
+                    <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => formatNumber(value as number)}/>
+                    {/* [HOVER EFFECT] Menambahkan cursor sorot */}
+                    <Tooltip cursor={{ fill: 'hsl(var(--muted))', opacity: 0.3 }} content={<CustomTooltip />} />
+                    <ChartLegend content={<ChartLegendContent />} />
+                    {configKeys.map((key) => (
+                      <DataComponent 
+                        key={key} 
+                        dataKey={key} 
+                        name={chart.config[key].label} 
+                        type="natural" 
+                        fill={chart.type === 'area' ? `url(#fill-${key})` : 'transparent'} 
+                        stroke={chart.config[key]?.color} 
+                        strokeWidth={2} 
+                        dot={true}
+                        // [HOVER EFFECT] Menambahkan titik aktif yang lebih besar
+                        activeDot={{ r: 6 }}
+                      />
+                    ))}
+                  </ChartComponent>
+                );
+
             default:
                 return <div>Jenis chart '{chart.type}' tidak didukung.</div>;
         }
@@ -296,5 +169,5 @@ export function ChartDisplay({ chart }: { chart: AIGeneratedChart }) {
                 </ChartContainer>
             </CardContent>
         </Card>
-    )
+    );
 }

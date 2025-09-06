@@ -1,11 +1,12 @@
 "use client"
 
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { generateContent, getChatHistory, getChatSessions, getChatSession,   renameChatSession,
-  deleteChatSession
- } from '@/lib/actions/ai' 
-import type { ImagePart, StoredMessage, AIGeneratedChart, ThinkingResult, AIGeneratedTable } from '@/lib/actions/ai'; // [UPDATE] Impor tipe AIGeneratedTable
+import type { AppRouterInstance } from 'next/dist/shared/lib/app-router-context.shared-runtime'
+import { 
+  generateContent, getChatHistory, getChatSessions, 
+  renameChatSession, deleteChatSession 
+} from '@/lib/actions/ai' 
+import type { ImagePart, StoredMessage, AIGeneratedChart, ThinkingResult, AIGeneratedTable } from '@/lib/actions/ai';
 import type { ChatHistoryItem } from '@/components/nav-history';
 
 interface Message {
@@ -14,11 +15,10 @@ interface Message {
   images?: string[];
   thinkingResult?: ThinkingResult | null;
   chart?: AIGeneratedChart | null;
-  table?: AIGeneratedTable | null; // [BARU] Tambahkan properti tabel
+  table?: AIGeneratedTable | null;
 }
 
 interface AIState {
-  sessionId: string | null;
   messages: Message[];
   chatSessions: ChatHistoryItem[]; 
   isLoading: boolean;
@@ -26,20 +26,21 @@ interface AIState {
   isHistoryLoading: boolean; 
   isCancelled: boolean; 
   error: string | null;
+  // [PERBAIKAN] Tambahkan flag baru dan setter-nya
+  sessionJustCreated: boolean;
+  setSessionJustCreated: (value: boolean) => void;
   initializeSession: (sessionId: string) => Promise<void>;
-  fetchChatSessions: () => Promise<void>; 
+  fetchChatSessions: (force?: boolean) => Promise<void>; 
   startNewChat: () => void;
   addMessage: (message: Message) => void;
-  generate: (prompt: string, lang: string, isRegenerate?: boolean, images?: ImagePart[]) => Promise<void>;
+  generate: (prompt: string, lang: string, sessionId: string | null, isRegenerate?: boolean, images?: ImagePart[]) => Promise<string | null>;
   stopGeneration: (message: string) => void;
   renameChat: (sessionId: string, newTitle: string) => Promise<void>;
-  deleteChat: (sessionId: string) => Promise<{ isActiveChat: boolean }>;
+  deleteChat: (sessionIdToDelete: string, activeSessionId: string | null) => Promise<{ isActiveChat: boolean }>;
 }
 
 export const useAIStore = create<AIState>()(
-  persist(
     (set, get) => ({
-      sessionId: null,
       messages: [],
       chatSessions: [],
       isLoading: false,
@@ -47,9 +48,14 @@ export const useAIStore = create<AIState>()(
       isHistoryLoading: false,
       isCancelled: false,
       error: null,
+      // [PERBAIKAN] Inisialisasi state baru
+      sessionJustCreated: false,
 
-      fetchChatSessions: async () => {
-        if (get().chatSessions.length > 0) {
+      // [PERBAIKAN] Tambahkan aksi setter untuk flag
+      setSessionJustCreated: (value) => set({ sessionJustCreated: value }),
+
+      fetchChatSessions: async (force = false) => {
+        if (get().chatSessions.length > 0 && !force) {
           set({ isSessionsLoading: false });
           return;
         }
@@ -65,18 +71,14 @@ export const useAIStore = create<AIState>()(
       },
 
       initializeSession: async (sessionId: string) => {
-        if (get().sessionId === sessionId && get().messages.length > 0) {
-          return;
-        }
-        set({ isHistoryLoading: true, messages: [], sessionId });
+        set({ isHistoryLoading: true, messages: [] });
         try {
           const history: StoredMessage[] = await getChatHistory(sessionId);
-          // [UPDATE] Petakan juga `table` dari data yang diambil
           const formattedMessages: Message[] = history.map(msg => ({
             role: msg.role,
             content: msg.content,
             chart: msg.chart ?? undefined,
-            table: msg.table ?? undefined, // Tambahkan ini
+            table: msg.table ?? undefined,
             thinkingResult: msg.thinkingResult ?? undefined,
           }));
           set({ messages: formattedMessages });
@@ -88,101 +90,72 @@ export const useAIStore = create<AIState>()(
       },
 
       startNewChat: () => {
-        set({ sessionId: null, messages: [] });
+        set({ messages: [] });
       },
 
-      addMessage: (message) => {
-        set((state) => ({
-          messages: [...state.messages, message]
-        }));
-      },
+      addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
 
-      stopGeneration: (message) => {
-        set(state => ({
-          isLoading: false,
-          isCancelled: true,
-          messages: [...state.messages, { role: 'model', content: message }]
-        }));
-      },
+      stopGeneration: (message) => set(state => ({
+        isLoading: false,
+        isCancelled: true,
+        messages: [...state.messages, { role: 'model', content: message }]
+      })),
 
-      renameChat: async (sessionId: string, newTitle: string) => {
-        const originalSessions = get().chatSessions;
-        const updatedSessions = originalSessions.map(session =>
-          session.id === sessionId ? { ...session, title: newTitle } : session
-        );
-        set({ chatSessions: updatedSessions });
-
+      renameChat: async (sessionId, newTitle) => {
         try {
           const result = await renameChatSession(sessionId, newTitle);
-          if (!result.success) {
-            throw new Error(result.error || 'Gagal mengganti nama di server.');
-          }
+          if (!result.success) throw new Error(result.error || 'Gagal mengganti nama di server.');
+          await get().fetchChatSessions(true);
         } catch (error) {
           console.error("Gagal mengganti nama obrolan:", error);
-          set({ chatSessions: originalSessions });
+          await get().fetchChatSessions(true);
         }
       },
 
-      deleteChat: async (sessionIdToDelete: string) => {
-        const originalSessions = get().chatSessions;
-        const updatedSessions = originalSessions.filter(session => session.id !== sessionIdToDelete);
-        
-        set({ chatSessions: updatedSessions });
-
-        const isActiveChat = get().sessionId === sessionIdToDelete;
-
+      deleteChat: async (sessionIdToDelete, activeSessionId) => {
+        const isActiveChat = activeSessionId === sessionIdToDelete;
         try {
           const result = await deleteChatSession(sessionIdToDelete);
-          if (!result.success) {
-            throw new Error(result.error || 'Gagal menghapus di server.');
-          }
+          if (!result.success) throw new Error(result.error || 'Gagal menghapus di server.');
+          
           if (isActiveChat) {
-            set({ sessionId: null, messages: [] });
+            get().startNewChat();
           }
+          await get().fetchChatSessions(true);
           return { isActiveChat };
         } catch (error) {
           console.error("Gagal menghapus obrolan:", error);
-          set({ chatSessions: originalSessions });
+          await get().fetchChatSessions(true);
           return { isActiveChat: false };
         }
       },
       
-      generate: async (prompt: string, lang: string, isRegenerate = false, images: ImagePart[] = []) => {
+      generate: async (prompt, lang, sessionId, isRegenerate = false, images = []) => {
         set({ isLoading: true, isCancelled: false });
-      
+        let newSessionId: string | null = null;
         try {
-          const result = await generateContent(prompt, get().sessionId, images);
+          const result = await generateContent(prompt, sessionId, images);
       
-          if (get().isCancelled) return;
+          if (get().isCancelled) return null;
           if (result.error) throw new Error(result.error as string);
       
-          set({ sessionId: result.sessionId });
+          const isNewSession = !sessionId && result.sessionId;
+          newSessionId = result.sessionId;
       
-          if (result.title) {
-            const newSessionItem: ChatHistoryItem = {
-              id: result.sessionId,
-              title: result.title,
-              href: `/${lang}/quick-create/${result.sessionId}`, // ✅ sekarang lang valid
-            };
-            set(state => ({
-              chatSessions: [newSessionItem, ...state.chatSessions],
-            }));
+          if (isNewSession) {
+            await get().fetchChatSessions(true);
           }
       
           const modelMessage: Message = {
             role: "model",
             content: result.text || "",
-            thinkingResult: {
-              classification: result.classification,
-              duration: result.duration,
-            },
+            thinkingResult: { classification: result.classification, duration: result.duration },
             chart: result.chart,
             table: result.table,
           };
       
-          set(state => ({
-            messages: [...state.messages, modelMessage],
-          }));
+          set(state => ({ messages: [...state.messages, modelMessage] }));
+          return newSessionId; 
         } catch (e: unknown) {
           if (!get().isCancelled) {
             const error = e as Error;
@@ -194,15 +167,10 @@ export const useAIStore = create<AIState>()(
               ],
             }));
           }
+          return null;
         } finally {
           set({ isLoading: false });
         }
       },        
-    }),
-    {
-      name: 'luminite-chat-storage',
-      partialize: (state) => ({ sessionId: state.sessionId }),
-    }
-  )
+    })
 );
-

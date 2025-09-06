@@ -113,7 +113,7 @@ export function DynamicBreadcrumbs({ dictionary }: Props) {
               <BreadcrumbItem>
                 {isLast ? (
                   // [MODIFIKASI] Tambahkan kelas 'truncate' di sini
-                  <BreadcrumbPage className="truncate max-w-[20vw] md:max-w-full">
+                  <BreadcrumbPage className="truncate max-w-[50vw] md:max-w-full">
                     {title}
                   </BreadcrumbPage>
                 ) : (

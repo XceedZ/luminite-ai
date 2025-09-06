@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react"
 import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation" // [PERUBAHAN] Impor usePathname
+import { useRouter, usePathname } from "next/navigation"
 import { toast } from "sonner"
 import {
   ArrowUpRight,
@@ -14,7 +14,6 @@ import {
 import { cn } from "@/lib/utils"
 import { useAIStore } from "@/app/store/ai-store"
 
-// Shadcn UI Imports
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -55,17 +54,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 
-// Tipe untuk setiap item dalam daftar riwayat
 export type ChatHistoryItem = {
   id: string
   title: string
   href: string
 }
 
-// Batas jumlah riwayat yang ditampilkan sebelum tombol "More" muncul
 const MAX_VISIBLE_HISTORY = 5;
 
-// Komponen kerangka untuk ditampilkan saat data sedang dimuat
 function HistorySkeleton() {
     return (
         <SidebarMenu>
@@ -91,13 +87,14 @@ export function NavHistory({
 }) {
   const { isMobile } = useSidebar()
   const router = useRouter()
-  const pathname = usePathname() // [PERUBAHAN] Dapatkan path URL saat ini
-  const { sessionId, renameChat, deleteChat } = useAIStore()
+  const pathname = usePathname()
+  const lang = pathname.split('/')[1] || 'en';
+  
+  // Dapatkan ID sesi aktif langsung dari URL, bukan dari store
+  const activeSessionId = pathname.split('/')[3]; 
+  const { renameChat, deleteChat } = useAIStore()
 
-  // State baru untuk melacak jumlah item yang terlihat
   const [visibleCount, setVisibleCount] = useState(MAX_VISIBLE_HISTORY);
-
-  // State untuk mengelola dialog
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [actionTarget, setActionTarget] = useState<ChatHistoryItem | null>(null)
@@ -106,14 +103,12 @@ export function NavHistory({
   const visibleHistory = chatHistory.slice(0, visibleCount);
   const hasMoreHistory = chatHistory.length > visibleCount;
 
-  // Efek untuk mengisi input rename dengan judul saat ini ketika dialog terbuka
   useEffect(() => {
     if (actionTarget && isRenameDialogOpen) {
       setNewTitle(actionTarget.title);
     }
   }, [actionTarget, isRenameDialogOpen]);
 
-  // Handler untuk aksi-aksi dari dropdown menu
   const handleCopyLink = (item: ChatHistoryItem) => {
     const url = `${window.location.origin}${item.href}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -128,7 +123,6 @@ export function NavHistory({
     window.open(item.href, '_blank', 'noopener,noreferrer');
   };
 
-  // Handler untuk submit dari dalam dialog
   const handleRenameSubmit = () => {
     if (!actionTarget) return;
     if (newTitle && newTitle.trim() !== "" && newTitle.trim() !== actionTarget.title) {
@@ -143,18 +137,19 @@ export function NavHistory({
   const handleDeleteConfirm = async () => {
     if (!actionTarget) return;
     const deletedTitle = actionTarget.title;
-    const { isActiveChat } = await deleteChat(actionTarget.id);
-    toast.success(`Chat "${deletedTitle}" has been deleted.`);
     
-    // [PERUBAHAN UTAMA] Pastikan navigasi menyertakan segmen bahasa
+    // Teruskan activeSessionId yang kita dapat dari URL
+    const { isActiveChat } = await deleteChat(actionTarget.id, activeSessionId);
+
+    toast.success(`Chat "${deletedTitle}" telah dihapus.`);
+    
+    // Komponen UI sekarang bertanggung jawab untuk navigasi
     if (isActiveChat) {
-      const lang = pathname.split('/')[1] || 'en'; // Ekstrak 'en', 'id', dll.
-      router.push(`/${lang}/quick-create`); // Navigasi ke path yang benar
+      router.push(`/${lang}/quick-create`);
     }
     setIsDeleteDialogOpen(false);
   };
   
-  // Handler untuk menampilkan lebih banyak riwayat
   const handleShowMore = () => {
     setVisibleCount(prevCount => prevCount + MAX_VISIBLE_HISTORY);
   };
@@ -170,7 +165,8 @@ export function NavHistory({
         {isLoading ? <HistorySkeleton /> : (
           <SidebarMenu>
             {visibleHistory.map((item) => {
-              const isActive = sessionId === item.id;
+              // 'isActive' sekarang dibandingkan dengan ID dari URL
+              const isActive = activeSessionId === item.id;
               return (
                 <SidebarMenuItem key={item.id}>
                   <SidebarMenuButton asChild className={cn(isActive && "bg-accent text-accent-foreground")}>
@@ -209,7 +205,8 @@ export function NavHistory({
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-red-600 focus:text-red-600 dark:focus:text-red-500"
-                        onSelect={() => {
+                        onSelect={(event) => {
+                            event.preventDefault();
                             setActionTarget(item);
                             setIsDeleteDialogOpen(true);
                         }}
@@ -235,7 +232,6 @@ export function NavHistory({
         )}
       </SidebarGroup>
 
-      {/* Dialog untuk Rename */}
       <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
