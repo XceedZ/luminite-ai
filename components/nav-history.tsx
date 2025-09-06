@@ -139,7 +139,7 @@ export function NavHistory({
     const deletedTitle = actionTarget.title;
     
     // Teruskan activeSessionId yang kita dapat dari URL
-    const { isActiveChat } = await deleteChat(actionTarget.id, activeSessionId);
+    const { isActiveChat } = await deleteChat(actionTarget.id);
 
     toast.success(`Chat "${deletedTitle}" telah dihapus.`);
     
