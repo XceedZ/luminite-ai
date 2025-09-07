@@ -353,6 +353,8 @@ export default function QuickCreateClientUI({
     const textPrompt = inputValue.trim();
     if ((textPrompt.length < 1 && uploadedFiles.length === 0) || isLoading) return;
 
+    const isNewChat = !useAIStore.getState().currentSessionId;
+
     const filesToSubmit = [...uploadedFiles];
     setInputValue("");
     setUploadedFiles([]);
@@ -365,11 +367,12 @@ export default function QuickCreateClientUI({
 
     const newSessionId = await generate(textPrompt, lang, false, imageParts);
 
-    if (newSessionId && !pageSessionId) {
-      const newUrl = `/${lang}/quick-create/${newSessionId}`;
-      window.history.pushState({ path: newUrl }, '', newUrl);
-    }
-  };
+        if (newSessionId && isNewChat) {
+            const newUrl = `/${lang}/quick-create/${newSessionId}`;
+            // Fungsi ini sekarang aman karena hanya akan berjalan sekali per sesi
+            window.history.pushState({ path: newUrl }, '', newUrl); 
+          }
+        };
 
   const handleRegenerate = async (index: number) => {
     const lastUserMessage = messages[index - 1];
