@@ -59,5 +59,11 @@
   "deleteChatConfirmTitle": "Are you absolutely sure?",
   "deleteChatConfirmDescription": "This will permanently delete the chat",
   "actionCannotBeUndone": "This action cannot be undone.",
-  "delete": "Delete"
+  "delete": "Delete",
+  "shareLinkTitle": "Share Link",
+  "shareLinkDescription": "Anyone who has this link will be able to view this chat.",
+  "copy": "Copy",
+  "close": "Close",
+  "aiPlan": "AI Plan",
+  "imagePreview": "Image Preview"
 }

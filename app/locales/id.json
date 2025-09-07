@@ -59,6 +59,11 @@
   "deleteChatConfirmTitle": "Apakah Anda benar-benar yakin?",
   "deleteChatConfirmDescription": "Tindakan ini akan menghapus obrolan secara permanen",
   "actionCannotBeUndone": "Tindakan ini tidak dapat dibatalkan.",
-  "delete": "Hapus"
-
+  "delete": "Hapus",
+  "shareLinkTitle": "Bagikan Tautan",
+  "shareLinkDescription": "Siapa pun yang memiliki tautan ini dapat melihat obrolan ini.",
+  "copy": "Salin",
+  "close": "Tutup",
+  "aiPlan": "Rencana AI",
+  "imagePreview": "Pratinjau Gambar"
 }

@@ -10,6 +10,7 @@ import {
   MoreHorizontal,
   Trash2,
   Edit,
+  Copy, // <-- Import the Copy icon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAIStore } from "@/app/store/ai-store"
@@ -34,6 +35,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
+  DialogClose, // <-- Import DialogClose
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -90,13 +92,13 @@ export function NavHistory({
   const pathname = usePathname()
   const lang = pathname.split('/')[1] || 'en';
   
-  // Dapatkan ID sesi aktif langsung dari URL, bukan dari store
   const activeSessionId = pathname.split('/')[3]; 
   const { renameChat, deleteChat } = useAIStore()
 
   const [visibleCount, setVisibleCount] = useState(MAX_VISIBLE_HISTORY);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isCopyLinkDialogOpen, setIsCopyLinkDialogOpen] = useState(false) // <-- New state for the copy link dialog
   const [actionTarget, setActionTarget] = useState<ChatHistoryItem | null>(null)
   const [newTitle, setNewTitle] = useState("")
 
@@ -109,15 +111,8 @@ export function NavHistory({
     }
   }, [actionTarget, isRenameDialogOpen]);
 
-  const handleCopyLink = (item: ChatHistoryItem) => {
-    const url = `${window.location.origin}${item.href}`;
-    navigator.clipboard.writeText(url).then(() => {
-      toast.success(t("linkCopied") || "Link copied to clipboard!");
-    }).catch(err => {
-      console.error('Failed to copy link: ', err);
-      toast.error(t("copyLinkFailed") || "Failed to copy link.");
-    });
-  };
+  // This function is no longer needed, its logic will move into the dialog
+  // const handleCopyLink = (item: ChatHistoryItem) => { ... };
 
   const handleOpenInNewTab = (item: ChatHistoryItem) => {
     window.open(item.href, '_blank', 'noopener,noreferrer');
@@ -137,13 +132,10 @@ export function NavHistory({
   const handleDeleteConfirm = async () => {
     if (!actionTarget) return;
     const deletedTitle = actionTarget.title;
-    
-    // Teruskan activeSessionId yang kita dapat dari URL
     const { isActiveChat } = await deleteChat(actionTarget.id);
 
     toast.success(`Chat "${deletedTitle}" telah dihapus.`);
     
-    // Komponen UI sekarang bertanggung jawab untuk navigasi
     if (isActiveChat) {
       router.push(`/${lang}/quick-create`);
     }
@@ -152,6 +144,16 @@ export function NavHistory({
   
   const handleShowMore = () => {
     setVisibleCount(prevCount => prevCount + MAX_VISIBLE_HISTORY);
+  };
+
+  // Helper function to handle copying inside the new dialog
+  const handleCopyToClipboard = (url: string) => {
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success(t("linkCopied") || "Link copied to clipboard!");
+    }).catch(err => {
+      console.error('Failed to copy link: ', err);
+      toast.error(t("copyLinkFailed") || "Failed to copy link.");
+    });
   };
 
   if (!isLoading && (!chatHistory || chatHistory.length === 0)) {
@@ -165,7 +167,6 @@ export function NavHistory({
         {isLoading ? <HistorySkeleton /> : (
           <SidebarMenu>
             {visibleHistory.map((item) => {
-              // 'isActive' sekarang dibandingkan dengan ID dari URL
               const isActive = activeSessionId === item.id;
               return (
                 <SidebarMenuItem key={item.id}>
@@ -194,7 +195,12 @@ export function NavHistory({
                         <span>{t("rename")}</span>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem onSelect={() => handleCopyLink(item)}>
+                      {/* --- MODIFIED THIS ITEM --- */}
+                      <DropdownMenuItem onSelect={(e) => {
+                        e.preventDefault();
+                        setActionTarget(item);
+                        setIsCopyLinkDialogOpen(true);
+                      }}>
                         <LinkIcon className="text-muted-foreground" />
                         <span>{t("copyLink")}</span>
                       </DropdownMenuItem>
@@ -232,8 +238,10 @@ export function NavHistory({
         )}
       </SidebarGroup>
 
+      {/* Rename Dialog */}
       <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        {/* ... (existing rename dialog code, no changes needed) ... */}
+         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>{t("renameChat")}</DialogTitle>
             <DialogDescription>
@@ -261,8 +269,9 @@ export function NavHistory({
         </DialogContent>
       </Dialog>
 
-      {/* Alert Dialog untuk Delete */}
+      {/* Delete Alert Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        {/* ... (existing delete dialog code, no changes needed) ... */}
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("deleteChatConfirmTitle")}</AlertDialogTitle>
@@ -281,6 +290,46 @@ export function NavHistory({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* --- NEW COPY LINK DIALOG --- */}
+      <Dialog open={isCopyLinkDialogOpen} onOpenChange={setIsCopyLinkDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("shareLinkTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("shareLinkDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center space-x-2">
+            <div className="grid flex-1 gap-2">
+              <Label htmlFor="link" className="sr-only">
+                Link
+              </Label>
+              <Input
+                id="link"
+                value={actionTarget ? `${window.location.origin}${actionTarget.href}` : ""}
+                readOnly
+              />
+            </div>
+            <Button 
+                type="button" 
+                size="sm" 
+                className="px-3"
+                onClick={() => handleCopyToClipboard(actionTarget ? `${window.location.origin}${actionTarget.href}` : "")}
+            >
+              <span className="sr-only">{t("copy")}</span>
+              <Copy className="h-4 w-4" />
+            </Button>
+          </div>
+          <DialogFooter className="sm:justify-start">
+            <DialogClose asChild>
+              <Button type="button" variant="secondary">
+                {t("close")}
+              </Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

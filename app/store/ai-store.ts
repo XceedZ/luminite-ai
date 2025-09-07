@@ -2,13 +2,23 @@
 
 import { create } from 'zustand'
 import {
-  generateContent, getChatHistory, getChatSessions,
-  renameChatSession, deleteChatSession
+  classifyAndSummarize,
+  summarizeDataForChartOrTable,
+  generateChart,
+  generateTable,
+  generateFinalResponse,
+  generateTitleForChat,
+  saveMessageToHistory,
+  getChatHistory, 
+  getChatSessions, 
+  renameChatSession, 
+  deleteChatSession
 } from '@/lib/actions/ai'
 import type { ImagePart, StoredMessage, AIGeneratedChart, ThinkingResult, AIGeneratedTable } from '@/lib/actions/ai';
 import type { ChatHistoryItem } from '@/components/nav-history';
+import { nanoid } from 'nanoid';
 
-// Definisikan tipe untuk pesan dalam state
+// ... interface tidak berubah ...
 interface Message {
   role: 'user' | 'model';
   content: string;
@@ -18,7 +28,11 @@ interface Message {
   table?: AIGeneratedTable | null;
 }
 
-// Definisikan tipe untuk keseluruhan state store
+interface AIStep {
+  text: string;
+  status: 'pending' | 'loading' | 'done';
+}
+
 interface AIState {
   messages: Message[];
   chatSessions: ChatHistoryItem[];
@@ -27,15 +41,9 @@ interface AIState {
   isHistoryLoading: boolean;
   isCancelled: boolean;
   error: string | null;
-
-  // State untuk melacak sesi aktif tanpa bergantung pada URL/props
   currentSessionId: string | null;
+  aiSteps: AIStep[];
 
-  // Flag untuk mencegah fetch data yang tidak perlu setelah navigasi pertama
-  sessionJustCreated: boolean;
-  setSessionJustCreated: (value: boolean) => void;
-
-  // Actions
   initializeSession: (sessionId: string) => Promise<void>;
   fetchChatSessions: (force?: boolean) => Promise<void>;
   startNewChat: () => void;
@@ -46,9 +54,10 @@ interface AIState {
   deleteChat: (sessionIdToDelete: string) => Promise<{ isActiveChat: boolean }>;
 }
 
+
 export const useAIStore = create<AIState>()(
     (set, get) => ({
-      // Initial State
+      // ... initial state tidak berubah ...
       messages: [],
       chatSessions: [],
       isLoading: false,
@@ -57,11 +66,9 @@ export const useAIStore = create<AIState>()(
       isCancelled: false,
       error: null,
       currentSessionId: null,
-      sessionJustCreated: false,
+      aiSteps: [],
 
-      // Actions
-      setSessionJustCreated: (value) => set({ sessionJustCreated: value }),
-
+      // ... actions lain tidak berubah ...
       fetchChatSessions: async (force = false) => {
         if (get().chatSessions.length > 0 && !force) {
           set({ isSessionsLoading: false });
@@ -79,7 +86,7 @@ export const useAIStore = create<AIState>()(
       },
 
       initializeSession: async (sessionId: string) => {
-        set({ isHistoryLoading: true, messages: [], currentSessionId: sessionId });
+        set({ isHistoryLoading: true, messages: [], currentSessionId: sessionId, error: null });
         try {
           const history: StoredMessage[] = await getChatHistory(sessionId);
           const formattedMessages: Message[] = history.map(msg => ({
@@ -88,18 +95,24 @@ export const useAIStore = create<AIState>()(
             chart: msg.chart ?? undefined,
             table: msg.table ?? undefined,
             thinkingResult: msg.thinkingResult ?? undefined,
-            // Note: Gambar dari history tidak dimuat ulang di sini, sesuaikan jika perlu
           }));
           set({ messages: formattedMessages });
         } catch (error) {
             console.error("Gagal memuat riwayat sesi:", error);
+            set({ error: "Gagal memuat riwayat sesi." })
         } finally {
             set({ isHistoryLoading: false });
         }
       },
 
       startNewChat: () => {
-        set({ messages: [], currentSessionId: null });
+        set({ 
+            messages: [], 
+            currentSessionId: null, 
+            aiSteps: [], 
+            error: null, 
+            isCancelled: false 
+        });
       },
 
       addMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
@@ -107,13 +120,13 @@ export const useAIStore = create<AIState>()(
       stopGeneration: (message) => set(state => ({
         isLoading: false,
         isCancelled: true,
+        aiSteps: [],
         messages: [...state.messages, { role: 'model', content: message }]
       })),
-
+      
       renameChat: async (sessionId, newTitle) => {
         try {
-          const result = await renameChatSession(sessionId, newTitle);
-          if (!result.success) throw new Error(result.error || 'Gagal mengganti nama di server.');
+          await renameChatSession(sessionId, newTitle);
           await get().fetchChatSessions(true);
         } catch (error) {
           console.error("Gagal mengganti nama obrolan:", error);
@@ -124,9 +137,7 @@ export const useAIStore = create<AIState>()(
       deleteChat: async (sessionIdToDelete) => {
         const isActiveChat = get().currentSessionId === sessionIdToDelete;
         try {
-          const result = await deleteChatSession(sessionIdToDelete);
-          if (!result.success) throw new Error(result.error || 'Gagal menghapus di server.');
-          
+          await deleteChatSession(sessionIdToDelete);
           if (isActiveChat) {
             get().startNewChat();
           }
@@ -138,52 +149,112 @@ export const useAIStore = create<AIState>()(
           return { isActiveChat: false };
         }
       },
-      
-      generate: async (prompt, lang, isRegenerate = false, images = []) => {
-        // Gunakan ID sesi dari state, bukan dari parameter fungsi
-        const sessionId = get().currentSessionId;
-        set({ isLoading: true, isCancelled: false });
 
-        try {
-          const result = await generateContent(prompt, sessionId, images);
-      
-          if (get().isCancelled) return null;
-          if (result.error) throw new Error(result.error as string);
-      
-          const isNewSession = !sessionId && result.sessionId;
-          const newSessionId = result.sessionId;
-      
-          // Jika ini sesi baru, update state internal dan refresh daftar sesi
-          if (isNewSession && newSessionId) {
-            set({ currentSessionId: newSessionId });
-            await get().fetchChatSessions(true);
-          }
-      
-          const modelMessage: Message = {
-            role: "model",
-            content: result.text || "",
-            thinkingResult: { classification: result.classification, duration: result.duration },
-            chart: result.chart,
-            table: result.table,
-          };
-      
-          set(state => ({ messages: [...state.messages, modelMessage] }));
-          return newSessionId; 
-        } catch (e: unknown) {
-          if (!get().isCancelled) {
-            const error = e as Error;
-            set(state => ({
-              error: error.message || "Terjadi kesalahan.",
-              messages: [
-                ...state.messages,
-                { role: "model", content: `Maaf, terjadi kesalahan: ${error.message}` },
-              ],
-            }));
-          }
-          return null;
-        } finally {
-          set({ isLoading: false });
+      // ✅ [PERBAIKAN] Fungsi generate kini menghitung durasi
+      generate: async (prompt, lang, isRegenerate = false, images = []) => {
+        set({ isLoading: true, isCancelled: false, error: null, aiSteps: [] });
+        const startTime = Date.now(); // Catat waktu mulai
+
+        let sessionId = get().currentSessionId;
+        const isNewChat = !sessionId;
+
+        if (isNewChat) {
+          sessionId = nanoid();
+          set({ currentSessionId: sessionId });
         }
-      },        
+        
+        try {
+            if (!isRegenerate) {
+                const userMessageForHistory: StoredMessage = { role: 'user', content: prompt };
+                await saveMessageToHistory(sessionId!, userMessageForHistory);
+            }
+
+            const historyForAnalysis = await getChatHistory(sessionId!);
+
+            const classificationResult = await classifyAndSummarize(prompt, historyForAnalysis, images);
+            if (get().isCancelled) return null;
+
+            if (classificationResult.stepByAi && classificationResult.stepByAi.length > 0) {
+              const initialSteps: AIStep[] = classificationResult.stepByAi.map((stepText: string) => ({
+                text: stepText,
+                status: 'pending'
+              }));
+              set({ aiSteps: initialSteps });
+            }
+            
+            const updateStepStatus = (index: number, status: 'loading' | 'done') => {
+                set(state => ({
+                    aiSteps: state.aiSteps.map((step, i) => i === index ? { ...step, status } : step)
+                }));
+            };
+
+            let finalResponseText: string | undefined, chart: AIGeneratedChart | null = null, table: AIGeneratedTable | null = null;
+            
+            if (['data_visualization', 'data_tabulation'].includes(classificationResult.intent)) {
+                updateStepStatus(0, 'loading');
+                const summaryResult = await summarizeDataForChartOrTable(historyForAnalysis, classificationResult.language, classificationResult.intent, images);
+                updateStepStatus(0, 'done');
+
+                if (summaryResult.needsMoreData) { 
+                    finalResponseText = summaryResult.followUpQuestion; 
+                } else if (summaryResult.data) {
+                    if (classificationResult.intent === 'data_visualization') {
+                        updateStepStatus(1, 'loading');
+                        const chartResult = await generateChart(summaryResult.data, classificationResult.language, historyForAnalysis, classificationResult.summary);
+                        if (chartResult?.type === 'chart') chart = chartResult.chart; else if (chartResult?.type === 'confirmation_needed') finalResponseText = chartResult.message;
+                        updateStepStatus(1, 'done');
+                    } else {
+                        updateStepStatus(1, 'loading');
+                        table = await generateTable(summaryResult.data, classificationResult.language, classificationResult.summary);
+                        updateStepStatus(1, 'done');
+                    }
+                }
+            }
+            
+            if (!finalResponseText) {
+                const finalStepIndex = get().aiSteps.length - 1;
+                if(finalStepIndex >= 0) updateStepStatus(finalStepIndex, 'loading');
+                finalResponseText = await generateFinalResponse(prompt, classificationResult.intent, classificationResult.summary, classificationResult.language, historyForAnalysis, images);
+                if(finalStepIndex >= 0) updateStepStatus(finalStepIndex, 'done');
+            }
+            if (get().isCancelled) return null;
+
+            // ✅ [PERBAIKAN] Hitung durasi dari startTime hingga sekarang
+            const endTime = Date.now();
+            const duration = parseFloat(((endTime - startTime) / 1000).toFixed(2));
+
+            const modelMessage: Message = {
+              role: "model",
+              content: finalResponseText || "",
+              thinkingResult: { classification: classificationResult, duration },
+              chart,
+              table,
+            };
+
+            await saveMessageToHistory(sessionId!, modelMessage as StoredMessage);
+
+            if (isNewChat) {
+                const title = await generateTitleForChat(prompt, classificationResult.language, images);
+                await renameChatSession(sessionId!, title || "Obrolan Baru");
+                await get().fetchChatSessions(true);
+            }
+            
+            set(state => ({ messages: [...state.messages, modelMessage] }));
+            
+            return sessionId;
+            
+        } catch (e: unknown) {
+            if (get().isCancelled) return null;
+            const error = e as Error;
+            const errorMessage = `Maaf, terjadi kesalahan: ${error.message}`;
+            set({ error: errorMessage });
+            set(state => ({
+                messages: [...state.messages, { role: "model", content: errorMessage }],
+            }));
+            return null;
+        } finally {
+            set({ isLoading: false, aiSteps: [] });
+        }
+      },
     })
 );

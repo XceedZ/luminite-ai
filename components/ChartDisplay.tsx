@@ -59,7 +59,7 @@ export function ChartDisplay({ chart }: { chart: AIGeneratedChart }) {
             // [STYLE] Font tooltip diperkecil dan diberi sedikit penyesuaian margin
             return (
                 <div className="p-2 text-xs border rounded-lg shadow-sm bg-background">
-                    <p className="mb-1 font-bold text-sm">{label}</p>
+                    <p className="mb-1 text-sm">{label}</p>
                     <div className="space-y-1">
                         {payload.map((pld: any) => (
                             <div key={pld.dataKey || pld.name} className="flex items-center gap-2">
@@ -69,7 +69,7 @@ export function ChartDisplay({ chart }: { chart: AIGeneratedChart }) {
                                 />
                                 <div className="flex flex-1 justify-between">
                                     <p className="text-muted-foreground">{pld.name}:</p>
-                                    <p className="ml-2 font-bold">{formatNumber(pld.value)}</p>
+                                    <p className="ml-2">{formatNumber(pld.value)}</p>
                                 </div>
                             </div>
                         ))}
