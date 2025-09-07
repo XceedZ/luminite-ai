@@ -91,6 +91,7 @@ const ai = new GoogleGenAI({
       **Response Format (JSON ONLY):**
       - If data is sufficient: { "data": [ ... ] }
       - If data is insufficient: { "needsMoreData": true, "followUpQuestion": "Maaf, data tidak cukup. Bisa berikan data yang lebih lengkap?" }
+      - If the user's explicitly asks for "sample data", "dummy data", or "contoh data" and no structured data exists, generate 10-15 realistic sample objects.
 
       **CRITICAL DATA FORMATTING RULES:**
       1.  **Numbers must be Numbers:** All numeric values (like amounts, prices, quantities) MUST be formatted as integers or floats.
