@@ -396,19 +396,30 @@ async function generateTitleForChat(
 ): Promise<string> {
   const titlePrompt = `
     You are tasked with creating a **concise and descriptive chat title**.
-    
+
     Instructions:
     1. Analyze the following sources of context:
        - User's initial text prompt
-       - Any provided images (treat them as contextual info, e.g., documents, charts, receipts, invoices, or screenshots).
+       - Any provided images (treat them as contextual info, e.g., documents, charts, receipts, invoices, or screenshots)
     2. Identify the **main subject or action** from the user's request.
-    3. If the context clearly contains **expense or spending data** (e.g., receipts, invoices, transactions, payroll, pengeluaran), the title MUST explicitly mention "Pengeluaran" (in ${language}) as the main focus.
+    3. If the context clearly contains **expense or spending data** (e.g., receipts, invoices, transactions, payroll, pengeluaran):
+       - The title MUST explicitly mention "Pengeluaran" (in ${language}) as the main focus
+       - Include relevant details if present, such as **company name, period, or project**, to make the title informative
     4. Otherwise, summarize the request into a **short title (max 6 words)** that is:
        - Clear
        - Relevant
        - In ${language}
+       - Include key details like company or period if mentioned
        - Without quotes or extra formatting
-    5. If the prompt is very broad or casual (no clear topic), default to a general title like "Obrolan Umum".
+    5. If the prompt is very broad or casual (no clear topic), default to a general title like "Obrolan Umum"
+
+    Examples:
+    - Input: "Analisis pengeluaran PT Solusi Februari 2025"
+      Output: "Pengeluaran PT Solusi Feb 2025"
+    - Input: "Ringkasan data penjualan PT Alpha Q1 2025"
+      Output: "Data Penjualan PT Alpha Q1 2025"
+    - Input: "Apa itu bar chart?"
+      Output: "Pertanyaan Umum Chart"
 
     User's initial prompt: "${prompt}"
 
@@ -430,7 +441,7 @@ async function generateTitleForChat(
     }
 
     const response = await ai.models.generateContent({
-      model: "models/gemma-3n-e2b-it",
+      model: "models/gemma-3-12b-it",
       // Pastikan 'contents' memiliki struktur yang benar
       contents: [{ role: "user", parts: promptParts }]
     });
@@ -619,25 +630,50 @@ export async function classifyAndSummarize(
 
   2. **Classify the user's intent according to these rules (apply in order):**
 
+    [RULE SET 0: ALWAYS FOLLOW USER INSTRUCTIONS]
+    - If the user explicitly specifies how the output should be presented (e.g., “do not use a table”, “provide narrative summary”, “no chart”), follow this instruction exactly.
+    - This overrides all other classification rules, including RULE SET 1 (data_tabulation priority) and RULE SET 2.
+    - Classify intent based on the **type of processing requested**, not the default assumption about structured data.
+
     **[RULE SET 1: HIGHEST PRIORITY]**
-    - If the user's prompt is a general request (e.g., "summarize this", "explain this data") AND the provided text/images contain highly structured, multi-column data (like financial journals, tables, reports), classify as **"data_tabulation"**. The goal is to present structured data in the best table format first.
+    - If user's prompt is general request AND contains structured multi-column data AND no instruction to avoid tables, classify as "data_tabulation".
 
     **[RULE SET 2: STANDARD RULES]**
-    - **Meta-questions:** If the user asks ABOUT charts/tables (e.g., "what other types exist?", "what is a bar chart?"), classify as **"general_question"**.
     - **Creation commands:**
       - If the user explicitly asks to CREATE a chart/graph/visualization, classify as **"data_visualization"**.
       - If the user explicitly asks to CREATE a table/list, classify as **"data_tabulation"**.
     - If the user uploads a receipt/invoice and asks for categorization, classify as **"expense_entry"**.
     - If no structured data is provided AND the conversation history also contains no data (only casual chat), classify as **"general_chat"**.
-    - Else, classify as **"general_question"**.
+    - Else, classify as **"general_chat"**.
 
-  3. **Summarize the user's true underlying request** based on the full context.
+  3. **Summarize the user's true underlying request in a deep, context-aware manner.**
+    - Go beyond literal wording: include AI's internal reasoning, assumptions about user goals, and context derived from conversation history.
+    - Highlight why the user might need this output, possible constraints, and expected purpose.
+    - Match the language to the user's prompt (English or Indonesian).
+
+  **Example Deep Summaries:**
+
+  **English:**
+  - Input: "Can you summarize my sales spreadsheet by category and month?"
+    Output: "The user wants to transform raw sales spreadsheet data into a structured overview, grouped by category and month. I infer that they aim to understand sales patterns and performance trends over time. Implicitly, this may be for preparing management reports or identifying key areas of growth. Considering the conversation history, they seem focused on clear, actionable insights rather than just a generic summary."
+
+  - Input: "Explain different chart types for visualizing expenses."
+    Output: "The user seeks guidance on selecting the most effective chart type to represent expense data. My reasoning suggests they value clarity and comparison in financial visualization. They may be preparing reports or dashboards, and want to understand trade-offs between charts. From prior messages, they appear detail-oriented and prefer structured, explanatory guidance."
+
+  **Indonesian:**
+  - Input: "Buatkan ringkasan data penjualan per kategori dan bulan."
+    Output: "Pengguna ingin mengubah data mentah penjualan dalam spreadsheet menjadi gambaran terstruktur, dikelompokkan per kategori dan bulan. Saya menyimpulkan bahwa tujuan mereka adalah memahami pola dan tren performa penjualan dari waktu ke waktu. Secara implisit, ini kemungkinan untuk menyiapkan laporan manajemen atau mengidentifikasi area pertumbuhan utama. Dari riwayat percakapan, terlihat mereka fokus pada insight yang jelas dan dapat ditindaklanjuti, bukan sekadar ringkasan umum."
+
+  - Input: "Jelaskan tipe chart yang cocok untuk visualisasi pengeluaran."
+    Output: "Pengguna ingin mengetahui chart yang paling efektif untuk merepresentasikan data pengeluaran. Saya mengasumsikan mereka mengutamakan kejelasan dan kemampuan membandingkan informasi keuangan. Tujuannya mungkin untuk menyiapkan laporan atau dashboard, dan mereka ingin memahami kelebihan dan kekurangan tiap jenis chart. Dari percakapan sebelumnya, terlihat mereka detail dan menginginkan panduan yang terstruktur serta menjelaskan alasan di balik pilihan chart."
 
   4. **Detect the user's mood.**
 
   5. **Plan execution steps ("stepByAi").**  
     - Provide a list of logical preparation steps, strictly dependent on the classified intent.  
-    - **Maximum 3 steps only.**  
+    - Maximum 3 steps for most intents.
+    - Include relevant details from the prompt or uploaded data (e.g., company name, period, category, project) in both summary and stepByAi, if applicable.  
+    - **Special rule:** if intent = **"expense_entry"**, generate exactly 1 step, example: "Analyze, identify, and categorize the receipt or invoice PT Solusi in Feb 2025".  
     - Do not use words like *render*, *present*, or *display* since rendering is handled by the system. Focus only on analysis and preparation logic.
 
     - If intent = **"data_tabulation"** → Focus on collecting, cleaning, and organizing data into a table format.  
@@ -647,9 +683,10 @@ export async function classifyAndSummarize(
       Example: ["Analyze sales data for Fashion and Electronics by date", "Determine the appropriate visualization to show sales trends", "Create the chart configuration"]
 
     - If intent = **"expense_entry"** → Focus on extracting expense details and categorizing them.  
-      Example: ["Analyze the receipt or invoice", "Identify amounts and spending categories", "Summarize the expenses"]
+      Example: ["Analyze, identify, and categorize the receipt or invoice PT Solusi in Feb 2025"]
 
     - If intent = **"general_chat"** → stepByAi MUST be an empty array **[]**.
+    - All other intents (not listed above) → stepByAi MUST be an empty array [].
 
   Return ONLY a JSON object with keys: "language", "intent", "summary", "mood", and "stepByAi".
   **IMPORTANT** Both "summary" and "stepByAi" MUST always match the language of the user's prompt (Indonesian or English).
@@ -670,7 +707,7 @@ export async function classifyAndSummarize(
     }
     
     const response = await ai.models.generateContent({
-      model: "models/gemma-3n-e4b-it",
+      model: "models/gemma-3-12b-it",
       contents: [{ role: 'user', parts: contentParts }]
     });
 
