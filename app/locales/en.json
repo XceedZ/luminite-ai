@@ -65,5 +65,9 @@
   "copy": "Copy",
   "close": "Close",
   "aiPlan": "AI Plan",
-  "imagePreview": "Image Preview"
+  "imagePreview": "Image Preview",
+  "chatLimitTitle": "Chat Limit Reached",
+  "chatLimitDescription": "You have reached the maximum number of messages for this free session.",
+  "chatLimitButton": "Start New Chat",
+  "used": "used"
 }

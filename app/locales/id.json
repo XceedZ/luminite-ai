@@ -65,5 +65,9 @@
   "copy": "Salin",
   "close": "Tutup",
   "aiPlan": "Rencana AI",
-  "imagePreview": "Pratinjau Gambar"
+  "imagePreview": "Pratinjau Gambar",
+  "chatLimitTitle": "Batas Chat Tercapai",
+  "chatLimitDescription": "Anda telah mencapai jumlah maksimum pesan untuk sesi gratis ini.",
+  "chatLimitButton": "Mulai Chat Baru",
+  "used": "terpakai"
 }

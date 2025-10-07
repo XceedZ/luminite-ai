@@ -4,7 +4,7 @@ import * as React from "react"
 import { usePathname } from "next/navigation"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Plus, SendHorizonal, Copy, ThumbsUp, ThumbsDown, RefreshCw, Square, X, Loader2, Zap, AlertTriangle, ChevronsUpDown, Image as ImageIcon, FileUp, ChevronDown } from "lucide-react"
+import { Plus, SendHorizonal, Copy, ThumbsUp, ThumbsDown, RefreshCw, Square, X, Loader2, Zap, AlertTriangle, ChevronsUpDown, Image as ImageIcon, FileUp, ChevronDown, ArrowUpIcon, ShieldAlertIcon } from "lucide-react" // MODIFIED: Added ShieldAlertIcon
 import ReactMarkdown from "react-markdown"
 import { useAIStore } from "@/app/store/ai-store"
 import { cn } from "@/lib/utils"
@@ -25,8 +25,37 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 
+// Imports from new component
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupText,
+  InputGroupTextarea,
+} from "@/components/ui/input-group"
+import { Separator } from "@/components/ui/separator"
+// End of imports from new component
+
+// NEW: Imports for Item component
+import {
+  Item,
+  ItemActions,
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@/components/ui/item"
+// END NEW
+
 import {
     IconBolt, IconCash, IconCashMove, IconCashBanknote, IconCashRegister, IconReceipt2, IconReportMoney, IconChartBar, IconChartPie, IconChartHistogram, IconChartLine, IconShoppingCart, IconShoppingBag, IconCreditCard, IconCreditCardPay, IconCreditCardRefund, IconCalendarStats, IconCalendarEvent, IconPigMoney, IconBuildingBank, IconBuildingStore, IconFileInvoice, IconFileSpreadsheet, IconFileText, IconBriefcase, IconUsers, IconUserDollar, IconUserCheck, IconUserCog, IconCurrencyDollar, IconCurrencyEuro, IconCurrencyBitcoin, IconCurrencyRupee, IconCurrencyYen, IconWallet, IconClipboardList, IconClipboardText, IconTarget, IconGauge, IconTrendingUp, IconTrendingDown, IconBulb, IconNotes, IconListCheck, IconDatabase, IconSettings, IconWorld, IconServer, IconCloud,
+    IconPlus
 } from "@tabler/icons-react";
 
 
@@ -107,7 +136,8 @@ const MessageActions = ({ msg, onRegenerate, t }: { msg: any; onRegenerate: () =
   );
 };
 
-const InputSection = ({ inputValue, setInputValue, handleSubmit, handlePlusClick, isLoading, stopGeneration, suggestions, isLoadingSuggestions, t, isSubmitDisabled }: {
+// MODIFIED: Added usageText and isLimitReached to props
+const InputSection = ({ inputValue, setInputValue, handleSubmit, handlePlusClick, isLoading, stopGeneration, suggestions, isLoadingSuggestions, t, isSubmitDisabled, usageText, isLimitReached }: {
   inputValue: string;
   setInputValue: (value: string) => void;
   handleSubmit: (e: React.FormEvent) => void;
@@ -118,6 +148,8 @@ const InputSection = ({ inputValue, setInputValue, handleSubmit, handlePlusClick
   isLoadingSuggestions?: boolean;
   t: (key: string) => string;
   isSubmitDisabled: boolean;
+  usageText: string;
+  isLimitReached: boolean;
 }) => {
     
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -129,56 +161,79 @@ const InputSection = ({ inputValue, setInputValue, handleSubmit, handlePlusClick
 
     return (
       <div className="w-full flex flex-col items-center">
-        <form onSubmit={handleSubmit} className="w-full p-2 bg-neutral-100 dark:bg-neutral-900 rounded-xl shadow-sm">
-           <Textarea
-             placeholder={t('inputPlaceholder')}
-             className="w-full border-none max-h-[12rem] resize-none bg-neutral-100 dark:bg-neutral-900 focus-visible:ring-0 focus-visible:ring-offset-0 text-base p-2"
-             value={inputValue}
-             onChange={(e) => setInputValue(e.target.value)}
-             onKeyDown={handleKeyDown}
-             disabled={isLoading}
-             rows={2}
-           />
-           <div className="flex items-center justify-between mt-2">
-               <div className="flex items-center gap-1">
-                   <Popover>
-                     <PopoverTrigger asChild>
-                         <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                             <Plus className="h-4 w-4" />
-                         </Button>
-                     </PopoverTrigger>
-                     <PopoverContent className="w-auto p-2" side="top" align="start">
-                         <Button onClick={handlePlusClick} variant="ghost" className="w-full justify-start gap-2 px-2">
-                             <FileUp className="h-4 w-4" />
-                             Upload File
-                         </Button>
-                     </PopoverContent>
-                   </Popover>
-                   <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={handlePlusClick}>
-                     <ImageIcon className="h-4 w-4" />
-                   </Button>
-               </div>
-               <div>
-                 {isLoading ? (
-                     <Button variant="secondary" size="icon" aria-label={t('ariaStop')} onClick={stopGeneration} className="h-9 w-9 rounded-full">
-                         <Square className="h-5 w-5" />
-                     </Button>
-                 ) : (
-                     <Button type="submit" size="icon" aria-label={t('ariaSend')} disabled={isSubmitDisabled} className="h-9 w-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground">
-                         <SendHorizonal className="h-5 w-5" />
-                     </Button>
-                 )}
-               </div>
-           </div>
-         </form>
+        <form onSubmit={handleSubmit} className="w-full">
+            <InputGroup>
+                <InputGroupTextarea 
+                    placeholder={t('inputPlaceholder')}
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={isLoading || isLimitReached} // MODIFIED: Disable textarea when limit is reached
+                    className="max-h-[12rem] resize-none"
+                />
+                <InputGroupAddon align="block-end">
+                    <InputGroupButton
+                        type="button"
+                        variant="outline"
+                        className="rounded-full"
+                        size="icon-xs"
+                        onClick={handlePlusClick}
+                    >
+                        <IconPlus />
+                    </InputGroupButton>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <InputGroupButton variant="ghost">Auto</InputGroupButton>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                            side="top"
+                            align="start"
+                            className="[--radius:0.95rem]"
+                        >
+                            <DropdownMenuItem>Auto</DropdownMenuItem>
+                            <DropdownMenuItem>Agent</DropdownMenuItem>
+                            <DropdownMenuItem>Manual</DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    {/* MODIFIED: Make usage text dynamic */}
+                    <InputGroupText className="ml-auto">{usageText}</InputGroupText>
+                    <Separator orientation="vertical" className="!h-4" />
+                    {isLoading ? (
+                        <InputGroupButton
+                            type="button"
+                            variant="secondary"
+                            className="rounded-full"
+                            size="icon-xs"
+                            onClick={stopGeneration}
+                            aria-label={t('ariaStop')}
+                        >
+                            <Square className="h-4 w-4" />
+                            <span className="sr-only">Stop</span>
+                        </InputGroupButton>
+                    ) : (
+                        <InputGroupButton
+                            type="submit"
+                            variant="default"
+                            className="rounded-full"
+                            size="icon-xs"
+                            disabled={isSubmitDisabled}
+                            aria-label={t('ariaSend')}
+                        >
+                            <ArrowUpIcon className="h-4 w-4"/>
+                            <span className="sr-only">Send</span>
+                        </InputGroupButton>
+                    )}
+                </InputGroupAddon>
+            </InputGroup>
+        </form>
 
         {(isLoadingSuggestions || (suggestions && suggestions.length > 0)) && (
           <div className="w-full overflow-x-auto scrollbar-thin mt-4">
             <div className="flex w-max mx-auto gap-2 p-2 items-center">
               {isLoadingSuggestions ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>{t('generatingSuggestions')}</span>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>{t('generatingSuggestions')}</span>
                 </div>
               ) : (
                 suggestions?.map(({ text, icon }, index: number) => (
@@ -209,15 +264,15 @@ const AIStepsDisplay = ({ t }: { t: (key: string) => string }) => {
     };
     return (
         <div className="w-full max-w-prose self-start border rounded-md p-3 text-sm bg-muted/50 animate-in fade-in-0">
-             <p className="text-xs font-semibold text-muted-foreground mb-2">{t('aiPlan')}</p>
-             <div className="space-y-2">
-                {aiSteps.map((step, index) => (
-                    <div key={index} className="flex items-center gap-3">
-                        {getStepIcon(step.status)}
-                        <span className={cn("transition-colors", step.status === 'pending' ? 'text-muted-foreground' : 'text-foreground')}>{step.text}</span>
-                    </div>
-                ))}
-             </div>
+              <p className="text-xs font-semibold text-muted-foreground mb-2">{t('aiPlan')}</p>
+              <div className="space-y-2">
+                  {aiSteps.map((step, index) => (
+                      <div key={index} className="flex items-center gap-3">
+                          {getStepIcon(step.status)}
+                          <span className={cn("transition-colors", step.status === 'pending' ? 'text-muted-foreground' : 'text-foreground')}>{step.text}</span>
+                      </div>
+                  ))}
+              </div>
         </div>
     );
 };
@@ -237,6 +292,29 @@ const QuotaErrorNotification = ({ onDismiss, t }: { onDismiss: () => void, t: (k
         </div>
     </div>
 );
+
+// NEW: Component to show when chat limit is reached
+const ChatLimitNotification = ({ t, onStartNewChat }: { t: (key: string) => string, onStartNewChat: () => void }) => (
+    <div className="mb-4">
+      <Item variant="outline">
+        <ItemMedia variant="icon">
+          <ShieldAlertIcon />
+        </ItemMedia>
+        <ItemContent>
+          <ItemTitle>{t('chatLimitTitle')}</ItemTitle>
+          <ItemDescription>
+            {t('chatLimitDescription')}
+          </ItemDescription>
+        </ItemContent>
+        <ItemActions>
+          <Button size="sm" variant="outline" onClick={onStartNewChat}>
+            {t('chatLimitButton')}
+          </Button>
+        </ItemActions>
+      </Item>
+    </div>
+);
+
 
 const PageLoader = () => (
     <div className="flex h-full w-full flex-col items-center justify-center">
@@ -278,8 +356,15 @@ export default function QuickCreateClientUI({
     initializeSession,
     startNewChat,
     error: storeError,
-    aiSteps // ✅ [PERBAIKAN] 1. Ambil `aiSteps` dari store
+    aiSteps
   } = useAIStore();
+
+  // NEW: Chat limit logic
+  const CHAT_LIMIT = 8;
+  const hasReachedLimit = messages.length >= CHAT_LIMIT;
+  const usagePercentage = Math.round((messages.length / CHAT_LIMIT) * 100);
+  const usageText = `${usagePercentage}% ${t('used')}`;
+  // END NEW
 
   React.useEffect(() => {
     if (pageSessionId) {
@@ -287,7 +372,7 @@ export default function QuickCreateClientUI({
     } else {
       startNewChat();
     }
-  }, [pageSessionId]);
+  }, [pageSessionId, initializeSession, startNewChat]);
 
   React.useEffect(() => {
     if (storeError && (storeError.includes('RESOURCE_EXHAUSTED') || storeError.includes('"code":429'))) {
@@ -313,7 +398,6 @@ export default function QuickCreateClientUI({
     }
   }, [pageSessionId]);
 
-  // ✅ [PERBAIKAN] 2. Tambahkan `aiSteps` ke dependency array
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading, aiSteps]);
@@ -349,6 +433,7 @@ export default function QuickCreateClientUI({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (hasReachedLimit) return; // NEW: Prevent submission if limit is reached
     setApiError(null);
     const textPrompt = inputValue.trim();
     if ((textPrompt.length < 1 && uploadedFiles.length === 0) || isLoading) return;
@@ -367,12 +452,11 @@ export default function QuickCreateClientUI({
 
     const newSessionId = await generate(textPrompt, lang, false, imageParts);
 
-        if (newSessionId && isNewChat) {
-            const newUrl = `/${lang}/quick-create/${newSessionId}`;
-            // Fungsi ini sekarang aman karena hanya akan berjalan sekali per sesi
-            window.history.pushState({ path: newUrl }, '', newUrl); 
-          }
-        };
+        if (newSessionId && isNewChat) {
+            const newUrl = `/${lang}/quick-create/${newSessionId}`;
+            window.history.pushState({ path: newUrl }, '', newUrl); 
+        }
+        };
 
   const handleRegenerate = async (index: number) => {
     const lastUserMessage = messages[index - 1];
@@ -391,7 +475,8 @@ export default function QuickCreateClientUI({
     await generate(userPrompt, lang, true, imageParts);
   };
 
-  const isSubmitDisabled = isLoading || (inputValue.trim().length < 1 && uploadedFiles.length === 0);
+  // MODIFIED: Add hasReachedLimit to the disabled condition
+  const isSubmitDisabled = isLoading || (inputValue.trim().length < 1 && uploadedFiles.length === 0) || hasReachedLimit;
 
   const FilePreview = () => (
     uploadedFiles.length > 0 ? (
@@ -432,7 +517,11 @@ export default function QuickCreateClientUI({
             <p className="mt-3 text-lg text-muted-foreground max-w-4xl">{t('quickCreateSubtitle')}</p>
             <div className="mt-8 w-full relative">
               <FilePreview />
-              <InputSection {...{ inputValue, setInputValue, handleSubmit, handlePlusClick, isLoading, stopGeneration: () => stopGeneration(t('generationStopped')), suggestions, isLoadingSuggestions, t, isSubmitDisabled }} />
+              <InputSection 
+                {...{ inputValue, setInputValue, handleSubmit, handlePlusClick, isLoading, stopGeneration: () => stopGeneration(t('generationStopped')), suggestions, isLoadingSuggestions, t, isSubmitDisabled }} 
+                usageText={usageText}
+                isLimitReached={hasReachedLimit}
+              />
             </div>
           </main>
         ) : (
@@ -505,8 +594,8 @@ export default function QuickCreateClientUI({
               {isLoading && messages[messages.length - 1]?.role === 'user' && (
                   <div className="flex w-full flex-col items-start gap-4 text-left group relative">
                       <div className="flex items-center gap-3">
-                        <div className="h-5 w-5 border-2 border-border border-t-primary rounded-full animate-spin" />
-                        <p className="text-muted-foreground animate-pulse">{t('thinking')}</p>
+                          <div className="h-5 w-5 border-2 border-border border-t-primary rounded-full animate-spin" />
+                          <p className="text-muted-foreground animate-pulse">{t('thinking')}</p>
                       </div>
                       <AIStepsDisplay t={t} />
                   </div>
@@ -517,6 +606,8 @@ export default function QuickCreateClientUI({
 
             <div className="w-full max-w-4xl flex-shrink-0 px-4 pb-4 relative">
               {apiError === 'QUOTA_EXCEEDED' && <QuotaErrorNotification onDismiss={() => setApiError(null)} t={t} />}
+              {/* NEW: Conditionally render the limit notification */}
+              {hasReachedLimit && <ChatLimitNotification t={t} onStartNewChat={startNewChat} />}
               <FilePreview />
               <InputSection
                 inputValue={inputValue}
@@ -529,6 +620,9 @@ export default function QuickCreateClientUI({
                 isSubmitDisabled={isSubmitDisabled}
                 suggestions={[]}
                 isLoadingSuggestions={false}
+                // MODIFIED: Pass dynamic props
+                usageText={usageText}
+                isLimitReached={hasReachedLimit}
               />
             </div>
           </div>
