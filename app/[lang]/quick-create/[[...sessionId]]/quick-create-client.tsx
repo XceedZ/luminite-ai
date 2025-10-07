@@ -10,6 +10,7 @@ import ReactMarkdown from "react-markdown"
 import { useAIStore } from "@/app/store/ai-store"
 import { cn } from "@/lib/utils"
 import { generateSuggestions, AIGeneratedChart, ImagePart } from "@/lib/actions/ai"
+import type { StoredMessage } from "@/lib/actions/ai"
 import { ChartDisplay } from "@/components/ChartDisplay";
 import { TableDisplay } from "@/components/TableDisplay";
 
@@ -62,16 +63,17 @@ import {
     IconBolt, IconCash, IconCashMove, IconCashBanknote, IconCashRegister, IconReceipt2, IconReportMoney, IconChartBar, IconChartPie, IconChartHistogram, IconChartLine, IconShoppingCart, IconShoppingBag, IconCreditCard, IconCreditCardPay, IconCreditCardRefund, IconCalendarStats, IconCalendarEvent, IconPigMoney, IconBuildingBank, IconBuildingStore, IconFileInvoice, IconFileSpreadsheet, IconFileText, IconBriefcase, IconUsers, IconUserDollar, IconUserCheck, IconUserCog, IconCurrencyDollar, IconCurrencyEuro, IconCurrencyBitcoin, IconCurrencyRupee, IconCurrencyYen, IconWallet, IconClipboardList, IconClipboardText, IconTarget, IconGauge, IconTrendingUp, IconTrendingDown, IconBulb, IconNotes, IconListCheck, IconDatabase, IconSettings, IconWorld, IconServer, IconCloud,
     IconPlus, IconCheck
 } from "@tabler/icons-react";
+import type { IconProps } from "@tabler/icons-react";
 
 
 // --- Helper Components ---
 
-const ICON_MAP: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
+const ICON_MAP: Record<string, React.ComponentType<IconProps>> = {
     IconBolt, IconCash, IconCashMove, IconCashBanknote, IconCashRegister, IconReceipt2, IconReportMoney, IconChartBar, IconChartPie, IconChartHistogram, IconChartLine, IconShoppingCart, IconShoppingBag, IconCreditCard, IconCreditCardPay, IconCreditCardRefund, IconCalendarStats, IconCalendarEvent, IconPigMoney, IconBuildingBank, IconBuildingStore, IconFileInvoice, IconFileSpreadsheet, IconFileText, IconBriefcase, IconUsers, IconUserDollar, IconUserCheck, IconUserCog, IconCurrencyDollar, IconCurrencyEuro, IconCurrencyBitcoin, IconCurrencyRupee, IconCurrencyYen, IconWallet, IconClipboardList, IconClipboardText, IconTarget, IconGauge, IconTrendingUp, IconTrendingDown, IconBulb, IconNotes, IconListCheck, IconDatabase, IconSettings, IconWorld, IconServer, IconCloud,
 };
 
 const DynamicIcon = ({ name }: { name: string }) => {
-    const IconComponent = ICON_MAP[name] || IconBulb;
+    const IconComponent = ICON_MAP[name] ?? IconBulb;
     return <IconComponent className="mr-2 h-4 w-4" />;
 };
 
@@ -81,7 +83,7 @@ type ChatMessage = {
   images?: string[];
   table?: unknown;
   chart?: unknown;
-  thinkingResult?: { duration: number; classification?: { summary?: string; rawResponse?: string } };
+  thinkingResult?: { duration: number; classification?: { summary?: string; rawResponse?: string } } | null;
 };
 
 const AIMessage = ({ msg }: { msg: ChatMessage }) => (
@@ -131,7 +133,7 @@ const MessageActions = ({ msg, onRegenerate, t }: { msg: ChatMessage; onRegenera
   const [isCopied, setIsCopied] = React.useState(false);
 
   const handleCopy = () => {
-    const textToCopy = msg.content || msg.table?.description || msg.chart?.description || '';
+    const textToCopy = msg.content || ((msg.table as unknown as { description?: string } | null)?.description) || ((msg.chart as unknown as { description?: string } | null)?.description) || '';
     if (textToCopy) {
       navigator.clipboard.writeText(textToCopy);
       setIsCopied(true);
@@ -566,15 +568,15 @@ export default function QuickCreateClientUI({
 
     const imageParts = await Promise.all(filesToSubmit.map(f => fileToBase64(f.file)));
     // Build extra context from selected sessions
-    let extraContext: any[] = [];
+    let extraContext: StoredMessage[] = [];
     if (selectedContext.length) {
       const histories = await Promise.all(selectedContext.map(async (s) => {
         try {
           const h = await (await import("@/lib/actions/ai")).getChatHistory(s.id);
-          return h;
+          return h as unknown as StoredMessage[];
         } catch { return []; }
       }));
-      extraContext = histories.flat();
+      extraContext = histories.flat() as StoredMessage[];
     }
     const imageDataUrls = imageParts.map(part => `data:${part.mimeType};base64,${part.data}`);
 
@@ -666,8 +668,8 @@ export default function QuickCreateClientUI({
                   {msg.role === 'model' && msg.thinkingResult && (
                     <div className="w-full max-w-prose self-start">
                       <button onClick={() => setExpandedResults(prev => ({ ...prev, [index]: !prev[index] }))} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground mb-2">
-                        {t('resultThink') || 'Hasil Pemikiran'} ({msg.thinkingResult.duration}s)
-                        <ChevronDown className={cn("h-4 w-4 transition-transform", expandedResults[index] && "rotate-180")}/>
+                            {t('resultThink') || 'Hasil Pemikiran'} ({msg.thinkingResult.duration}s)
+                        <ChevronsUpDown className={cn("h-4 w-4 transition-transform", expandedResults[index] && "rotate-180")}/>
                       </button>
                       {expandedResults[index] && (
                         <div className="border rounded-md p-3 mb-2 text-sm bg-muted/50 animate-in fade-in-0">
