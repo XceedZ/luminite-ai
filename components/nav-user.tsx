@@ -1,6 +1,9 @@
 "use client"
 
 import * as React from "react"
+import { Globe } from "lucide-react"
+import { useLanguage } from "@/components/language-provider"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 import {
   Avatar,
@@ -132,6 +135,7 @@ export function NavUser({
   t?: (key: string) => string // 't' sekarang bersifat opsional
 }) {
   const { isMobile } = useSidebar()
+  const { lang, setLang } = useLanguage()
 
   return (
     <SidebarMenu>
@@ -177,6 +181,20 @@ export function NavUser({
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
+              <div className="md:hidden px-1 py-1.5">
+                <Select value={lang} onValueChange={(v) => setLang(v as any)}>
+                  <SelectTrigger className="w-full">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4" />
+                      <SelectValue placeholder="Language" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="en">English</SelectItem>
+                    <SelectItem value="id">Indonesia</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <DropdownMenuItem>
                 <IconUserCircle className="mr-2 h-4 w-4" />
                 <span>{t("account")}</span>

@@ -6,6 +6,5 @@ import { redirect } from "next/navigation"
  * ke halaman dashboard dengan bahasa default 'en'.
  */
 export default function RootPage() {
-  // Arahkan pengguna ke halaman dashboard default
-  redirect("/en/dashboard")
+  redirect("/dashboard")
 }

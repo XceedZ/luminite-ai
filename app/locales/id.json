@@ -18,7 +18,7 @@
   "logout": "Keluar",
   "mainMenu": "Utama",
   "playground": "Playground",
-  "generalChat": "Obrolan Umum",
+  "generalChat": "Sistem Instruksi",
   "waifuAI": "Studio Karakter",
   "dataMenu": "Database",
   "transactions": "Transaksi",
@@ -69,5 +69,12 @@
   "chatLimitTitle": "Batas Chat Tercapai",
   "chatLimitDescription": "Anda telah mencapai jumlah maksimum pesan untuk sesi gratis ini.",
   "chatLimitButton": "Mulai Chat Baru",
-  "used": "terpakai"
+  "used": "terpakai",
+  "addContext": "Tambah konteks",
+  "autoLabel": "Otomatis",
+  "autoModelTitle": "Pilih Mode",
+  "autoDescription": "Pilih model otomatis berdasarkan penggunaan kuota yang efisien",
+  "selectAIModelTitle": "Pilih Model AI",
+  "searchPlaceholder": "Cari...",
+  "commandSearchPlaceholder": "Ketik perintah atau cari..."
 }

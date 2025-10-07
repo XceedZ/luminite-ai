@@ -44,7 +44,7 @@ export const mainNav: NavItem[] = [
     title: "Quick Create", // Ini akan menjadi judul metadata & breadcrumb
     href: "quick-create",
     icon: IconPlus, // Gunakan ikon yang sesuai
-    hidden: true, // [PERUBAHAN] Item ini sekarang akan disembunyikan dari menu
+    hidden: true, // Hide from main menu; available via dedicated button
   },
   // ✅ PERUBAHAN DI SINI
   {

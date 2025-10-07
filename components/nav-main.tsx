@@ -42,7 +42,7 @@ export function NavMain({
   t: (key: string) => string
 }) {
   const isActive = (href: string) => pathname.startsWith(href)
-  const lang = pathname.split("/")[1] || "en"
+  // Routes no longer include language segment
 
   return (
     <SidebarGroup>
@@ -56,7 +56,7 @@ export function NavMain({
               tooltip={t("quickCreate")}
               className="h-10 justify-center text-base font-semibold cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground active:bg-primary/90 active:text-primary-foreground"
             >
-              <Link href={`/${lang}/quick-create`}>
+              <Link href={`/quick-create`}>
                 <IconPlus className="flex-shrink-0" />
                 <HideOnCollapse>
                   <span>{t("quickCreate")}</span>
@@ -78,7 +78,7 @@ export function NavMain({
                 defaultOpen={isActive(item.href)}
                 className="group/collapsible"
               >
-                <SidebarMenuItem className={isActive(item.href) ? "bg-sidebar-accent" : ""}>
+                <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton tooltip={t(item.name)}>
                       {item.icon && <item.icon />}

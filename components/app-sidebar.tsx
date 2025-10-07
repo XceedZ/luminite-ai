@@ -3,6 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useLanguage } from "@/components/language-provider";
 import { IconCircle } from "@tabler/icons-react" // contoh default
 import { dataNav, mainNav, secondaryNav } from "@/config/nav";
 import type { NavItem } from "@/config/nav";
@@ -23,13 +24,11 @@ import {
 
 const user = { name: "Luminite", email: "luminiteai@dev.com", avatar: "/avatars/shadcn.jpg" };
 
-type AppSidebarProps = {
-  dictionary: { [key: string]: string };
-} & React.ComponentProps<typeof Sidebar>;
+type AppSidebarProps = React.ComponentProps<typeof Sidebar>;
 
-export function AppSidebar({ dictionary, ...props }: AppSidebarProps) {
+export function AppSidebar({ ...props }: AppSidebarProps) {
   const pathname = usePathname();
-  const lang = pathname.split("/")[1] || "en";
+  const { t } = useLanguage();
   
   // [PERBAIKAN] Ambil juga state 'isSessionsLoading' dari store
   const { chatSessions, fetchChatSessions, isSessionsLoading } = useAIStore();
@@ -38,15 +37,13 @@ export function AppSidebar({ dictionary, ...props }: AppSidebarProps) {
     fetchChatSessions();
   }, [fetchChatSessions]);
 
-  const t = React.useCallback((key: string): string => dictionary[key] || key, [
-    dictionary,
-  ]);
+  const translate = React.useCallback((key: string): string => t(key), [t]);
 
   const dynamicNav = React.useMemo(() => {
     const buildUrls = (items: NavItem[]): NavItem[] =>
       items.map((item) => ({
         ...item,
-        href: `/${lang}/${item.href}`,
+        href: `/${item.href}`,
         icon: item.icon ?? IconCircle, // ✅ fallback supaya gak undefined
         items: item.items ? buildUrls(item.items) : undefined,
       }));
@@ -54,7 +51,7 @@ export function AppSidebar({ dictionary, ...props }: AppSidebarProps) {
     const buildHistoryUrls = (items: ChatHistoryItem[]): ChatHistoryItem[] =>
       (items || []).map((item) => ({
         ...item,
-        href: `/${lang}/quick-create/${item.id}`,
+        href: `/quick-create/${item.id}`,
       }));
 
     return {
@@ -63,7 +60,7 @@ export function AppSidebar({ dictionary, ...props }: AppSidebarProps) {
       history: buildHistoryUrls(chatSessions),
       secondary: buildUrls(secondaryNav),
     };
-  }, [lang, chatSessions]);
+  }, [chatSessions]);
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -84,22 +81,22 @@ export function AppSidebar({ dictionary, ...props }: AppSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent>
-        <NavMain items={dynamicNav.main} pathname={pathname} t={t} />
-        <NavData items={dynamicNav.data} pathname={pathname} t={t} />
+        <NavMain items={dynamicNav.main} pathname={pathname} t={translate} />
+        <NavData items={dynamicNav.data} pathname={pathname} t={translate} />
         {/* [PERBAIKAN] Teruskan state 'isSessionsLoading' sebagai prop 'isLoading' */}
         <NavHistory 
           chatHistory={dynamicNav.history} 
           isLoading={isSessionsLoading}
-          t={t} 
+          t={translate} 
         />
         
         <HideOnCollapse>
-          <NavSecondary items={dynamicNav.secondary} t={t} />
+          <NavSecondary items={dynamicNav.secondary} t={translate} />
         </HideOnCollapse>
       </SidebarContent>
 
       <SidebarFooter>
-        <NavUser user={user} t={t} />
+        <NavUser user={user} t={translate} />
       </SidebarFooter>
     </Sidebar>
   );

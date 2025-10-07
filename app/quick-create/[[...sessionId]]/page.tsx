@@ -1,11 +1,15 @@
 import "server-only";
 import type { Metadata } from "next";
 import { findNavItemByHref } from "@/lib/nav-utils";
-import QuickCreateClientUI from "@/app/quick-create/[[...sessionId]]/quick-create-client";
+import QuickCreateClientUI from "./quick-create-client";
 
 export const dynamic = 'force-dynamic';
 
-type Props = { params: { sessionId?: string[] } };
+type Props = {
+  params: {
+    sessionId?: string[];
+  };
+};
 
 export async function generateMetadata(props: Props): Promise<Metadata> {
   const navItem = findNavItemByHref("quick-create");
@@ -14,8 +18,9 @@ export async function generateMetadata(props: Props): Promise<Metadata> {
   };
 }
 
-// Jangan destructure 'params' langsung dalam parameter
 export default async function QuickCreatePage(props: Props) {
   const sessionId = props.params.sessionId?.[0];
   return <QuickCreateClientUI sessionId={sessionId} />;
 }
+
+

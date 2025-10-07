@@ -12,7 +12,7 @@ import {
   getChatHistory, 
   getChatSessions, 
   renameChatSession, 
-  deleteChatSession
+  deleteChatSession 
 } from '@/lib/actions/ai'
 import type { ImagePart, StoredMessage, AIGeneratedChart, ThinkingResult, AIGeneratedTable } from '@/lib/actions/ai';
 import type { ChatHistoryItem } from '@/components/nav-history';
@@ -48,7 +48,7 @@ interface AIState {
   fetchChatSessions: (force?: boolean) => Promise<void>;
   startNewChat: () => void;
   addMessage: (message: Message) => void;
-  generate: (prompt: string, lang: string, isRegenerate?: boolean, images?: ImagePart[]) => Promise<string | null>;
+  generate: (prompt: string, lang: string, isRegenerate?: boolean, images?: ImagePart[], extraContext?: StoredMessage[]) => Promise<string | null>;
   stopGeneration: (message: string) => void;
   renameChat: (sessionId: string, newTitle: string) => Promise<void>;
   deleteChat: (sessionIdToDelete: string) => Promise<{ isActiveChat: boolean }>;
@@ -151,7 +151,7 @@ export const useAIStore = create<AIState>()(
       },
 
       // ✅ [PERBAIKAN] Fungsi generate kini menghitung durasi
-      generate: async (prompt, lang, isRegenerate = false, images = []) => {
+      generate: async (prompt, lang, isRegenerate = false, images = [], extraContext = []) => {
         set({ isLoading: true, isCancelled: false, error: null, aiSteps: [] });
         const startTime = Date.now(); // Catat waktu mulai
 
@@ -169,7 +169,10 @@ export const useAIStore = create<AIState>()(
                 await saveMessageToHistory(sessionId!, userMessageForHistory);
             }
 
-            const historyForAnalysis = await getChatHistory(sessionId!);
+            const historyForAnalysis = [
+              ...(extraContext || []),
+              ...(await getChatHistory(sessionId!))
+            ];
 
             const classificationResult = await classifyAndSummarize(prompt, historyForAnalysis, images);
             if (get().isCancelled) return null;

@@ -2,9 +2,10 @@
 
 import * as React from "react"
 import { usePathname } from "next/navigation"
+import { useLanguage } from "@/components/language-provider"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Plus, SendHorizonal, Copy, ThumbsUp, ThumbsDown, RefreshCw, Square, X, Loader2, Zap, AlertTriangle, ChevronsUpDown, Image as ImageIcon, FileUp, ChevronDown, ArrowUpIcon, ShieldAlertIcon } from "lucide-react" // MODIFIED: Added ShieldAlertIcon
+import { Plus, SendHorizonal, Copy, ThumbsUp, ThumbsDown, RefreshCw, Square, X, Loader2, Zap, AlertTriangle, ChevronsUpDown, Image as ImageIcon, FileUp, ChevronDown as ChevronDownIcon, ArrowUpIcon, ShieldAlertIcon, AtSign, Bot as BotIcon } from "lucide-react" // MODIFIED: Added ShieldAlertIcon and AtSign, BotIcon, ChevronDownIcon
 import ReactMarkdown from "react-markdown"
 import { useAIStore } from "@/app/store/ai-store"
 import { cn } from "@/lib/utils"
@@ -40,6 +41,10 @@ import {
   InputGroupTextarea,
 } from "@/components/ui/input-group"
 import { Separator } from "@/components/ui/separator"
+import { CircularProgress } from "@/components/customized/progress/progress-07"
+import { Switch } from "@/components/ui/switch"
+import { ButtonGroup } from "@/components/ui/button-group"
+// removed command dialog imports in favor of dropdown menu for context selection
 // End of imports from new component
 
 // NEW: Imports for Item component
@@ -55,13 +60,13 @@ import {
 
 import {
     IconBolt, IconCash, IconCashMove, IconCashBanknote, IconCashRegister, IconReceipt2, IconReportMoney, IconChartBar, IconChartPie, IconChartHistogram, IconChartLine, IconShoppingCart, IconShoppingBag, IconCreditCard, IconCreditCardPay, IconCreditCardRefund, IconCalendarStats, IconCalendarEvent, IconPigMoney, IconBuildingBank, IconBuildingStore, IconFileInvoice, IconFileSpreadsheet, IconFileText, IconBriefcase, IconUsers, IconUserDollar, IconUserCheck, IconUserCog, IconCurrencyDollar, IconCurrencyEuro, IconCurrencyBitcoin, IconCurrencyRupee, IconCurrencyYen, IconWallet, IconClipboardList, IconClipboardText, IconTarget, IconGauge, IconTrendingUp, IconTrendingDown, IconBulb, IconNotes, IconListCheck, IconDatabase, IconSettings, IconWorld, IconServer, IconCloud,
-    IconPlus
+    IconPlus, IconCheck
 } from "@tabler/icons-react";
 
 
 // --- Helper Components ---
 
-const ICON_MAP: Record<string, React.FC<any>> = {
+const ICON_MAP: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
     IconBolt, IconCash, IconCashMove, IconCashBanknote, IconCashRegister, IconReceipt2, IconReportMoney, IconChartBar, IconChartPie, IconChartHistogram, IconChartLine, IconShoppingCart, IconShoppingBag, IconCreditCard, IconCreditCardPay, IconCreditCardRefund, IconCalendarStats, IconCalendarEvent, IconPigMoney, IconBuildingBank, IconBuildingStore, IconFileInvoice, IconFileSpreadsheet, IconFileText, IconBriefcase, IconUsers, IconUserDollar, IconUserCheck, IconUserCog, IconCurrencyDollar, IconCurrencyEuro, IconCurrencyBitcoin, IconCurrencyRupee, IconCurrencyYen, IconWallet, IconClipboardList, IconClipboardText, IconTarget, IconGauge, IconTrendingUp, IconTrendingDown, IconBulb, IconNotes, IconListCheck, IconDatabase, IconSettings, IconWorld, IconServer, IconCloud,
 };
 
@@ -70,21 +75,30 @@ const DynamicIcon = ({ name }: { name: string }) => {
     return <IconComponent className="mr-2 h-4 w-4" />;
 };
 
-const AIMessage = ({ msg }: { msg: any }) => (
+type ChatMessage = {
+  role: 'user' | 'model';
+  content?: string;
+  images?: string[];
+  table?: unknown;
+  chart?: unknown;
+  thinkingResult?: { duration: number; classification?: { summary?: string; rawResponse?: string } };
+};
+
+const AIMessage = ({ msg }: { msg: ChatMessage }) => (
     <div className="w-full max-w-prose animate-in fade-in-0 duration-500">
       <div className="max-w-none prose prose-zinc dark:prose-invert">
         <ReactMarkdown
           components={{
-            h1: ({node, ...props}) => <h1 {...props} className="text-3xl font-bold mt-5 mb-3 text-foreground" />,
-            h2: ({node, ...props}) => <h2 {...props} className="text-2xl font-bold mt-4 mb-2 text-foreground border-b pb-1" />,
-            h3: ({node, ...props}) => <h3 {...props} className="text-xl font-semibold mt-3 mb-1 text-foreground" />,
-            ul: ({node, ...props}) => <ul {...props} className="list-disc list-inside my-3 space-y-1" />,
-            ol: ({node, ...props}) => <ol {...props} className="list-decimal list-inside my-3 space-y-1" />,
-            li: ({node, ...props}) => <li {...props} className="pl-2" />,
-            a: ({node, ...props}) => <a {...props} className="text-primary underline hover:opacity-80" target="_blank" rel="noopener noreferrer" />,
-            strong: ({node, ...props}) => <strong {...props} className="font-semibold text-foreground" />,
-            code: ({node, ...props}) => <code {...props} className="bg-muted text-muted-foreground px-1.5 py-1 rounded-md font-mono text-sm" />,
-            p: ({node, ...props}) => <p {...props} className="mb-3 leading-relaxed" />,
+            h1: ({...props}) => <h1 {...props} className="text-3xl font-bold mt-5 mb-3 text-foreground" />,
+            h2: ({...props}) => <h2 {...props} className="text-2xl font-bold mt-4 mb-2 text-foreground border-b pb-1" />,
+            h3: ({...props}) => <h3 {...props} className="text-xl font-semibold mt-3 mb-1 text-foreground" />,
+            ul: ({...props}) => <ul {...props} className="list-disc list-inside my-3 space-y-1" />,
+            ol: ({...props}) => <ol {...props} className="list-decimal list-inside my-3 space-y-1" />,
+            li: ({...props}) => <li {...props} className="pl-2" />,
+            a: ({...props}) => <a {...props} className="text-primary underline hover:opacity-80" target="_blank" rel="noopener noreferrer" />,
+            strong: ({...props}) => <strong {...props} className="font-semibold text-foreground" />,
+            code: ({...props}) => <code {...props} className="bg-muted text-muted-foreground px-1.5 py-1 rounded-md font-mono text-sm" />,
+            p: ({...props}) => <p {...props} className="mb-3 leading-relaxed" />,
           }}
         >
           {msg.content}
@@ -112,7 +126,7 @@ const UserMessageActions = ({ content, t }: { content: string; t: (key: string) 
     );
 };
 
-const MessageActions = ({ msg, onRegenerate, t }: { msg: any; onRegenerate: () => void; t: (key: string) => string }) => {
+const MessageActions = ({ msg, onRegenerate, t }: { msg: ChatMessage; onRegenerate: () => void; t: (key: string) => string }) => {
   const [feedback, setFeedback] = React.useState<'like' | 'dislike' | null>(null);
   const [isCopied, setIsCopied] = React.useState(false);
 
@@ -137,7 +151,7 @@ const MessageActions = ({ msg, onRegenerate, t }: { msg: any; onRegenerate: () =
 };
 
 // MODIFIED: Added usageText and isLimitReached to props
-const InputSection = ({ inputValue, setInputValue, handleSubmit, handlePlusClick, isLoading, stopGeneration, suggestions, isLoadingSuggestions, t, isSubmitDisabled, usageText, isLimitReached }: {
+const InputSection = ({ inputValue, setInputValue, handleSubmit, handlePlusClick, isLoading, stopGeneration, suggestions, isLoadingSuggestions, t, isSubmitDisabled, usageText, usagePercentage, isLimitReached, selectedContext, setSelectedContext, chatSessions }: {
   inputValue: string;
   setInputValue: (value: string) => void;
   handleSubmit: (e: React.FormEvent) => void;
@@ -149,27 +163,93 @@ const InputSection = ({ inputValue, setInputValue, handleSubmit, handlePlusClick
   t: (key: string) => string;
   isSubmitDisabled: boolean;
   usageText: string;
+  usagePercentage: number;
   isLimitReached: boolean;
+  selectedContext: { id: string; title: string }[];
+  setSelectedContext: React.Dispatch<React.SetStateAction<{ id: string; title: string }[]>>;
+  chatSessions: { id: string; title: string }[];
 }) => {
-    
+    const [isAutoModel, setIsAutoModel] = React.useState(true);
+    const [currentModel, setCurrentModel] = React.useState<string>('Gemma');
+    const [modelPopoverOpen, setModelPopoverOpen] = React.useState(false);
     const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
         if (e.key === 'Enter' && !e.shiftKey && !isSubmitDisabled) {
             e.preventDefault();
-            handleSubmit(e as any);
+            handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>);
         }
     };
 
     return (
       <div className="w-full flex flex-col items-center">
         <form onSubmit={handleSubmit} className="w-full">
-            <InputGroup>
+            <InputGroup className="rounded-xl">
+                {/* Context selector at input start */}
+                <InputGroupAddon align="block-start">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <InputGroupButton
+                          type="button"
+                          variant="outline"
+                          className="cursor-pointer inline-flex items-center gap-1 rounded-full px-2 py-1 h-7 text-xs"
+                        >
+                          <AtSign className="h-4 w-4" />
+                          {selectedContext.length === 0 && (
+                            <span>{t('addContext') || 'Add context'}</span>
+                          )}
+                        </InputGroupButton>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent side="bottom" align="start" className="[--radius:0.95rem]">
+                        {chatSessions.length === 0 && (
+                          <DropdownMenuItem disabled>No history</DropdownMenuItem>
+                        )}
+                        {chatSessions.map((s) => {
+                          const isSelected = !!selectedContext.find((c) => c.id === s.id);
+                          const isDisabled = !isSelected && selectedContext.length >= 2;
+                          return (
+                            <DropdownMenuItem
+                              key={s.id}
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                setSelectedContext((prev) => {
+                                  const exists = prev.find((p) => p.id === s.id);
+                                  if (exists) {
+                                    return prev.filter((p) => p.id !== s.id);
+                                  }
+                                  if (prev.length >= 2) return prev;
+                                  return [...prev, { id: s.id, title: s.title }];
+                                });
+                              }}
+                              className={cn("cursor-pointer", isDisabled && "opacity-50 pointer-events-none")}
+                            >
+                              <span className="truncate max-w-[16rem]">{s.title}</span>
+                              {isSelected && <IconCheck className="ml-auto h-4 w-4" />}
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    {selectedContext.map((c) => (
+                      <span
+                        key={c.id}
+                        className="text-sm px-3 py-1.5 rounded-full bg-muted text-primary cursor-pointer inline-flex items-center"
+                        onClick={() => setSelectedContext((prev) => prev.filter((p) => p.id !== c.id))}
+                      >
+                        {c.title}
+                        <button className="ml-2 inline-flex items-center justify-center" aria-label="remove">
+                          <X className="h-4 w-4" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </InputGroupAddon>
                 <InputGroupTextarea 
                     placeholder={t('inputPlaceholder')}
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyDown={handleKeyDown}
                     disabled={isLoading || isLimitReached} // MODIFIED: Disable textarea when limit is reached
-                    className="max-h-[12rem] resize-none"
+                    className="max-h-[12rem] resize-none rounded-xl"
                 />
                 <InputGroupAddon align="block-end">
                     <InputGroupButton
@@ -181,22 +261,57 @@ const InputSection = ({ inputValue, setInputValue, handleSubmit, handlePlusClick
                     >
                         <IconPlus />
                     </InputGroupButton>
+                    <Popover open={modelPopoverOpen} onOpenChange={setModelPopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <InputGroupButton variant="ghost" aria-label="Open Popover" className="inline-flex items-center gap-2 h-8 text-sm">
+                          {t('autoLabel') || 'Auto'}
+                        </InputGroupButton>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="p-0 text-sm">
+                        <div className="px-4 py-3">
+                          <div className="text-sm font-medium">{t('autoModelTitle') || 'Auto Model'}</div>
+                          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                            <Switch id="auto-model-switch" checked={isAutoModel} onCheckedChange={(v) => setIsAutoModel(!!v)} />
+                            <label htmlFor="auto-model-switch">{t('autoDescription') || 'Auto model based on efficient quota usage'}</label>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                    {!isAutoModel && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <InputGroupButton variant="ghost">Auto</InputGroupButton>
+                          <InputGroupButton
+                            variant="outline"
+                            className="inline-flex items-center gap-2 h-8 text-sm rounded-full"
+                          >
+                            <BotIcon className="h-4 w-4" />
+                            {currentModel}
+                            <ChevronsUpDown className="h-4 w-4 ml-1" />
+                          </InputGroupButton>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                            side="top"
-                            align="start"
-                            className="[--radius:0.95rem]"
-                        >
-                            <DropdownMenuItem>Auto</DropdownMenuItem>
-                            <DropdownMenuItem>Agent</DropdownMenuItem>
-                            <DropdownMenuItem>Manual</DropdownMenuItem>
+                        <DropdownMenuContent side="top" align="start" className="min-w-[10rem]">
+                          <div className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                            {t('selectAIModelTitle') || 'Select AI Model'}
+                          </div>
+                          <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setCurrentModel('GPT 4.0'); }} className="flex items-center justify-between cursor-pointer">
+                            <span>GPT 4.0</span>
+                            {currentModel === 'GPT 4.0' && <IconCheck className="h-4 w-4" />}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setCurrentModel('Gemma'); }} className="flex items-center justify-between cursor-pointer">
+                            <span>Gemma</span>
+                            {currentModel === 'Gemma' && <IconCheck className="h-4 w-4" />}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setCurrentModel('Claude'); }} className="flex items-center justify-between cursor-pointer">
+                            <span>Claude</span>
+                            {currentModel === 'Claude' && <IconCheck className="h-4 w-4" />}
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    {/* MODIFIED: Make usage text dynamic */}
-                    <InputGroupText className="ml-auto">{usageText}</InputGroupText>
+                    )}
+                    {/* Usage indicator only (hide circular progress for now) */}
+                    <InputGroupText className="ml-auto flex items-center gap-2">
+                      <span>{usageText}</span>
+                    </InputGroupText>
                     <Separator orientation="vertical" className="!h-4" />
                     {isLoading ? (
                         <InputGroupButton
@@ -237,7 +352,7 @@ const InputSection = ({ inputValue, setInputValue, handleSubmit, handlePlusClick
                 </div>
               ) : (
                 suggestions?.map(({ text, icon }, index: number) => (
-                  <Button key={index} variant="secondary" onClick={() => setInputValue(text)} className="text-xs cursor-pointer md:text-sm h-8 flex-shrink-0">
+                  <Button key={index} variant="secondary" onClick={() => setInputValue(text)} className="text-xs cursor-pointer md:text-sm h-8 flex-shrink-0 rounded-full">
                     <DynamicIcon name={icon} />
                     {text}
                   </Button>
@@ -307,7 +422,7 @@ const ChatLimitNotification = ({ t, onStartNewChat }: { t: (key: string) => stri
           </ItemDescription>
         </ItemContent>
         <ItemActions>
-          <Button size="sm" variant="outline" onClick={onStartNewChat}>
+          <Button size="sm" variant="secondary" className="bg-primary text-primary-foreground cursor-pointer hover:bg-primary/90" onClick={onStartNewChat}>
             {t('chatLimitButton')}
           </Button>
         </ItemActions>
@@ -326,14 +441,11 @@ const PageLoader = () => (
 // --- Main Component ---
 
 export default function QuickCreateClientUI({
-  dictionary,
   sessionId: pageSessionId
 }: {
-  dictionary: any;
   sessionId?: string;
 }) {
-  const t = (key: string) => dictionary[key] || key;
-  const lang = usePathname().split('/[lang]')[0].split('/').pop() || 'en';
+  const { t, lang } = useLanguage();
 
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const bottomRef = React.useRef<HTMLDivElement>(null);
@@ -345,6 +457,7 @@ export default function QuickCreateClientUI({
   const [selectedImageUrl, setSelectedImageUrl] = React.useState<string | null>(null);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = React.useState(true);
   const [apiError, setApiError] = React.useState<string | null>(null);
+  const [selectedContext, setSelectedContext] = React.useState<{ id: string; title: string }[]>([]);
 
   const {
     messages,
@@ -356,7 +469,8 @@ export default function QuickCreateClientUI({
     initializeSession,
     startNewChat,
     error: storeError,
-    aiSteps
+    aiSteps,
+    chatSessions
   } = useAIStore();
 
   // NEW: Chat limit logic
@@ -367,9 +481,14 @@ export default function QuickCreateClientUI({
   // END NEW
 
   React.useEffect(() => {
+    const current = typeof window !== 'undefined' ? window.location.pathname : '';
     if (pageSessionId) {
       initializeSession(pageSessionId);
     } else {
+      // Always start new chat on base route without sessionId in URL
+      if (!current.startsWith('/quick-create') || current.split('/').length > 2) {
+        window.history.replaceState({}, '', '/quick-create');
+      }
       startNewChat();
     }
   }, [pageSessionId, initializeSession, startNewChat]);
@@ -446,16 +565,24 @@ export default function QuickCreateClientUI({
     filesToSubmit.forEach(f => URL.revokeObjectURL(f.previewUrl));
 
     const imageParts = await Promise.all(filesToSubmit.map(f => fileToBase64(f.file)));
+    // Build extra context from selected sessions
+    let extraContext: any[] = [];
+    if (selectedContext.length) {
+      const histories = await Promise.all(selectedContext.map(async (s) => {
+        try {
+          const h = await (await import("@/lib/actions/ai")).getChatHistory(s.id);
+          return h;
+        } catch { return []; }
+      }));
+      extraContext = histories.flat();
+    }
     const imageDataUrls = imageParts.map(part => `data:${part.mimeType};base64,${part.data}`);
 
     addMessage({ role: 'user' as const, content: textPrompt, images: imageDataUrls });
 
-    const newSessionId = await generate(textPrompt, lang, false, imageParts);
+    const newSessionId = await generate(textPrompt, lang, false, imageParts, extraContext);
 
-        if (newSessionId && isNewChat) {
-            const newUrl = `/${lang}/quick-create/${newSessionId}`;
-            window.history.pushState({ path: newUrl }, '', newUrl); 
-        }
+        // Keep base route; do not append sessionId
         };
 
   const handleRegenerate = async (index: number) => {
@@ -507,7 +634,8 @@ export default function QuickCreateClientUI({
       </Sheet>
 
       <div className="flex flex-col items-center h-full w-full bg-background">
-        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" multiple className="hidden" />
+        {/* Context selection moved into InputSection */}
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" multiple className="hidden" aria-label="Upload image files" />
         <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40rem] h-[40rem] bg-primary/10 rounded-full -z-10 blur-3xl" aria-hidden="true"/>
 
         {messages.length === 0 && !isLoading && !isHistoryLoading ? (
@@ -520,8 +648,13 @@ export default function QuickCreateClientUI({
               <InputSection 
                 {...{ inputValue, setInputValue, handleSubmit, handlePlusClick, isLoading, stopGeneration: () => stopGeneration(t('generationStopped')), suggestions, isLoadingSuggestions, t, isSubmitDisabled }} 
                 usageText={usageText}
+                usagePercentage={usagePercentage}
                 isLimitReached={hasReachedLimit}
+                selectedContext={selectedContext}
+                setSelectedContext={setSelectedContext}
+                chatSessions={chatSessions.map(s => ({ id: s.id, title: s.title }))}
               />
+              {/* Removed standalone progress ring; now inline with usage text */}
             </div>
           </main>
         ) : (
@@ -607,7 +740,17 @@ export default function QuickCreateClientUI({
             <div className="w-full max-w-4xl flex-shrink-0 px-4 pb-4 relative">
               {apiError === 'QUOTA_EXCEEDED' && <QuotaErrorNotification onDismiss={() => setApiError(null)} t={t} />}
               {/* NEW: Conditionally render the limit notification */}
-              {hasReachedLimit && <ChatLimitNotification t={t} onStartNewChat={startNewChat} />}
+              {hasReachedLimit && (
+                <div className="mb-3">
+                  <ChatLimitNotification t={t} onStartNewChat={() => {
+                    startNewChat();
+                    const current = typeof window !== 'undefined' ? window.location.pathname : '';
+                    if (!current.startsWith('/quick-create')) {
+                      window.history.replaceState({}, '', '/quick-create');
+                    }
+                  }} />
+                </div>
+              )}
               <FilePreview />
               <InputSection
                 inputValue={inputValue}
@@ -622,12 +765,18 @@ export default function QuickCreateClientUI({
                 isLoadingSuggestions={false}
                 // MODIFIED: Pass dynamic props
                 usageText={usageText}
+                usagePercentage={usagePercentage}
                 isLimitReached={hasReachedLimit}
+                selectedContext={selectedContext}
+                setSelectedContext={setSelectedContext}
+                chatSessions={chatSessions.map(s => ({ id: s.id, title: s.title }))}
               />
             </div>
           </div>
         )}
       </div>
+      {/* Context command dialog */}
+      {/* Command dialog removed; using dropdown in input */}
     </>
   )
 }

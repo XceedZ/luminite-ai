@@ -3,6 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useLanguage } from '@/components/language-provider';
 
 // Impor yang diperlukan untuk logika breadcrumb
 import { dataNav, mainNav, secondaryNav, type NavItem } from "@/config/nav";
@@ -16,9 +17,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
-type Props = {
-  dictionary: { [key: string]: string };
-};
+type Props = {};
 
 // Gabungkan semua item navigasi agar lebih mudah dicari
 const allNavItems: NavItem[] = [];
@@ -49,19 +48,20 @@ function findNavItem(path: string, navItems: NavItem[]): NavItem | null {
  * Komponen ini adalah Client Component yang secara dinamis
  * membangun breadcrumb, termasuk mengambil judul obrolan jika perlu.
  */
-export function DynamicBreadcrumbs({ dictionary }: Props) {
-  const t = (key: string) => dictionary[key] || key;
+export function DynamicBreadcrumbs({}: Props) {
+  const { t } = useLanguage();
   
   const pathname = usePathname();
   const [sessionTitle, setSessionTitle] = React.useState<string | null>(null);
 
   const segments = pathname.split('/').filter(Boolean);
-  if (segments.length <= 1) {
+  if (segments.length < 1) {
     return null;
   }
-  
-  const lang = segments[0];
-  const pathSegments = segments.slice(1);
+  const pathSegments = segments;
+
+  // If first segment is quick-create, suppress the leading dashboard crumb
+  const showHomeCrumb = pathSegments[0] !== 'quick-create';
 
   const isChatHistoryPage = pathSegments[0] === 'quick-create' && pathSegments.length > 1;
   const sessionId = isChatHistoryPage ? pathSegments[1] : null;
@@ -84,20 +84,20 @@ export function DynamicBreadcrumbs({ dictionary }: Props) {
   return (
     <Breadcrumb className="w-full">
       {/* [MODIFIKASI] Tambahkan max-w-full dan overflow-hidden untuk memastikan pembatasan bekerja */}
-      <BreadcrumbList className="max-w-full
-       overflow-hidden">
-        <BreadcrumbItem>
-          <BreadcrumbLink asChild>
-            <Link href={`/${lang}/dashboard`}>{t("dashboard")}</Link>
-          </BreadcrumbLink>
-        </BreadcrumbItem>
+      <BreadcrumbList className="max-w-full overflow-hidden">
+        {showHomeCrumb && (
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href={`/dashboard`}>{t("dashboard")}</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+        )}
 
         {pathSegments.map((segment, index) => {
-          const pathWithoutLang = pathSegments.slice(0, index + 1).join("/");
-          const fullPathWithLang = `/${lang}/${pathWithoutLang}`;
+          const fullPath = `/${pathSegments.slice(0, index + 1).join("/")}`;
           const isLast = index === pathSegments.length - 1;
 
-          const navItem = findNavItem(pathWithoutLang, allNavItems);
+          const navItem = findNavItem(pathSegments.slice(0, index + 1).join("/"), allNavItems);
           
           let title = navItem
             ? t(navItem.name)
@@ -108,8 +108,8 @@ export function DynamicBreadcrumbs({ dictionary }: Props) {
           }
 
           return (
-            <React.Fragment key={fullPathWithLang}>
-              <BreadcrumbSeparator />
+            <React.Fragment key={fullPath}>
+              {(showHomeCrumb || index > 0) && <BreadcrumbSeparator />}
               <BreadcrumbItem>
                 {isLast ? (
                   // [MODIFIKASI] Tambahkan kelas 'truncate' di sini
@@ -119,7 +119,7 @@ export function DynamicBreadcrumbs({ dictionary }: Props) {
                 ) : (
                   // [MODIFIKASI] Tambahkan kelas 'truncate' di sini
                   <BreadcrumbLink asChild className="truncate max-w-[60vw] md:max-w-full">
-                    <Link href={fullPathWithLang}>{title}</Link>
+                    <Link href={fullPath}>{title}</Link>
                   </BreadcrumbLink>
                 )}
               </BreadcrumbItem>

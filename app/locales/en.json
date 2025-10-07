@@ -18,7 +18,7 @@
   "logout": "Log out",
   "mainMenu": "Main",
   "playground": "Playgrounds",
-  "generalChat": "General Chat",
+  "generalChat": "System Instruction",
   "waifuAI": "Character Studio",
   "dataMenu": "Database",
   "transactions": "Transactions",
@@ -69,5 +69,12 @@
   "chatLimitTitle": "Chat Limit Reached",
   "chatLimitDescription": "You have reached the maximum number of messages for this free session.",
   "chatLimitButton": "Start New Chat",
-  "used": "used"
+  "used": "used",
+  "addContext": "Add context",
+  "autoLabel": "Auto",
+  "autoModelTitle": "Select Mode",
+  "autoDescription": "Automatically pick a model based on efficient quota usage",
+  "selectAIModelTitle": "Select AI Model",
+  "searchPlaceholder": "Search...",
+  "commandSearchPlaceholder": "Type a command or search..."
 }

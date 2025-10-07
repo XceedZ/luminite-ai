@@ -3,6 +3,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { cookies } from "next/headers";
+import { LanguageProvider } from "@/components/language-provider";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
+import { AppSidebar } from "@/components/app-sidebar";
+import { TopBar } from "@/components/top-bar";
+import { DynamicBreadcrumbs } from "@/components/dynamic-breadcrumbs";
+import { Toaster } from "@/components/ui/sonner";
 import "./globals.css";
 import { cn } from "@/lib/utils"; // Impor cn jika belum ada
 
@@ -29,9 +36,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = cookies();
+  const initialLang = (cookieStore.get("lang")?.value as "en" | "id") || "en";
   return (
     // [PERBAIKAN] Tambahkan className="h-full" di sini
-    <html lang="en" className="h-full" suppressHydrationWarning>
+    <html lang={initialLang} className="h-full" suppressHydrationWarning>
       <body
         // [PERBAIKAN] Tambahkan h-full, bg-background, dan gabungkan kelas dengan `cn`
         className={cn(
@@ -46,7 +55,18 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <LanguageProvider initialLang={initialLang}>
+            <SidebarProvider>
+              <AppSidebar />
+              <SidebarInset>
+                <TopBar>
+                  <DynamicBreadcrumbs />
+                </TopBar>
+                {children}
+              </SidebarInset>
+              <Toaster richColors position="top-right" />
+            </SidebarProvider>
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>
