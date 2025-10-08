@@ -12,6 +12,7 @@ import {
   IconBlocks,
   IconMessage,
   IconRobot,
+  IconClipboardList,
   // Ikon yang sudah ada
   type Icon,
   IconCamera,
@@ -66,6 +67,12 @@ export const mainNav: NavItem[] = [
         icon: IconRobot, // Ikon untuk submenu
       },
     ],
+  },
+  {
+    name: "tasks",
+    title: "Tasks",
+    href: "tasks",
+    icon: IconClipboardList,
   },
   {
     name: "analytics",

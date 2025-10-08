@@ -58,11 +58,13 @@ export default async function RootLayout({
           <LanguageProvider initialLang={initialLang}>
             <SidebarProvider>
               <AppSidebar />
-              <SidebarInset>
+              <SidebarInset className="overflow-hidden">
                 <TopBar>
                   <DynamicBreadcrumbs />
                 </TopBar>
-                {children}
+                <div className="flex-1 overflow-hidden">
+                  {children}
+                </div>
               </SidebarInset>
               <Toaster richColors position="top-right" />
             </SidebarProvider>

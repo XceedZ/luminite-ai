@@ -1,0 +1,153 @@
+[
+  {
+    "id": "TASK-8782",
+    "title": "Implementasi fitur ekspor laporan keuangan ke PDF",
+    "status": "in-progress",
+    "label": "feature",
+    "priority": "high",
+    "assignee": "Budi Santoso",
+    "dueDate": "2025-10-15",
+    "description": "Menambahkan fitur untuk mengekspor laporan keuangan bulanan dalam format PDF dengan template yang dapat dikustomisasi."
+  },
+  {
+    "id": "TASK-7878",
+    "title": "Perbaiki bug pada perhitungan pajak otomatis",
+    "status": "todo",
+    "label": "bug",
+    "priority": "high",
+    "assignee": "Siti Nurhaliza",
+    "dueDate": "2025-10-12",
+    "description": "Ada kesalahan perhitungan pada modul pajak otomatis untuk transaksi di atas 50 juta rupiah."
+  },
+  {
+    "id": "TASK-6721",
+    "title": "Update dokumentasi API integrasi bank",
+    "status": "done",
+    "label": "documentation",
+    "priority": "low",
+    "assignee": "Ahmad Yani",
+    "dueDate": "2025-10-05",
+    "description": "Memperbarui dokumentasi API untuk integrasi dengan berbagai bank lokal Indonesia."
+  },
+  {
+    "id": "TASK-5621",
+    "title": "Optimasi performa dashboard analytics",
+    "status": "in-progress",
+    "label": "feature",
+    "priority": "medium",
+    "assignee": "Dewi Lestari",
+    "dueDate": "2025-10-20",
+    "description": "Meningkatkan loading speed dashboard analytics dengan implementasi lazy loading dan caching."
+  },
+  {
+    "id": "TASK-4532",
+    "title": "Tambah fitur notifikasi email untuk invoice jatuh tempo",
+    "status": "todo",
+    "label": "feature",
+    "priority": "medium",
+    "assignee": "Rudi Hartono",
+    "dueDate": "2025-10-18",
+    "description": "Implementasi sistem notifikasi email otomatis 3 hari sebelum invoice jatuh tempo."
+  },
+  {
+    "id": "TASK-3421",
+    "title": "Perbaiki responsive design pada halaman transaksi",
+    "status": "done",
+    "label": "bug",
+    "priority": "medium",
+    "assignee": "Rina Wijaya",
+    "dueDate": "2025-10-01",
+    "description": "Memperbaiki layout yang berantakan pada tampilan mobile untuk halaman daftar transaksi."
+  },
+  {
+    "id": "TASK-2314",
+    "title": "Integrasi dengan payment gateway lokal (GoPay, OVO, Dana)",
+    "status": "todo",
+    "label": "feature",
+    "priority": "high",
+    "assignee": "Agus Pratama",
+    "dueDate": "2025-10-25",
+    "description": "Menambahkan dukungan untuk pembayaran melalui e-wallet lokal populer di Indonesia."
+  },
+  {
+    "id": "TASK-1203",
+    "title": "Buat dokumentasi onboarding untuk user baru",
+    "status": "in-progress",
+    "label": "documentation",
+    "priority": "low",
+    "assignee": "Maya Sari",
+    "dueDate": "2025-10-22",
+    "description": "Membuat guide lengkap untuk user baru yang pertama kali menggunakan sistem."
+  },
+  {
+    "id": "TASK-9876",
+    "title": "Implementasi dark mode pada seluruh aplikasi",
+    "status": "done",
+    "label": "feature",
+    "priority": "low",
+    "assignee": "Bambang Suryanto",
+    "dueDate": "2025-09-28",
+    "description": "Menambahkan tema gelap yang konsisten di seluruh aplikasi dengan toggle yang mudah diakses."
+  },
+  {
+    "id": "TASK-8765",
+    "title": "Bug: Data tidak tersinkronisasi dengan database",
+    "status": "canceled",
+    "label": "bug",
+    "priority": "high",
+    "assignee": "Lina Marlina",
+    "dueDate": "2025-10-08",
+    "description": "Ditemukan issue sinkronisasi data, namun sudah resolved dengan update framework terbaru."
+  },
+  {
+    "id": "TASK-7654",
+    "title": "Tambah filter advanced pada laporan penjualan",
+    "status": "todo",
+    "label": "feature",
+    "priority": "medium",
+    "assignee": "Andi Wijaya",
+    "dueDate": "2025-10-30",
+    "description": "Menambahkan opsi filter berdasarkan kategori produk, periode waktu, dan wilayah penjualan."
+  },
+  {
+    "id": "TASK-6543",
+    "title": "Setup CI/CD pipeline untuk automated testing",
+    "status": "in-progress",
+    "label": "feature",
+    "priority": "high",
+    "assignee": "Doni Setiawan",
+    "dueDate": "2025-10-16",
+    "description": "Konfigurasi GitHub Actions untuk automated testing dan deployment ke staging environment."
+  },
+  {
+    "id": "TASK-5432",
+    "title": "Perbaiki memory leak pada module chart rendering",
+    "status": "todo",
+    "label": "bug",
+    "priority": "high",
+    "assignee": "Sari Indah",
+    "dueDate": "2025-10-14",
+    "description": "Memory usage meningkat drastis saat rendering multiple charts di dashboard."
+  },
+  {
+    "id": "TASK-4321",
+    "title": "Dokumentasi arsitektur sistem untuk developer baru",
+    "status": "todo",
+    "label": "documentation",
+    "priority": "low",
+    "assignee": "Hendra Gunawan",
+    "dueDate": "2025-11-05",
+    "description": "Membuat dokumentasi lengkap tentang arsitektur sistem, tech stack, dan best practices."
+  },
+  {
+    "id": "TASK-3210",
+    "title": "Implementasi multi-currency support",
+    "status": "in-progress",
+    "label": "feature",
+    "priority": "medium",
+    "assignee": "Fitri Handayani",
+    "dueDate": "2025-10-28",
+    "description": "Menambahkan dukungan untuk transaksi dalam berbagai mata uang dengan konversi otomatis."
+  }
+]
+
