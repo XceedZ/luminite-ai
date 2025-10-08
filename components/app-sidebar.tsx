@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "@/components/language-provider";
 import { IconCircle } from "@tabler/icons-react" // contoh default
@@ -21,8 +20,17 @@ import {
   SidebarFooter,
   SidebarHeader,
 } from "@/components/ui/sidebar";
+import { GalleryVerticalEnd, AudioWaveform, Command as CommandIcon } from "lucide-react";
+import { TeamSwitcher } from "@/components/team-switcher";
 
 const user = { name: "Luminite", email: "luminiteai@dev.com", avatar: "/avatars/shadcn.jpg" };
+
+// Acme-style teams list to replace the single logo header
+const teams = [
+  { name: "Acme Inc", logo: GalleryVerticalEnd },
+  { name: "Acme Corp.", logo: AudioWaveform },
+  { name: "Evil Corp.", logo: CommandIcon },
+];
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar>;
 
@@ -65,19 +73,7 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <div className="flex h-14 items-center justify-start gap-2 px-3 group-data-[collapsible=icon]:justify-center">
-          <div className="relative h-9 w-9 flex-shrink-0 group-data-[collapsible=icon]:h-9 group-data-[collapsible=icon]:w-9">
-            <Image
-              src="/image.png"
-              alt="Luminite Logo"
-              fill
-              className="object-contain invert dark:invert-0"
-            />
-          </div>
-          <HideOnCollapse>
-            <span className="text-xl font-semibold">Luminite</span>
-          </HideOnCollapse>
-        </div>
+        <TeamSwitcher teams={teams.map((t) => ({ name: t.name, logo: t.logo, plan: "" }))} />
       </SidebarHeader>
 
       <SidebarContent>
