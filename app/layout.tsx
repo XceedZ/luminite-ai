@@ -40,11 +40,11 @@ export default async function RootLayout({
   const initialLang = (cookieStore.get("lang")?.value as "en" | "id") || "en";
   return (
     // [PERBAIKAN] Tambahkan className="h-full" di sini
-    <html lang={initialLang} className="h-full" suppressHydrationWarning>
+    <html lang={initialLang} className="h-full overflow-x-hidden" suppressHydrationWarning>
       <body
         // [PERBAIKAN] Tambahkan h-full, bg-background, dan gabungkan kelas dengan `cn`
         className={cn(
-          "h-full bg-background font-sans antialiased",
+          "h-full bg-background font-sans antialiased overflow-x-hidden",
           geistSans.variable,
           geistMono.variable
         )}
@@ -58,13 +58,13 @@ export default async function RootLayout({
           <LanguageProvider initialLang={initialLang}>
             <SidebarProvider>
               <AppSidebar />
-              <SidebarInset className="overflow-hidden">
+              <SidebarInset className="flex flex-col h-screen overflow-hidden">
                 <TopBar>
                   <DynamicBreadcrumbs />
                 </TopBar>
-                <div className="flex-1 overflow-hidden">
+                <main className="flex-1 overflow-y-auto overflow-x-hidden">
                   {children}
-                </div>
+                </main>
               </SidebarInset>
               <Toaster richColors position="top-right" />
             </SidebarProvider>

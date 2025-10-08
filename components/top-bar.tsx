@@ -28,7 +28,7 @@ export function TopBar({ children }: { children?: React.ReactNode }) {
     return () => window.removeEventListener('keydown', handleKey)
   }, [])
   return (
-    <header className="sticky top-0 z-10 border-b bg-background flex h-16 shrink-0 items-center gap-2 px-4">
+    <header className="sticky top-0 z-50 border-b bg-background flex h-16 shrink-0 items-center gap-2 px-4">
       <SidebarTrigger className="-ml-1" />
       <Separator
         orientation="vertical"
