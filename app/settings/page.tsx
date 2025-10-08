@@ -6,52 +6,34 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { useTheme } from "next-themes"
-
-const ACCENTS: Array<{ key: string; name: string; hsl: string; fg: string }> = [
-  { key: "blue", name: "Blue", hsl: "224 76% 48%", fg: "0 0% 100%" },
-  { key: "orange", name: "Orange", hsl: "28 86% 54%", fg: "0 0% 100%" },
-  { key: "green", name: "Green", hsl: "142 73% 45%", fg: "0 0% 100%" },
-  { key: "pink", name: "Pink", hsl: "340 82% 52%", fg: "0 0% 100%" },
-]
-
-function useAccent() {
-  const [accent, setAccentState] = React.useState<string | null>(null)
-  React.useEffect(() => {
-    const stored = localStorage.getItem("accent")
-    if (stored) {
-      setAccentState(stored)
-      const def = ACCENTS.find(a => a.key === stored)
-      if (def) {
-        document.documentElement.style.setProperty("--primary", def.hsl)
-        document.documentElement.style.setProperty("--primary-foreground", def.fg)
-      }
-    }
-  }, [])
-
-  const setAccent = React.useCallback((key: string) => {
-    const def = ACCENTS.find(a => a.key === key)
-    if (!def) return
-    localStorage.setItem("accent", key)
-    document.documentElement.style.setProperty("--primary", def.hsl)
-    document.documentElement.style.setProperty("--primary-foreground", def.fg)
-    setAccentState(key)
-  }, [])
-
-  return { accent, setAccent }
-}
+import { Badge } from "@/components/ui/badge"
+import { FileText, Download, CreditCard, User as UserIcon, Zap, RefreshCw } from "lucide-react"
 
 export default function SettingsPage() {
-  const { theme, setTheme } = useTheme()
-  const { accent, setAccent } = useAccent()
+  const invoices = [
+    { id: "INV-001", date: "Mar 1, 2024", amount: "$29.00", status: "Paid" },
+    { id: "INV-002", date: "Feb 1, 2024", amount: "$29.00", status: "Paid" },
+    { id: "INV-003", date: "Jan 1, 2024", amount: "$29.00", status: "Paid" },
+  ] as const
+  const apiUsed = 8543
+  const apiLimit = 10000
+  const syncUsed = 143
+  const syncLimit = 200
 
   return (
     <main className="flex flex-1 flex-col gap-6 p-4 md:p-6">
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList>
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="account">Account</TabsTrigger>
-          <TabsTrigger value="appearance">Appearance</TabsTrigger>
+        <TabsList className="p-1">
+          <TabsTrigger value="profile" className="px-2.5 sm:px-3">
+            <code className="flex items-center gap-1 text-[13px] [&>svg]:h-4 [&>svg]:w-4">
+              <UserIcon /> Profile
+            </code>
+          </TabsTrigger>
+          <TabsTrigger value="account" className="px-2.5 sm:px-3">
+            <code className="flex items-center gap-1 text-[13px] [&>svg]:h-4 [&>svg]:w-4">
+              <CreditCard /> Account
+            </code>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
@@ -77,58 +59,85 @@ export default function SettingsPage() {
 
         <TabsContent value="account" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle>Plan</CardTitle>
+            <CardHeader className="flex items-center justify-between flex-row">
+              <div>
+                <CardTitle>Pro Plan</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">$29/month • Renews on April 1, 2024</p>
+              </div>
+              <div className="flex gap-2">
+                <Button asChild variant="secondary">
+                  <a href="/pricing">Change Plan</a>
+                </Button>
+                <Button variant="destructive">Cancel Plan</Button>
+              </div>
             </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-sm text-muted-foreground">You are on the Free Plan.</p>
-              <div className="flex items-center gap-2">
-                <Button variant="secondary">Contact support</Button>
-                <Button>Upgrade</Button>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Zap className="h-4 w-4" />
+                  <span>API Requests</span>
+                  <span className="ml-auto text-muted-foreground">{apiUsed.toLocaleString()} / {apiLimit.toLocaleString()}</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary"
+                    style={{ width: `${(apiUsed / apiLimit) * 100}%` }}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <RefreshCw className="h-4 w-4" />
+                  <span>Monthly Syncs</span>
+                  <span className="ml-auto text-muted-foreground">{syncUsed} / {syncLimit}</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-primary"
+                    style={{ width: `${(syncUsed / syncLimit) * 100}%` }}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="appearance" className="space-y-6">
           <Card>
-            <CardHeader>
-              <CardTitle>Accent</CardTitle>
+            <CardHeader className="flex items-center justify-between flex-row">
+              <CardTitle>Payment Method</CardTitle>
+              <Button variant="secondary">Update Payment Method</Button>
             </CardHeader>
-            <CardContent className="flex items-center gap-4">
-              {ACCENTS.map(a => (
-                <button
-                  key={a.key}
-                  aria-label={a.name}
-                  onClick={() => setAccent(a.key)}
-                  className="relative size-10 rounded-full border"
-                  style={{ backgroundColor: `hsl(${a.hsl})` }}
-                >
-                  {accent === a.key && (
-                    <span className="absolute inset-0 rounded-full ring-2 ring-offset-2 ring-primary" />
-                  )}
-                </button>
-              ))}
+            <CardContent>
+              <div className="text-sm text-muted-foreground">Visa ending in 4242</div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Theme</CardTitle>
+            <CardHeader className="flex items-center justify-between flex-row">
+              <CardTitle>Billing History</CardTitle>
+              <Button variant="secondary" className="inline-flex items-center gap-2">
+                <Download className="h-4 w-4" />
+                Download All
+              </Button>
             </CardHeader>
-            <CardContent className="flex items-center gap-4">
-              <button
-                onClick={() => setTheme("light")}
-                className={`border rounded-md p-2 ${theme === "light" ? "ring-2 ring-primary" : ""}`}
-              >
-                Light
-              </button>
-              <button
-                onClick={() => setTheme("dark")}
-                className={`border rounded-md p-2 ${theme === "dark" ? "ring-2 ring-primary" : ""}`}
-              >
-                Dark
-              </button>
+            <CardContent className="divide-y">
+              {invoices.map((inv) => (
+                <div key={inv.id} className="flex items-center justify-between py-3">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-md border flex items-center justify-center"><FileText className="h-4 w-4" /></div>
+                    <div>
+                      <div className="font-medium">{inv.id}</div>
+                      <div className="text-xs text-muted-foreground">{inv.date}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge variant="secondary">{inv.status}</Badge>
+                    <div className="font-medium">{inv.amount}</div>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </TabsContent>

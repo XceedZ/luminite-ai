@@ -60,8 +60,8 @@ export function DynamicBreadcrumbs({}: Props) {
   }
   const pathSegments = segments;
 
-  // If first segment is quick-create, suppress the leading dashboard crumb
-  const showHomeCrumb = pathSegments[0] !== 'quick-create';
+  // Only show the leading dashboard crumb when the current route is under /dashboard
+  const showHomeCrumb = pathSegments[0] === 'dashboard';
 
   const isChatHistoryPage = pathSegments[0] === 'quick-create' && pathSegments.length > 1;
   const sessionId = isChatHistoryPage ? pathSegments[1] : null;

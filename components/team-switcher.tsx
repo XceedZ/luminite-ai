@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronsUpDown, Plus } from "lucide-react"
+import { ChevronsUpDown, Plus, Activity, Airplay, Aperture, Archive, Award, Banknote, BarChart, Briefcase, Building2, Calendar, Cloud, Code, Database, Factory, Flame, Gem, Globe as GlobeIcon, Layers, Lightbulb, Monitor, Package, Rocket, Shield, ShoppingBag, Store, Terminal, Users } from "lucide-react"
 
 import {
   DropdownMenu,
@@ -12,12 +12,16 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useLanguage } from "@/components/language-provider"
 import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
 export function TeamSwitcher({
   teams,
@@ -28,14 +32,25 @@ export function TeamSwitcher({
     plan: string
   }[]
 }) {
+  const { t } = useLanguage()
   const { isMobile } = useSidebar()
   const [activeTeam, setActiveTeam] = React.useState(teams[0])
+  const [isOpen, setIsOpen] = React.useState(false)
+  const [orgName, setOrgName] = React.useState("")
+  const ICONS: React.ElementType[] = [
+    Activity, Airplay, Aperture, Archive, Award, Banknote, BarChart,
+    Briefcase, Building2, Calendar, Cloud, Code, Database, Factory,
+    Flame, Gem, GlobeIcon, Layers, Lightbulb, Monitor, Package, Rocket,
+    Shield, ShoppingBag, Store, Terminal, Users,
+  ]
+  const [selectedIcon, setSelectedIcon] = React.useState<React.ElementType>(ICONS[0])
 
   if (!activeTeam) {
     return null
   }
 
   return (
+    <>
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
@@ -61,7 +76,7 @@ export function TeamSwitcher({
             sideOffset={4}
           >
             <DropdownMenuLabel className="text-muted-foreground text-xs">
-              Teams
+              {t('organizations') || 'Organisasi'}
             </DropdownMenuLabel>
             {teams.map((team, index) => (
               <DropdownMenuItem
@@ -77,16 +92,53 @@ export function TeamSwitcher({
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
+            <DropdownMenuItem className="gap-2 p-2" onSelect={() => setIsOpen(true)}>
               <div className="flex size-6 items-center justify-center rounded-md border bg-transparent">
                 <Plus className="size-4" />
               </div>
-              <div className="text-muted-foreground font-medium">Add team</div>
+              <div className="text-muted-foreground font-medium">{t('addOrganization') || 'Tambah Organisasi'}</div>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
+
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogContent className="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{t('addOrganization') || 'Tambah Organisasi'}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-muted-foreground mb-2">{t('selectIcon') || 'Pilih ikon'}</p>
+            <div className="grid grid-cols-6 gap-1.5">
+              {ICONS.map((Icon, idx) => {
+                const isSelected = selectedIcon === Icon
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    className={`flex items-center justify-center h-10 w-10 rounded-md border ${isSelected ? 'border-primary ring-2 ring-primary/40' : ''}`}
+                    onClick={() => setSelectedIcon(Icon)}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <div>
+            <label htmlFor="org-name" className="text-sm font-medium">{t('organizationName') || 'Nama Organisasi'}</label>
+            <Input id="org-name" value={orgName} onChange={(e) => setOrgName(e.target.value)} placeholder={t('organizationName') || 'Nama Organisasi'} className="mt-2" />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="ghost" onClick={() => setIsOpen(false)}>{t('cancel') || 'Batal'}</Button>
+            <Button onClick={() => { setIsOpen(false) }}>{t('create') || 'Buat'}</Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   )
 }
 

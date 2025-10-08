@@ -27,8 +27,7 @@ const user = { name: "Luminite", email: "luminiteai@dev.com", avatar: "/avatars/
 
 // Acme-style teams list to replace the single logo header
 const teams = [
-  { name: "Acme Inc", logo: GalleryVerticalEnd },
-  { name: "Acme Corp.", logo: AudioWaveform },
+  { name: "Luminite.", logo: AudioWaveform },
   { name: "Evil Corp.", logo: CommandIcon },
 ];
 

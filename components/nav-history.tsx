@@ -11,7 +11,16 @@ import {
   Trash2,
   Edit,
   Copy, // <-- Import the Copy icon
+  Loader2,
 } from "lucide-react"
+import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import { Folder } from "lucide-react"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { cn } from "@/lib/utils"
 import { useAIStore } from "@/app/store/ai-store"
 
@@ -101,6 +110,8 @@ export function NavHistory({
   const [isCopyLinkDialogOpen, setIsCopyLinkDialogOpen] = useState(false) // <-- New state for the copy link dialog
   const [actionTarget, setActionTarget] = useState<ChatHistoryItem | null>(null)
   const [newTitle, setNewTitle] = useState("")
+  const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false)
+  const [isBulkProcessing, setIsBulkProcessing] = useState(false)
 
   const visibleHistory = chatHistory.slice(0, visibleCount);
   const hasMoreHistory = chatHistory.length > visibleCount;
@@ -163,7 +174,19 @@ export function NavHistory({
   return (
     <>
       <SidebarGroup className="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel>{t("history")}</SidebarGroupLabel>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div className="inline-flex items-center">
+              <SidebarGroupLabel>{t("history")}</SidebarGroupLabel>
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent align="start" className="w-56">
+            <ContextMenuItem className="text-red-600 focus:text-red-600 dark:focus:text-red-500" onSelect={(e) => { e.preventDefault(); setIsBulkDialogOpen(true); }}>
+              <Trash2 className="text-red-600 dark:text-red-500" />
+              <span>{t("deleteAllChats") || "Delete all chats"}</span>
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
         {isLoading ? <HistorySkeleton /> : (
           <SidebarMenu>
             {visibleHistory.map((item) => {
@@ -237,6 +260,46 @@ export function NavHistory({
           </SidebarMenu>
         )}
       </SidebarGroup>
+      {/* Bulk delete confirm dialog */}
+      <Dialog open={isBulkDialogOpen} onOpenChange={(open) => { if (!isBulkProcessing) setIsBulkDialogOpen(open) }}>
+        <DialogContent className="sm:max-w-lg [&>button[aria-label=Close]]:hidden">
+          <Empty>
+            <EmptyHeader>
+              <EmptyMedia variant="icon">
+                {isBulkProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Folder />}
+              </EmptyMedia>
+              <EmptyTitle>{isBulkProcessing ? (t("processingTitle") || "Processing your request") : (t("confirmDeleteAllTitle") || "Delete all chats?")}</EmptyTitle>
+              <EmptyDescription>
+                {isBulkProcessing
+                  ? (t("processingDesc") || "Processing your request. Please wait while we process your request. Do not refresh the page.")
+                  : (t("confirmDeleteAllDesc") || "This will permanently delete all chat history.")}
+              </EmptyDescription>
+            </EmptyHeader>
+            <EmptyContent>
+              <div className="flex gap-2">
+                {!isBulkProcessing && (
+                  <Button className="bg-red-600 text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600" onClick={async () => {
+                    try {
+                      setIsBulkProcessing(true)
+                      for (const item of chatHistory) {
+                        await deleteChat(item.id)
+                      }
+                      setIsBulkProcessing(false)
+                      setIsBulkDialogOpen(false)
+                      toast.success(t("allChatsDeleted") || "All chats deleted")
+                      router.push(`/${lang}/quick-create`)
+                    } catch (e) {
+                      setIsBulkProcessing(false)
+                      toast.error("Failed to delete chats")
+                    }
+                  }}>{t("deleteAll") || "Delete all"}</Button>
+                )}
+                <Button variant="outline" onClick={() => { if (!isBulkProcessing) setIsBulkDialogOpen(false) }}>{t("cancel")}</Button>
+              </div>
+            </EmptyContent>
+          </Empty>
+        </DialogContent>
+      </Dialog>
 
       {/* Rename Dialog */}
       <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
