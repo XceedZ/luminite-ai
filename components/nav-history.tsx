@@ -180,7 +180,7 @@ export function NavHistory({
               <SidebarGroupLabel>{t("history")}</SidebarGroupLabel>
             </div>
           </ContextMenuTrigger>
-          <ContextMenuContent align="start" className="w-56">
+          <ContextMenuContent className="w-56">
             <ContextMenuItem className="text-red-600 focus:text-red-600 dark:focus:text-red-500" onSelect={(e) => { e.preventDefault(); setIsBulkDialogOpen(true); }}>
               <Trash2 className="text-red-600 dark:text-red-500" />
               <span>{t("deleteAllChats") || "Delete all chats"}</span>
