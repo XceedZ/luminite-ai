@@ -31,20 +31,28 @@ Open your browser and navigate to **http://localhost:3000**. You should see the 
 
 ## 📂 Project Structure
 
-This project follows a dynamic routing pattern for internationalization:
+This project uses a modern internationalization approach with cookie/localStorage-based language management:
 
 app/  
-  [lang]/  
-    dashboard/  
+  dashboard/  
+    page.tsx  
+    data.json  
+  quick-create/  
+    [[...sessionId]]/  
       page.tsx  
-      translations.json  
+      quick-create-client.tsx  
+  locales/  
+    en.json  
+    id.json  
 components/  
+  language-provider.tsx  
 middleware.ts  
 
-- **app/[lang]/**: Core of the i18n setup. Captures the language segment (`en`, `id`, etc.) for every route.  
-- **app/[lang]/dashboard/**: Contains the Dashboard module. Renders at `/en/dashboard` and `/id/dashboard`.  
-- **app/[lang]/dashboard/translations.json**: All translations for the Dashboard module, grouped by language.  
-- **middleware.ts**: Handles redirects, ensuring `/en` or `/id` forward to `/en/dashboard` or `/id/dashboard`.  
+- **app/dashboard/**: Dashboard module with static route `/dashboard`.  
+- **app/quick-create/**: Quick Create AI module with optional session ID.  
+- **app/locales/**: Centralized translation files for all languages (`en.json`, `id.json`).  
+- **components/language-provider.tsx**: Client-side language context that manages language switching via cookie/localStorage.  
+- **middleware.ts**: Handles routing without locale prefixes.  
 - **components/**: Houses all reusable UI components.  
 
 ## 📚 Learn More

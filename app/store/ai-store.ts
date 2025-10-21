@@ -3,6 +3,7 @@
 import { create } from 'zustand'
 import {
   classifyAndSummarize,
+  classifyRequestType,
   summarizeDataForChartOrTable,
   generateChart,
   generateTable,
@@ -174,13 +175,17 @@ export const useAIStore = create<AIState>()(
               ...(await getChatHistory(sessionId!))
             ];
 
+            // [NEW] Auto classification step for code/finance categorization
+            const requestType = await classifyRequestType(prompt, images);
+            if (get().isCancelled) return null;
+            
             const classificationResult = await classifyAndSummarize(prompt, historyForAnalysis, images);
             if (get().isCancelled) return null;
 
             if (classificationResult.stepByAi && classificationResult.stepByAi.length > 0) {
               const initialSteps: AIStep[] = classificationResult.stepByAi.map((stepText: string) => ({
                 text: stepText,
-                status: 'pending'
+                status: 'pending' as const
               }));
               set({ aiSteps: initialSteps });
             }
@@ -194,6 +199,7 @@ export const useAIStore = create<AIState>()(
             let finalResponseText: string | undefined, chart: AIGeneratedChart | null = null, table: AIGeneratedTable | null = null;
             
             if (['data_visualization', 'data_tabulation'].includes(classificationResult.intent)) {
+                // Step 1: Summarize data (menggunakan model default di function)
                 updateStepStatus(0, 'loading');
                 const summaryResult = await summarizeDataForChartOrTable(historyForAnalysis, classificationResult.language, classificationResult.intent, images);
                 updateStepStatus(0, 'done');
@@ -202,22 +208,114 @@ export const useAIStore = create<AIState>()(
                     finalResponseText = summaryResult.followUpQuestion; 
                 } else if (summaryResult.data) {
                     if (classificationResult.intent === 'data_visualization') {
+                        // Step 2: Generate chart (menggunakan gemma-3-12b-it di function generateChart)
                         updateStepStatus(1, 'loading');
                         const chartResult = await generateChart(summaryResult.data, classificationResult.language, historyForAnalysis, classificationResult.summary);
                         if (chartResult?.type === 'chart') chart = chartResult.chart; else if (chartResult?.type === 'confirmation_needed') finalResponseText = chartResult.message;
                         updateStepStatus(1, 'done');
+                        
+                        // Step 3: Generate final response text (menggunakan gemma-3-27b-it)
+                        if (chart && !finalResponseText) {
+                            updateStepStatus(2, 'loading');
+                            const chartContext = `Generated Chart: ${JSON.stringify(chart)}`;
+                            finalResponseText = await generateFinalResponse(
+                                prompt, 
+                                classificationResult.intent, 
+                                classificationResult.summary, 
+                                classificationResult.language, 
+                                historyForAnalysis, 
+                                images, 
+                                requestType,
+                                'gemma-3-27b-it',
+                                chartContext
+                            );
+                            updateStepStatus(2, 'done');
+                        }
                     } else {
+                        // Step 2: Generate table (menggunakan gemma-3-12b-it di function generateTable)
                         updateStepStatus(1, 'loading');
                         table = await generateTable(summaryResult.data, classificationResult.language, classificationResult.summary);
                         updateStepStatus(1, 'done');
+                        
+                        // Step 3: Generate final response text (menggunakan gemma-3-27b-it)
+                        if (table && !finalResponseText) {
+                            updateStepStatus(2, 'loading');
+                            const tableContext = `Generated Table: ${JSON.stringify(table)}`;
+                            finalResponseText = await generateFinalResponse(
+                                prompt, 
+                                classificationResult.intent, 
+                                classificationResult.summary, 
+                                classificationResult.language, 
+                                historyForAnalysis, 
+                                images, 
+                                requestType,
+                                'gemma-3-27b-it',
+                                tableContext
+                            );
+                            updateStepStatus(2, 'done');
+                        }
                     }
                 }
+            } else if (classificationResult.intent === 'code_assistance') {
+                // Step 1: Analyze coding requirements (using gemma-3-4b-it)
+                updateStepStatus(0, 'loading');
+                const analysisResult = await generateFinalResponse(
+                    `Analyze the following coding request and provide a detailed analysis of requirements, constraints, and approach: ${prompt}`,
+                    'code_analysis',
+                    'Analyze coding requirements and constraints',
+                    classificationResult.language,
+                    historyForAnalysis,
+                    images,
+                    requestType,
+                    'gemma-3-4b-it'
+                );
+                updateStepStatus(0, 'done');
+                
+                // Step 2: Plan implementation approach (using gemma-3-12b-it)
+                updateStepStatus(1, 'loading');
+                const planningResult = await generateFinalResponse(
+                    `Based on the analysis, create a detailed implementation plan for: ${prompt}. Include step-by-step approach, dependencies, and best practices.`,
+                    'code_planning',
+                    'Create implementation plan and approach',
+                    classificationResult.language,
+                    historyForAnalysis,
+                    images,
+                    requestType,
+                    'gemma-3-12b-it',
+                    analysisResult // Pass step 1 result as context
+                );
+                updateStepStatus(1, 'done');
+                
+                // Step 3: Generate code solution and best practices (using gemma-3-27b-it)
+                updateStepStatus(2, 'loading');
+                finalResponseText = await generateFinalResponse(
+                    `Provide the complete code solution for: ${prompt}. Include working code, explanations, and best practices.`,
+                    classificationResult.intent,
+                    classificationResult.summary,
+                    classificationResult.language,
+                    historyForAnalysis,
+                    images,
+                    requestType,
+                    'gemma-3-27b-it',
+                    `Analysis Result: ${analysisResult}\n\nPlanning Result: ${planningResult}` // Pass step 1 & 2 results
+                );
+                updateStepStatus(2, 'done');
             }
             
             if (!finalResponseText) {
                 const finalStepIndex = get().aiSteps.length - 1;
                 if(finalStepIndex >= 0) updateStepStatus(finalStepIndex, 'loading');
-                finalResponseText = await generateFinalResponse(prompt, classificationResult.intent, classificationResult.summary, classificationResult.language, historyForAnalysis, images);
+                // Menggunakan gemma-3-27b-it untuk final response
+                finalResponseText = await generateFinalResponse(
+                    prompt, 
+                    classificationResult.intent, 
+                    classificationResult.summary, 
+                    classificationResult.language, 
+                    historyForAnalysis, 
+                    images, 
+                    requestType,
+                    'gemma-3-27b-it'
+                );
                 if(finalStepIndex >= 0) updateStepStatus(finalStepIndex, 'done');
             }
             if (get().isCancelled) return null;
