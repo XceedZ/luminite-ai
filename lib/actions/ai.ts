@@ -710,7 +710,7 @@ export async function generateAppBuilderSuggestions() {
 export async function classifyRequestType(
   prompt: string,
   images?: ImagePart[]
-): Promise<'code' | 'finance' | 'general'> {
+): Promise<'code' | 'finance' | 'app_builder' | 'general'> {
   const classificationPrompt = `
   Analyze the user's request and classify it into one of these categories:
 
@@ -718,11 +718,13 @@ export async function classifyRequestType(
 
   2. **FINANCE**: Financial management, expense tracking, budgeting, cash flow analysis, financial reports, accounting, business finance, investment, etc.
 
-  3. **GENERAL**: Everything else that doesn't fit into code or finance categories.
+  3. **APP_BUILDER**: Creating websites, landing pages, dashboards, portfolios, e-commerce sites, web applications, UI/UX design, prototyping, mockups, etc.
+
+  4. **GENERAL**: Everything else that doesn't fit into the above categories.
 
   **User's request:** "${prompt}"
 
-  Return ONLY one word: "code", "finance", or "general"
+  Return ONLY one word: "code", "finance", "app_builder", or "general"
   `;
 
   try {
@@ -739,9 +741,10 @@ export async function classifyRequestType(
     });
 
     const responseText = (response.text || "").toLowerCase().trim();
-    
+
     if (responseText.includes('code')) return 'code';
     if (responseText.includes('finance')) return 'finance';
+    if (responseText.includes('app_builder')) return 'app_builder';
     return 'general';
   } catch (error) {
     console.error("Request type classification error:", error);
@@ -823,6 +826,8 @@ export async function classifyAndSummarize(
     - If intent = **"general_chat"** → stepByAi MUST be an empty array **[]**.
     - If intent = **"code_assistance"** → Focus on coding tasks and implementation.
       Example: ["Analyze the coding requirements", "Plan the implementation approach", "Provide code solution and best practices"]
+    - If intent = **"app_builder"** → Generate pure HTML and CSS code only.
+      Example: ["Generate HTML structure", "Create CSS styling", "Output complete website code"]
     - All other intents (not listed above) → stepByAi MUST be an empty array [].
 
   Return ONLY a JSON object with keys: "language", "intent", "summary", "mood", and "stepByAi".
@@ -881,7 +886,7 @@ export {
 };
 
 // [NEW] Separate system instructions for different modes
-function getSystemInstruction(mode: 'code' | 'finance' | 'general', language: string): string {
+function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'general', language: string): string {
   const creatorAnswer = language === 'English' 
     ? '"I was created by the Luminite team to help with coding and finance for SMEs in Indonesia."' 
     : '"Saya dibuat oleh tim Luminite untuk membantu coding dan keuangan UMKM di Indonesia."';
@@ -955,6 +960,33 @@ function getSystemInstruction(mode: 'code' | 'finance' | 'general', language: st
     - Use Indonesian business context and currency (Rupiah).
     - Provide actionable financial insights.
     `;
+  } else if (mode === 'app_builder') {
+    return `
+    **System Instruction:**
+    You are a professional web developer who only outputs clean HTML and CSS code.
+
+    **CRITICAL RULES:**
+    - ONLY output HTML and CSS code in proper code blocks
+    - NEVER output any explanatory text, comments, or instructions outside of code
+    - Use \`\`\`html for HTML code and \`\`\`css for CSS code
+    - Create complete, working websites based on user requests
+    - Use semantic HTML5 elements
+    - Implement modern CSS with Flexbox/Grid
+    - Ensure mobile-first responsive design
+    - Make the code clean and production-ready
+
+    **Output Format:**
+    Always provide both HTML and CSS in separate code blocks:
+    \`\`\`html
+    <!-- HTML code here -->
+    \`\`\`
+
+    \`\`\`css
+    /* CSS code here */
+    \`\`\`
+
+    Remember: NO text outside of code blocks. Only pure, working code.
+    `;
   } else {
     return `
     **System Instruction:**
@@ -989,7 +1021,7 @@ async function generateFinalResponse(
   language: string,
   history: StoredMessage[],
   images?: ImagePart[],
-  mode?: 'code' | 'finance' | 'general',
+  mode?: 'code' | 'finance' | 'app_builder' | 'general',
   modelOverride?: string,
   planningContext?: string
 ): Promise<string> {

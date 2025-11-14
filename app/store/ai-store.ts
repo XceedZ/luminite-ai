@@ -49,7 +49,7 @@ interface AIState {
   fetchChatSessions: (force?: boolean) => Promise<void>;
   startNewChat: () => void;
   addMessage: (message: Message) => void;
-  generate: (prompt: string, lang: string, isRegenerate?: boolean, images?: ImagePart[], extraContext?: StoredMessage[]) => Promise<string | null>;
+  generate: (prompt: string, lang: string, isRegenerate?: boolean, images?: ImagePart[], extraContext?: StoredMessage[], mode?: string) => Promise<string | null>;
   stopGeneration: (message: string) => void;
   renameChat: (sessionId: string, newTitle: string) => Promise<void>;
   deleteChat: (sessionIdToDelete: string) => Promise<{ isActiveChat: boolean }>;
@@ -152,7 +152,7 @@ export const useAIStore = create<AIState>()(
       },
 
       // ✅ [PERBAIKAN] Fungsi generate kini menghitung durasi
-      generate: async (prompt, lang, isRegenerate = false, images = [], extraContext = []) => {
+      generate: async (prompt, lang, isRegenerate = false, images = [], extraContext = [], mode) => {
         set({ isLoading: true, isCancelled: false, error: null, aiSteps: [] });
         const startTime = Date.now(); // Catat waktu mulai
 
@@ -176,18 +176,34 @@ export const useAIStore = create<AIState>()(
             ];
 
             // [NEW] Auto classification step for code/finance categorization
-            const requestType = await classifyRequestType(prompt, images);
+            // Override with provided mode if specified, otherwise auto classify
+            const requestType = mode || await classifyRequestType(prompt, images);
             if (get().isCancelled) return null;
             
             const classificationResult = await classifyAndSummarize(prompt, historyForAnalysis, images);
             if (get().isCancelled) return null;
 
+            // Override intent based on mode for app_builder
+            const finalIntent = mode === 'app_builder' ? 'app_builder' : classificationResult.intent;
+
+            // Set up AI steps based on intent
+            let aiSteps: AIStep[] = [];
             if (classificationResult.stepByAi && classificationResult.stepByAi.length > 0) {
-              const initialSteps: AIStep[] = classificationResult.stepByAi.map((stepText: string) => ({
+              aiSteps = classificationResult.stepByAi.map((stepText: string) => ({
                 text: stepText,
                 status: 'pending' as const
               }));
-              set({ aiSteps: initialSteps });
+            } else if (finalIntent === 'app_builder') {
+              // Default 3-step plan for app_builder
+              aiSteps = [
+                { text: 'Planning website structure and requirements', status: 'pending' as const },
+                { text: 'Designing HTML structure and layout', status: 'pending' as const },
+                { text: 'Generating final HTML and CSS code', status: 'pending' as const }
+              ];
+            }
+
+            if (aiSteps.length > 0) {
+              set({ aiSteps });
             }
             
             const updateStepStatus = (index: number, status: 'loading' | 'done') => {
@@ -198,16 +214,16 @@ export const useAIStore = create<AIState>()(
 
             let finalResponseText: string | undefined, chart: AIGeneratedChart | null = null, table: AIGeneratedTable | null = null;
             
-            if (['data_visualization', 'data_tabulation'].includes(classificationResult.intent)) {
+            if (['data_visualization', 'data_tabulation'].includes(finalIntent)) {
                 // Step 1: Summarize data (menggunakan model default di function)
                 updateStepStatus(0, 'loading');
-                const summaryResult = await summarizeDataForChartOrTable(historyForAnalysis, classificationResult.language, classificationResult.intent, images);
+                const summaryResult = await summarizeDataForChartOrTable(historyForAnalysis, classificationResult.language, finalIntent, images);
                 updateStepStatus(0, 'done');
 
                 if (summaryResult.needsMoreData) { 
                     finalResponseText = summaryResult.followUpQuestion; 
                 } else if (summaryResult.data) {
-                    if (classificationResult.intent === 'data_visualization') {
+                    if (finalIntent === 'data_visualization') {
                         // Step 2: Generate chart (menggunakan gemma-3-12b-it di function generateChart)
                         updateStepStatus(1, 'loading');
                         const chartResult = await generateChart(summaryResult.data, classificationResult.language, historyForAnalysis, classificationResult.summary);
@@ -220,12 +236,12 @@ export const useAIStore = create<AIState>()(
                             const chartContext = `Generated Chart: ${JSON.stringify(chart)}`;
                             finalResponseText = await generateFinalResponse(
                                 prompt, 
-                                classificationResult.intent, 
+                                finalIntent, 
                                 classificationResult.summary, 
                                 classificationResult.language, 
                                 historyForAnalysis, 
                                 images, 
-                                requestType,
+                                requestType as 'code' | 'finance' | 'app_builder' | 'general',
                                 'gemma-3-27b-it',
                                 chartContext
                             );
@@ -243,12 +259,12 @@ export const useAIStore = create<AIState>()(
                             const tableContext = `Generated Table: ${JSON.stringify(table)}`;
                             finalResponseText = await generateFinalResponse(
                                 prompt, 
-                                classificationResult.intent, 
+                                finalIntent, 
                                 classificationResult.summary, 
                                 classificationResult.language, 
                                 historyForAnalysis, 
                                 images, 
-                                requestType,
+                                requestType as 'code' | 'finance' | 'app_builder' | 'general',
                                 'gemma-3-27b-it',
                                 tableContext
                             );
@@ -256,7 +272,7 @@ export const useAIStore = create<AIState>()(
                         }
                     }
                 }
-            } else if (classificationResult.intent === 'code_assistance') {
+            } else if (finalIntent === 'code_assistance') {
                 // Step 1: Analyze coding requirements (using gemma-3-4b-it)
                 updateStepStatus(0, 'loading');
                 const analysisResult = await generateFinalResponse(
@@ -266,7 +282,7 @@ export const useAIStore = create<AIState>()(
                     classificationResult.language,
                     historyForAnalysis,
                     images,
-                    requestType,
+                    requestType as 'code' | 'finance' | 'app_builder' | 'general',
                     'gemma-3-4b-it'
                 );
                 updateStepStatus(0, 'done');
@@ -280,7 +296,7 @@ export const useAIStore = create<AIState>()(
                     classificationResult.language,
                     historyForAnalysis,
                     images,
-                    requestType,
+                    requestType as 'code' | 'finance' | 'app_builder' | 'general',
                     'gemma-3-12b-it',
                     analysisResult // Pass step 1 result as context
                 );
@@ -290,30 +306,74 @@ export const useAIStore = create<AIState>()(
                 updateStepStatus(2, 'loading');
                 finalResponseText = await generateFinalResponse(
                     `Provide the complete code solution for: ${prompt}. Include working code, explanations, and best practices.`,
-                    classificationResult.intent,
+                    finalIntent,
                     classificationResult.summary,
                     classificationResult.language,
                     historyForAnalysis,
                     images,
-                    requestType,
+                    requestType as 'code' | 'finance' | 'app_builder' | 'general',
                     'gemma-3-27b-it',
                     `Analysis Result: ${analysisResult}\n\nPlanning Result: ${planningResult}` // Pass step 1 & 2 results
                 );
                 updateStepStatus(2, 'done');
+            } else if (finalIntent === 'app_builder') {
+                // Step 1: Planning website structure (using gemma-3-4b-it)
+                updateStepStatus(0, 'loading');
+                const planningResult = await generateFinalResponse(
+                    `Plan the structure and requirements for this website: ${prompt}. Focus on key sections, layout, and functionality needed.`,
+                    'web_planning',
+                    'Planning website structure and requirements',
+                    classificationResult.language,
+                    historyForAnalysis,
+                    images,
+                    requestType as 'code' | 'finance' | 'app_builder' | 'general',
+                    'gemma-3-4b-it'
+                );
+                updateStepStatus(0, 'done');
+
+                // Step 2: Design HTML structure (using gemma-3-12b-it)
+                updateStepStatus(1, 'loading');
+                const designResult = await generateFinalResponse(
+                    `Based on the planning, create the HTML structure for: ${prompt}. Use semantic HTML5 elements and proper structure.`,
+                    'web_design',
+                    'Designing HTML structure and layout',
+                    classificationResult.language,
+                    historyForAnalysis,
+                    images,
+                    requestType as 'code' | 'finance' | 'app_builder' | 'general',
+                    'gemma-3-12b-it',
+                    planningResult // Pass step 1 result as context
+                );
+                updateStepStatus(1, 'done');
+
+                // Step 3: Generate final HTML and CSS code (using gemma-3-27b-it)
+                updateStepStatus(2, 'loading');
+                finalResponseText = await generateFinalResponse(
+                    `Create the complete website with HTML and CSS for: ${prompt}. Provide only clean, working code in proper code blocks.`,
+                    finalIntent,
+                    classificationResult.summary,
+                    classificationResult.language,
+                    historyForAnalysis,
+                    images,
+                    requestType as 'code' | 'finance' | 'app_builder' | 'general',
+                    'gemma-3-27b-it',
+                    `Planning Result: ${planningResult}\n\nDesign Result: ${designResult}` // Pass step 1 & 2 results
+                );
+                updateStepStatus(2, 'done');
             }
-            
+
             if (!finalResponseText) {
                 const finalStepIndex = get().aiSteps.length - 1;
                 if(finalStepIndex >= 0) updateStepStatus(finalStepIndex, 'loading');
                 // Menggunakan gemma-3-27b-it untuk final response
                 finalResponseText = await generateFinalResponse(
-                    prompt, 
-                    classificationResult.intent, 
+                    prompt,
+                    finalIntent, 
                     classificationResult.summary, 
                     classificationResult.language, 
                     historyForAnalysis, 
-                    images, 
-                    requestType,
+                    images,
+                    requestType as 'code' | 'finance' | 'app_builder' | 'general',
                     'gemma-3-27b-it'
                 );
                 if(finalStepIndex >= 0) updateStepStatus(finalStepIndex, 'done');

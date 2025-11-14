@@ -835,7 +835,7 @@ export default function AppBuilderClientUI() {
       images: imageDataUrls,
     })
 
-    await generate(textPrompt, lang, false, imageParts)
+    await generate(textPrompt, lang, false, imageParts, [], 'app_builder')
   }
 
   const handleRegenerate = async (index: number) => {
@@ -865,7 +865,7 @@ export default function AppBuilderClientUI() {
     useAIStore.setState((state) => ({
       messages: state.messages.slice(0, index),
     }))
-    await generate(userPrompt, lang, true, imageParts)
+    await generate(userPrompt, lang, true, imageParts, [], 'app_builder')
   }
 
   const isSubmitDisabled =
