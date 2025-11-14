@@ -55,15 +55,15 @@ export const mainNav: NavItem[] = [
     icon: IconBlocks, // Ikon diubah
     items: [
       {
-        name: "generalChat",
-        title: "General Chat",
-        href: "playground/general-chat",
+        name: "appBuilder",
+        title: "App Builder",
+        href: "playground/app-builder",
         icon: IconMessage, // Ikon untuk submenu
       },
       {
         name: "waifuAI",
-        title: "Waifu AI",
-        href: "playground/waifu-ai",
+        title: "Character Studio",
+        href: "playground/character-studio",
         icon: IconRobot, // Ikon untuk submenu
       },
     ],

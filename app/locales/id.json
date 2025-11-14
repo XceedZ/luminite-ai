@@ -130,5 +130,14 @@
   "latest": "Terbaru",
   "changelog130Date": "Dirilis pada 15 April 2025",
   "changelog129Date": "Dirilis pada 12 April 2025",
-  "changelog128Date": "Dirilis pada 8 April 2025"
+  "changelog128Date": "Dirilis pada 8 April 2025",
+  "appBuilder": "App Builder",
+  "appBuilderTitle": "Apa yang ingin Anda buat?",
+  "appBuilderSubtitle": "Mulai membangun dengan satu prompt. Tidak perlu coding.",
+  "fromTheCommunity": "Dari Komunitas",
+  "exploreCommunity": "Jelajahi apa yang sedang dibangun komunitas dengan Luminite.",
+  "browseAll": "Jelajahi Semua",
+  "viewDetails": "Lihat Detail",
+  "loadMore": "Muat Lebih Banyak",
+  "createAnything": "Buat apapun sesuai ide..."
 }

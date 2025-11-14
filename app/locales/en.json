@@ -130,5 +130,14 @@
   "latest": "Latest",
   "changelog130Date": "Released on April 15, 2025",
   "changelog129Date": "Released on April 12, 2025",
-  "changelog128Date": "Released on April 8, 2025"
+  "changelog128Date": "Released on April 8, 2025",
+  "appBuilder": "App Builder",
+  "appBuilderTitle": "What do you want to create?",
+  "appBuilderSubtitle": "Start building with a single prompt. No coding needed.",
+  "fromTheCommunity": "From the Community",
+  "exploreCommunity": "Explore what the community is building with Luminite.",
+  "browseAll": "Browse All",
+  "viewDetails": "View Details",
+  "loadMore": "Load More",
+  "createAnything": "Create anything according to your idea..."
 }
