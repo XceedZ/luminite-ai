@@ -139,5 +139,8 @@
   "browseAll": "Browse All",
   "viewDetails": "View Details",
   "loadMore": "Load More",
-  "createAnything": "Create anything according to your idea..."
+  "createAnything": "Create anything according to your idea...",
+  "upgradeToTeam": "Upgrade to {plan} to unlock all features and more credits",
+  "upgradePlan": "Upgrade Plan",
+  "pro": "Pro"
 }

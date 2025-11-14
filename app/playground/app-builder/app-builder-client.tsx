@@ -7,7 +7,7 @@ import { Plus, SendHorizonal, Copy, ThumbsUp, ThumbsDown, RefreshCw, Square, X, 
 import ReactMarkdown from "react-markdown"
 import { useAIStore } from "@/app/store/ai-store"
 import { cn } from "@/lib/utils"
-import { AIGeneratedChart, ImagePart } from "@/lib/actions/ai"
+import { generateAppBuilderSuggestions, AIGeneratedChart, ImagePart } from "@/lib/actions/ai"
 import type { StoredMessage } from "@/lib/actions/ai"
 import { ChartDisplay } from "@/components/ChartDisplay"
 import { TableDisplay } from "@/components/TableDisplay"
@@ -37,10 +37,28 @@ import {
   ItemTitle,
 } from "@/components/ui/item"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { IconDeviceLaptop, IconChartBar, IconBriefcase, IconShoppingCart, IconBulb, IconFileText } from "@tabler/icons-react"
 // END NEW
 
 
 // --- Helper Components ---
+
+const getSuggestionIcon = (iconName: string) => {
+  switch (iconName) {
+    case "IconDeviceLaptop":
+      return <IconDeviceLaptop className="mr-2 h-4 w-4" />
+    case "IconChartBar":
+      return <IconChartBar className="mr-2 h-4 w-4" />
+    case "IconBriefcase":
+      return <IconBriefcase className="mr-2 h-4 w-4" />
+    case "IconShoppingCart":
+      return <IconShoppingCart className="mr-2 h-4 w-4" />
+    case "IconFileText":
+      return <IconFileText className="mr-2 h-4 w-4" />
+    default:
+      return <IconBulb className="mr-2 h-4 w-4" />
+  }
+}
 
 type ChatMessage = {
   role: "user" | "model"
@@ -295,28 +313,16 @@ const InputSection = ({
   handlePlusClick,
   isLoading,
   stopGeneration,
+  suggestions,
+  isLoadingSuggestions,
   t,
   isSubmitDisabled,
   usageText,
   usagePercentage,
   isLimitReached,
-}: {
-  inputValue: string
-  setInputValue: (value: string) => void
-  handleSubmit: (e: React.FormEvent) => void
-  handlePlusClick: () => void
-  isLoading: boolean
-  stopGeneration: () => void
-  t: (key: string) => string
-  isSubmitDisabled: boolean
-  usageText: string
-  usagePercentage: number
-  isLimitReached: boolean
-}) => {
+}: any) => {
 
-  const handleKeyDown = (
-    e: React.KeyboardEvent<HTMLTextAreaElement>,
-  ) => {
+  const handleKeyDown = (e: any) => {
     if (e.key === "Enter" && !e.shiftKey && !isSubmitDisabled) {
       e.preventDefault()
       handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>)
@@ -325,60 +331,104 @@ const InputSection = ({
 
   return (
     <div className="flex w-full flex-col items-center">
-      <form onSubmit={handleSubmit} className="w-full">
-        <InputGroup className="rounded-xl">
-          <InputGroupTextarea
-            placeholder={t("createAnything") || "Buat apapun sesuai ide..."}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading || isLimitReached}
-            className="max-h-[12rem] resize-none rounded-xl"
-          />
-          <InputGroupAddon align="block-end">
-            <InputGroupButton
-              type="button"
-              variant="outline"
-              className="rounded-full"
-              size="icon-xs"
-              onClick={handlePlusClick}
-            >
-              <IconPlus />
-            </InputGroupButton>
-            {/* Usage indicator only */}
-            <InputGroupText className="ml-auto flex items-center gap-2">
-              <span>{usageText}</span>
-            </InputGroupText>
-            <Separator orientation="vertical" className="!h-4" />
-            {isLoading ? (
+
+      {/* ⭐ WRAPPER BARU AGAR MENYATU */}
+      <div className="w-full rounded-xl border border-white/10 bg-black/20 backdrop-blur-sm overflow-hidden">
+
+        {/* ⭐ INPUT TANPA BORDER & TANPA ROUNDED */}
+        <form onSubmit={handleSubmit} className="w-full">
+          <InputGroup className="rounded-none border-0">
+            <InputGroupTextarea
+              placeholder={t("createAnything") || "Buat apapun sesuai ide..."}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={isLoading || isLimitReached}
+              className="max-h-[12rem] resize-none rounded-none border-0"
+            />
+
+            <InputGroupAddon align="block-end">
               <InputGroupButton
                 type="button"
-                variant="secondary"
+                variant="outline"
                 className="rounded-full"
                 size="icon-xs"
-                onClick={stopGeneration}
-                aria-label={t("ariaStop")}
+                onClick={handlePlusClick}
               >
-                <Square className="h-4 w-4" />
-                <span className="sr-only">Stop</span>
+                <IconPlus />
               </InputGroupButton>
-            ) : (
-              <InputGroupButton
-                type="submit"
-                variant="default"
-                className="rounded-full"
-                size="icon-xs"
-                disabled={isSubmitDisabled}
-                aria-label={t("ariaSend")}
-              >
-                <ArrowUpIcon className="h-4 w-4" />
-                <span className="sr-only">Send</span>
-              </InputGroupButton>
-            )}
-          </InputGroupAddon>
-        </InputGroup>
-      </form>
 
+              <InputGroupText className="ml-auto flex items-center gap-2">
+                <span>{usageText}</span>
+              </InputGroupText>
+
+              <Separator orientation="vertical" className="!h-4" />
+
+              {isLoading ? (
+                <InputGroupButton
+                  type="button"
+                  variant="secondary"
+                  className="rounded-full"
+                  size="icon-xs"
+                  onClick={stopGeneration}
+                >
+                  <Square className="h-4 w-4" />
+                </InputGroupButton>
+              ) : (
+                <InputGroupButton
+                  type="submit"
+                  variant="default"
+                  className="rounded-full"
+                  size="icon-xs"
+                  disabled={isSubmitDisabled}
+                >
+                  <ArrowUpIcon className="h-4 w-4" />
+                </InputGroupButton>
+              )}
+            </InputGroupAddon>
+          </InputGroup>
+        </form>
+
+         {/* ⭐ SECTION UPGRADE — sekarang menyatu */}
+         <div className="flex items-center justify-between px-4 py-3 border-t border-white/10 bg-black/30">
+           <p className="text-sm text-white/70">
+             {t("upgradeToTeam").split("{plan}")[0]}
+             <span className="font-semibold text-white">{t("pro")}</span>
+             {t("upgradeToTeam").split("{plan}")[1]}
+           </p>
+
+           <Button size="sm" className="flex items-center gap-1">
+             {t("upgradePlan")}
+           </Button>
+         </div>
+
+      </div>
+
+      {/* ⭐ SUGGESTIONS Tetap sama */}
+      {(isLoadingSuggestions || (suggestions && suggestions.length > 0)) && (
+        <div className="mt-4 w-full overflow-x-auto scrollbar-thin">
+          <div className="mx-auto flex w-max items-center gap-2 p-2">
+            {isLoadingSuggestions ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground animate-pulse">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>{t("generatingSuggestions")}</span>
+              </div>
+            ) : (
+              suggestions?.map(({ text, icon }: any, index: number) => (
+                <Button
+                  key={index}
+                  variant="secondary"
+                  onClick={() => setInputValue(text)}
+                  className="h-8 flex-shrink-0 rounded-full text-xs md:text-sm"
+                >
+                  {getSuggestionIcon(icon)}
+                  {text}
+                </Button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -654,6 +704,11 @@ export default function AppBuilderClientUI() {
     React.useState<Record<number, boolean>>({})
   const [selectedImageUrl, setSelectedImageUrl] =
     React.useState<string | null>(null)
+  const [suggestions, setSuggestions] = React.useState<
+    { text: string; icon: string }[]
+  >([])
+  const [isLoadingSuggestions, setIsLoadingSuggestions] =
+    React.useState(true)
   const [apiError, setApiError] = React.useState<string | null>(null)
 
   const {
@@ -690,6 +745,21 @@ export default function AppBuilderClientUI() {
     }
   }, [storeError])
 
+
+  React.useEffect(() => {
+    const fetchSuggestions = async () => {
+      setIsLoadingSuggestions(true)
+      try {
+        const suggestionData = await generateAppBuilderSuggestions()
+        setSuggestions(suggestionData)
+      } catch (error) {
+        console.error("Failed to fetch app builder suggestions:", error)
+      } finally {
+        setIsLoadingSuggestions(false)
+      }
+    }
+    fetchSuggestions()
+  }, [])
 
   React.useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -900,24 +970,26 @@ export default function AppBuilderClientUI() {
 
                 <div className="w-full max-w-2xl">
                   <FilePreview />
-                  <InputSection
-                    {...{
-                      inputValue,
-                      setInputValue,
-                      handleSubmit,
-                      handlePlusClick,
-                      isLoading,
-                      stopGeneration: () =>
-                        stopGeneration(
-                          t("generationStopped"),
-                        ),
-                      t,
-                      isSubmitDisabled,
-                    }}
-                    usageText={usageText}
-                    usagePercentage={usagePercentage}
-                    isLimitReached={hasReachedLimit}
-                  />
+                <InputSection
+                  {...{
+                    inputValue,
+                    setInputValue,
+                    handleSubmit,
+                    handlePlusClick,
+                    isLoading,
+                    stopGeneration: () =>
+                      stopGeneration(
+                        t("generationStopped"),
+                      ),
+                    suggestions,
+                    isLoadingSuggestions,
+                    t,
+                    isSubmitDisabled,
+                  }}
+                  usageText={usageText}
+                  usagePercentage={usagePercentage}
+                  isLimitReached={hasReachedLimit}
+                />
                 </div>
               </div>
             </main>
@@ -1158,6 +1230,8 @@ export default function AppBuilderClientUI() {
                 stopGeneration={() =>
                   stopGeneration(t("generationStopped"))
                 }
+                suggestions={[]}
+                isLoadingSuggestions={false}
                 t={t}
                 isSubmitDisabled={isSubmitDisabled}
                 usageText={usageText}

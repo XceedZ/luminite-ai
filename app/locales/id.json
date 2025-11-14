@@ -139,5 +139,8 @@
   "browseAll": "Jelajahi Semua",
   "viewDetails": "Lihat Detail",
   "loadMore": "Muat Lebih Banyak",
-  "createAnything": "Buat apapun sesuai ide..."
+  "createAnything": "Buat apapun sesuai ide...",
+  "upgradeToTeam": "Upgrade ke {plan} untuk membuka semua fitur dan kredit lebih banyak",
+  "upgradePlan": "Upgrade Plan",
+  "pro": "Pro"
 }

@@ -613,7 +613,96 @@ export async function generateSuggestions() {
           ];
       return fallbackSuggestions;
   }
-}      
+}
+
+// [NEW] Generate suggestions for App Builder
+export async function generateAppBuilderSuggestions() {
+  const headersList = await headers();
+
+  // [MODIFIKASI] Kembali menggunakan 'referer' karena lebih andal untuk Server Actions.
+  const referer = headersList.get('referer');
+
+  // Ekstrak path dari URL 'referer'. Jika tidak ada, gunakan '/' sebagai fallback.
+  const path = referer ? new URL(referer).pathname : '/';
+
+  const language = path.startsWith('/en') ? 'English' : 'Indonesian';
+  console.log(`AI App Builder: Auto-detected language '${language}' from path '${path}'. Generating suggestions...`);
+
+  const exampleJson = language === 'English'
+    ? `{
+        "suggestions": [
+          { "text": "Create a modern landing page for GreenTech Solutions", "icon": "IconDeviceLaptop" },
+          { "text": "Build an analytics dashboard for sales team", "icon": "IconChartBar" },
+          { "text": "Design a portfolio website for freelance designer", "icon": "IconBriefcase" },
+          { "text": "Create an e-commerce site for handmade crafts", "icon": "IconShoppingCart" }
+        ]
+      }`
+    : `{
+        "suggestions": [
+          { "text": "Buat landing page modern untuk GreenTech Solutions", "icon": "IconDeviceLaptop" },
+          { "text": "Buat dashboard analitik untuk tim sales", "icon": "IconChartBar" },
+          { "text": "Buat website portofolio untuk desainer freelance", "icon": "IconBriefcase" },
+          { "text": "Buat toko online untuk kerajinan tangan", "icon": "IconShoppingCart" }
+        ]
+      }`;
+
+  const currentTime = Date.now();
+  const suggestionPrompt = `
+    You are an AI App Builder Assistant for creating web applications and websites.
+    Generate exactly 3 creative and varied suggestions for building different types of apps and websites.
+    Each suggestion should be a natural, helpful prompt that users might type when starting a new project.
+
+    **Current timestamp:** ${currentTime}
+
+    **Requirements:**
+    - All suggestions must be in ${language}
+    - Make them realistic and diverse (landing pages, dashboards, portfolios, e-commerce, blogs, etc.)
+    - Include different business types (restaurants, tech companies, fashion brands, etc.)
+    - Keep them concise but natural sounding
+    - Focus on common web/app development scenarios
+    - Generate different suggestions each time (use the timestamp as inspiration for variety)
+
+    **Response format:** Return ONLY a valid JSON object with this exact structure:
+    ${exampleJson}
+
+    Do not include any explanations, markdown, or additional text. Only the JSON object.
+  `;
+
+  try {
+      const response = await ai.models.generateContent({
+        model: "models/gemma-3n-e2b-it",
+        contents: suggestionPrompt,
+      });
+      const responseText = response.text || "";
+      console.log(`[APP BUILDER SUGGESTIONS] AI Response: ${responseText}`);
+      const jsonMatch = responseText.match(/{[\s\S]*}/);
+
+      if (jsonMatch && jsonMatch[0]) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        console.log(`[APP BUILDER SUGGESTIONS] Parsed suggestions:`, parsed.suggestions);
+        return parsed.suggestions || [];
+      } else {
+        console.error(`[APP BUILDER SUGGESTIONS] Failed to extract JSON from: ${responseText}`);
+        throw new Error("Failed to extract valid JSON for app builder suggestions.");
+      }
+  } catch (error) {
+      console.error("App Builder Suggestion AI Error:", error);
+      const fallbackSuggestions = language === 'English'
+        ? [
+            { "text": "Create a restaurant website for Bella Vista", "icon": "IconDeviceLaptop" },
+            { "text": "Build a blog for tech startup", "icon": "IconFileText" },
+            { "text": "Design e-commerce site for fashion brand", "icon": "IconShoppingCart" },
+            { "text": "Make portfolio for photographer", "icon": "IconBriefcase" },
+          ]
+        : [
+            { "text": "Buat website restoran Bella Vista", "icon": "IconDeviceLaptop" },
+            { "text": "Buat blog untuk startup teknologi", "icon": "IconFileText" },
+            { "text": "Buat toko online brand fashion", "icon": "IconShoppingCart" },
+            { "text": "Buat portofolio fotografer", "icon": "IconBriefcase" },
+          ];
+      return fallbackSuggestions;
+  }
+}
 
 // --- Fungsi Pipeline Chat Utama (Non-Streaming) ---
 
