@@ -31,12 +31,13 @@ import { DataTableToolbar } from "./data-table-toolbar"
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  onRowClick?: (row: TData) => void
 }
-
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  onRowClick,
 }: DataTableProps<TData, TValue>) {
   const [rowSelection, setRowSelection] = React.useState({})
   const [columnVisibility, setColumnVisibility] =
@@ -97,9 +98,26 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  onClick={() => onRowClick?.(row.original)}
+                  className={onRowClick ? "cursor-pointer hover:bg-muted/50 transition-colors" : ""}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="whitespace-nowrap">
+                    <TableCell 
+                      key={cell.id} 
+                      className="whitespace-nowrap"
+                      onClick={(e) => {
+                        // Prevent row click when clicking on interactive elements
+                        const target = e.target as HTMLElement
+                        if (
+                          target.closest('[role="checkbox"]') || 
+                          target.closest('button') ||
+                          target.closest('[data-no-row-click]') ||
+                          target.closest('a')
+                        ) {
+                          e.stopPropagation()
+                        }
+                      }}
+                    >
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -125,4 +143,3 @@ export function DataTable<TData, TValue>({
     </div>
   )
 }
-

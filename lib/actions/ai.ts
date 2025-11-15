@@ -4,6 +4,8 @@ import { GoogleGenAI, Part } from "@google/genai"
 import { headers } from 'next/headers' // [MODIFIKASI] Import 'headers' dari next/headers
 import { Redis } from '@upstash/redis'
 import { nanoid } from 'nanoid'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GOOGLE_API_KEY || ""
@@ -13,6 +15,47 @@ const ai = new GoogleGenAI({
     url: process.env.UPSTASH_REDIS_REST_URL!,
     token: process.env.UPSTASH_REDIS_REST_TOKEN!,
   })
+
+  // Helper function to get template examples
+  function getTemplateExample(userPrompt: string): string {
+    try {
+      const promptLower = userPrompt.toLowerCase();
+      
+      // Determine which template to use based on keywords
+      let templateFile = '';
+      
+      if (promptLower.includes('portfolio') || promptLower.includes('portofolio')) {
+        // Choose between modern or creative portfolio based on keywords
+        if (promptLower.includes('creative') || promptLower.includes('kreatif') || promptLower.includes('artistic')) {
+          templateFile = 'portfolio-creative.html';
+        } else {
+          templateFile = 'portfolio-modern.html';
+        }
+      } else if (promptLower.includes('saas') || promptLower.includes('software') || promptLower.includes('app landing') || promptLower.includes('product')) {
+        templateFile = 'landing-page-saas.html';
+      } else if (promptLower.includes('restaurant') || promptLower.includes('resto') || promptLower.includes('cafe') || promptLower.includes('food')) {
+        templateFile = 'landing-page-restaurant.html';
+      } else if (promptLower.includes('dashboard') || promptLower.includes('admin') || promptLower.includes('panel')) {
+        templateFile = 'dashboard-admin.html';
+      } else if (promptLower.includes('ecommerce') || promptLower.includes('e-commerce') || promptLower.includes('shop') || promptLower.includes('product page') || promptLower.includes('toko')) {
+        templateFile = 'ecommerce-product.html';
+      } else if (promptLower.includes('blog') || promptLower.includes('article') || promptLower.includes('writing')) {
+        templateFile = 'blog-personal.html';
+      } else {
+        // Default to portfolio modern for general websites
+        templateFile = 'portfolio-modern.html';
+      }
+      
+      // Read the template file
+      const templatePath = join(process.cwd(), 'templates', templateFile);
+      const templateCode = readFileSync(templatePath, 'utf-8');
+      
+      return templateCode;
+    } catch (error) {
+      console.error('Error loading template:', error);
+      return ''; // Return empty string if template not found
+    }
+  }
 
   export type ImagePart = {
     mimeType: string;
@@ -27,6 +70,10 @@ const ai = new GoogleGenAI({
     chart?: AIGeneratedChart | null; 
     thinkingResult?: ThinkingResult | null;
     table?: AIGeneratedTable | null;
+    actionResult?: {
+      title: string;
+      description?: string;
+    } | null;
   }
 
   export type ThinkingResult = {
@@ -544,6 +591,102 @@ async function saveMessageToHistory(sessionId: string, message: StoredMessage) {
     }
   }
 
+// Save/Get code for app_builder
+export async function saveCodeToUpstash(sessionId: string, code: string) {
+  "use server"
+  try {
+    console.log('[saveCodeToUpstash] Saving code for session:', sessionId, 'Length:', code?.length || 0)
+    
+    // Check if code already exists - if yes, update it (not create new)
+    const existingCode = await redis.get<string>(`code:${sessionId}`);
+    console.log('[saveCodeToUpstash] Existing code found:', !!existingCode)
+    
+    await redis.set(`code:${sessionId}`, code);
+    console.log('[saveCodeToUpstash] Code saved successfully')
+    
+    // Also save publish status (default unpublished) - preserve existing status
+    const publishStatus = await redis.get(`publish:${sessionId}`);
+    if (publishStatus === null || publishStatus === undefined) {
+      await redis.set(`publish:${sessionId}`, false);
+      console.log('[saveCodeToUpstash] Initialized publish status to false')
+    }
+    
+    return { success: true, isUpdate: !!existingCode };
+  } catch (error) {
+    console.error("[saveCodeToUpstash] Error:", error);
+    return { success: false, error: "Gagal menyimpan code." };
+  }
+}
+
+export async function getCodeFromUpstash(sessionId: string) {
+  "use server"
+  try {
+    console.log('[getCodeFromUpstash] Getting code for session:', sessionId)
+    const code = await redis.get<string>(`code:${sessionId}`);
+    console.log('[getCodeFromUpstash] Result:', {
+      found: !!code,
+      length: code?.length || 0,
+      preview: code?.substring(0, 100) || 'null'
+    })
+    return code || null;
+  } catch (error) {
+    console.error("[getCodeFromUpstash] Error:", error);
+    return null;
+  }
+}
+
+export async function togglePublishStatus(sessionId: string, isPublished: boolean) {
+  "use server"
+  try {
+    console.log('[togglePublishStatus] Setting status for session:', sessionId, 'to:', isPublished)
+    await redis.set(`publish:${sessionId}`, isPublished);
+    console.log('[togglePublishStatus] Status updated successfully')
+    return { success: true };
+  } catch (error) {
+    console.error("[togglePublishStatus] Error:", error);
+    return { success: false, error: "Gagal mengupdate publish status." };
+  }
+}
+
+export async function getPublishStatus(sessionId: string) {
+  "use server"
+  try {
+    console.log('[getPublishStatus] Getting status for session:', sessionId)
+    const status = await redis.get<boolean>(`publish:${sessionId}`);
+    console.log('[getPublishStatus] Status:', status)
+    return status === true;
+  } catch (error) {
+    console.error("[getPublishStatus] Error:", error);
+    return false;
+  }
+}
+
+// Save/Get AI steps for app_builder
+export async function saveAIStepsToUpstash(sessionId: string, steps: Array<{ text: string; status: 'pending' | 'loading' | 'done'; response?: string; startTime?: number; duration?: number }>) {
+  "use server"
+  try {
+    await redis.set(`steps:${sessionId}`, JSON.stringify(steps));
+    return { success: true };
+  } catch (error) {
+    console.error("Gagal menyimpan AI steps ke Upstash:", error);
+    return { success: false, error: "Gagal menyimpan AI steps." };
+  }
+}
+
+export async function getAIStepsFromUpstash(sessionId: string) {
+  "use server"
+  try {
+    const steps = await redis.get<string>(`steps:${sessionId}`);
+    if (steps) {
+      return JSON.parse(steps) as Array<{ text: string; status: 'pending' | 'loading' | 'done'; response?: string; startTime?: number; duration?: number }>;
+    }
+    return null;
+  } catch (error) {
+    console.error("Gagal mengambil AI steps dari Upstash:", error);
+    return null;
+  }
+}
+
 // [FINAL] Fungsi untuk menghasilkan 3 sugesti singkat
 export async function generateSuggestions() {
   const headersList = await headers();
@@ -586,7 +729,7 @@ export async function generateSuggestions() {
 
   try {
       const response = await ai.models.generateContent({
-        model: "models/gemma-3n-e2b-it",
+        model: "models/gemma-3-4b-it",
         contents: suggestionPrompt,
       });
       const responseText = response.text || "";
@@ -670,7 +813,7 @@ export async function generateAppBuilderSuggestions() {
 
   try {
       const response = await ai.models.generateContent({
-        model: "models/gemma-3n-e2b-it",
+        model: "models/gemma-3-4b-it",
         contents: suggestionPrompt,
       });
       const responseText = response.text || "";
@@ -882,11 +1025,12 @@ export {
   generateTable,
   generateFinalResponse,
   generateTitleForChat,
-  saveMessageToHistory
+  saveMessageToHistory,
+  getTemplateExample
 };
 
 // [NEW] Separate system instructions for different modes
-function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'general', language: string): string {
+function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'app_builder_inspiration' | 'app_builder_inspiration_json' | 'web_planning' | 'app_builder_planning' | 'general', language: string): string {
   const creatorAnswer = language === 'English' 
     ? '"I was created by the Luminite team to help with coding and finance for SMEs in Indonesia."' 
     : '"Saya dibuat oleh tim Luminite untuk membantu coding dan keuangan UMKM di Indonesia."';
@@ -963,29 +1107,248 @@ function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'genera
   } else if (mode === 'app_builder') {
     return `
     **System Instruction:**
-    You are a professional web developer who only outputs clean HTML and CSS code.
+    You are a professional web developer. You will be given a REFERENCE TEMPLATE that is already beautifully designed.
 
-    **CRITICAL RULES:**
-    - ONLY output HTML and CSS code in proper code blocks
-    - NEVER output any explanatory text, comments, or instructions outside of code
-    - Use \`\`\`html for HTML code and \`\`\`css for CSS code
-    - Create complete, working websites based on user requests
-    - Use semantic HTML5 elements
-    - Implement modern CSS with Flexbox/Grid
-    - Ensure mobile-first responsive design
-    - Make the code clean and production-ready
+    **YOUR TASK - CONTENT ADAPTATION ONLY:**
+    - Use the REFERENCE TEMPLATE structure, layout, and CSS AS-IS (don't change them!)
+    - ONLY modify the TEXT CONTENT to match user's request:
+      * Change titles, headings, descriptions
+      * Update section names
+      * Modify button text and links
+      * Change placeholder content
+    - KEEP the HTML structure identical
+    - KEEP all CSS classes and styles unchanged
+    - KEEP all animations and design elements
+    - If template has 5 sections, keep 5 sections
+    - If template uses certain colors, keep those colors
 
-    **Output Format:**
-    Always provide both HTML and CSS in separate code blocks:
+    **CRITICAL OUTPUT FORMAT:**
+    Output ONLY ONE complete HTML document inside a \`\`\`html code block:
+    
     \`\`\`html
-    <!-- HTML code here -->
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Updated Title Based on User Request</title>
+        <style>
+            /* COPY ALL CSS from template - DO NOT modify unless user specifically asks */
+        </style>
+    </head>
+    <body>
+        <!-- Use same HTML structure from template -->
+        <!-- ONLY change text content like titles, descriptions, etc. -->
+        
+        <script>
+            /* COPY JavaScript from template if exists */
+        </script>
+    </body>
+    </html>
     \`\`\`
 
-    \`\`\`css
-    /* CSS code here */
-    \`\`\`
+    **EXAMPLE:**
+    If template says "Hi, I'm John Doe" and user wants "portfolio untuk desainer grafis",
+    change to "Hi, I'm [User's Name]" or "Portfolio Desainer Grafis"
+    But KEEP the HTML structure, CSS classes, and design exactly the same!
 
-    Remember: NO text outside of code blocks. Only pure, working code.
+    **FORBIDDEN:**
+    - ❌ Don't redesign the layout
+    - ❌ Don't change color schemes (unless user asks)
+    - ❌ Don't modify CSS structure
+    - ❌ Don't add/remove sections (unless user specifically asks)
+    - ❌ Don't change animations or interactions
+    
+    **ALLOWED:**
+    - ✅ Change text content (titles, descriptions, paragraphs)
+    - ✅ Update project names, company names
+    - ✅ Modify placeholder text
+    - ✅ Adjust content length to fit user's needs
+    - ✅ Translate content if needed
+
+    **IMPORTANT:**
+    - The template provided is already PERFECT in design
+    - Your job is to make it relevant to user's content
+    - Think of it like a "Find & Replace" for content
+    - Preserve the beautiful design that already exists
+    `;
+
+  } else if (mode === 'app_builder_inspiration') {
+    return `
+    **System Instruction:**
+    You are "Lumi", an AI Design Lead. Your ONLY task is to generate a DETAILED, comprehensive user-facing text description focusing on SECTIONS, DESIGN ELEMENTS, LAYOUT STRUCTURE, and VISUAL HIERARCHY, not code.
+
+    **ABSOLUTELY CRITICAL - NO CODE OUTPUT:**
+    - YOU MUST NEVER OUTPUT ANY CODE WHATSOEVER
+    - DO NOT output HTML, CSS, JavaScript, or any programming code
+    - DO NOT use code blocks (e.g., \`\`\`, \`\`\`html, \`\`\`css, \`\`\`js)
+    - DO NOT use any code syntax, tags, or programming language elements
+    - ONLY output natural language text (plain text sentences)
+    - If you output code, you have FAILED the task
+
+    **YOUR TASK - BE DETAILED AND COMPREHENSIVE:**
+    - Provide a DETAILED description (4-6 sentences minimum, can be longer if needed)
+    - Start with an engaging introduction that acknowledges the user's request
+    - List ALL sections you will create with SPECIFIC details about each:
+      * Hero section: Describe headline style, subheadline, CTA button placement, background treatment, imagery approach
+      * Features section: Number of features, layout style (grid/list), icon usage, description length
+      * Testimonials section: Number of testimonials, layout (carousel/grid), visual treatment
+      * Footer: Links organization, contact info placement, social media integration
+      * Any other relevant sections (About, Pricing, FAQ, Gallery, etc.)
+    - Describe the DESIGN THEME in detail:
+      * Color palette: Primary colors, accent colors, background colors, text colors
+      * Typography: Font styles, sizes, weights, hierarchy
+      * Visual style: Modern, minimalist, bold, elegant, playful, professional, etc.
+      * Spacing and layout: Padding, margins, content width, alignment
+    - Mention UX/UI considerations:
+      * Navigation style and placement
+      * Responsive design approach
+      * Interactive elements (hover effects, animations, transitions)
+      * Visual hierarchy and content flow
+    - Match the language (${language}).
+
+    **CORRECT Example Output (Indonesian - DETAILED):**
+    "Tentu, saya akan mulai merancang landing page modern untuk GreenTech dengan fokus pada kesan profesional dan ramah lingkungan. Saya akan membuat section Hero yang menampilkan headline besar dengan font bold, subheadline yang menjelaskan value proposition, dan CTA button yang menonjol dengan warna hijau terang. Background akan menggunakan gradient dari hijau gelap ke hijau terang dengan overlay subtle pattern. Section Features akan menampilkan 6 fitur utama dalam layout grid 3 kolom, masing-masing dengan icon ilustratif, judul pendek, dan deskripsi 2-3 kalimat. Section Testimonials akan menggunakan carousel dengan 3-4 testimoni dari klien, dilengkapi foto, nama, dan rating bintang. Footer akan terorganisir dengan 4 kolom: About, Services, Resources, dan Contact, dengan social media icons di bagian bawah. Desain menggunakan tema terang dengan palet warna hijau (#2D8659) sebagai primary, putih (#FFFFFF) sebagai background, dan abu-abu (#F5F5F5) untuk section alternatif. Typography menggunakan font sans-serif modern dengan hierarchy yang jelas. Layout akan fully responsive dengan breakpoints untuk mobile, tablet, dan desktop. Saya akan menambahkan subtle animations pada scroll dan hover effects untuk meningkatkan engagement."
+    
+    **CORRECT Example Output (English - DETAILED):**
+    "Okay, I'll start designing a modern landing page for GreenTech with a focus on professional and eco-friendly aesthetics. I'll create a Hero section featuring a large bold headline, a subheadline explaining the value proposition, and a prominent CTA button in bright green. The background will use a gradient from dark green to light green with a subtle pattern overlay. The Features section will showcase 6 main features in a 3-column grid layout, each with an illustrative icon, short title, and 2-3 sentence description. The Testimonials section will use a carousel with 3-4 client testimonials, complete with photos, names, and star ratings. The Footer will be organized with 4 columns: About, Services, Resources, and Contact, with social media icons at the bottom. The design uses a light theme with a green color palette (#2D8659) as primary, white (#FFFFFF) as background, and gray (#F5F5F5) for alternate sections. Typography uses modern sans-serif fonts with clear hierarchy. The layout will be fully responsive with breakpoints for mobile, tablet, and desktop. I'll add subtle animations on scroll and hover effects to enhance engagement."
+
+    **WRONG - DO NOT DO THIS:**
+    - Do NOT output: \`\`\`html ... \`\`\`
+    - Do NOT output: <div>...</div>
+    - Do NOT output: .class { ... }
+    - Do NOT output any code blocks or code syntax
+    - Do NOT be too brief (minimum 4-6 sentences)
+
+    Remember: Provide DETAILED, comprehensive descriptions about sections and design. NO CODE. Be thorough and specific.
+    `;
+  } else if (mode === 'app_builder_inspiration_json') {
+    return `
+    **System Instruction:**
+    You are "Lumi", an AI Design Lead. Your task is to generate a JSON response with two parts:
+    1. **text**: A DETAILED, comprehensive user-facing text description focusing on SECTIONS, DESIGN ELEMENTS, LAYOUT STRUCTURE, and VISUAL HIERARCHY
+    2. **code**: A preview template code (HTML with inline CSS and JavaScript) that demonstrates modern, interactive, and beautiful website design
+
+    **CRITICAL - OUTPUT FORMAT:**
+    - You MUST output ONLY a valid JSON object with this exact structure:
+    {
+      "text": "detailed description here...",
+      "code": "complete HTML code with inline CSS and JavaScript here..."
+    }
+    - The JSON must be valid and parseable
+    - Do NOT include any text before or after the JSON
+    - Do NOT use markdown code blocks around the JSON
+    - The JSON should be the ONLY output
+
+    **TEXT FIELD REQUIREMENTS:**
+    - Provide a DETAILED description (4-6 sentences minimum, can be longer if needed)
+    - Start with an engaging introduction that acknowledges the user's request
+    - List ALL sections you will create with SPECIFIC details about each
+    - Describe the DESIGN THEME in detail (colors, typography, visual style, spacing)
+    - Mention UX/UI considerations (navigation, responsive design, interactive elements)
+    - Match the language (${language}).
+
+    **CODE FIELD REQUIREMENTS:**
+    - Provide a complete, working HTML template with inline CSS and JavaScript
+    - The code must be modern, interactive, and beautiful
+    - Use the REFERENCE TEMPLATE CODE (if provided in context) as inspiration for structure, design patterns, and code quality
+    - Follow the same standards as the reference template: inline CSS in <style>, modern design, responsive, interactive
+    - All CSS must be inline in <style> tag within <head>
+    - JavaScript can be inline in <script> tag before </body>
+    - The code should be production-ready and self-contained
+    - Escape JSON properly (use \\n for newlines, \\" for quotes)
+
+    **REFERENCE TEMPLATE:**
+    - A high-quality reference template is provided in the planning context
+    - Study its structure, design patterns, CSS organization, and interactivity
+    - Use similar design quality, color schemes, typography, and smooth animations
+    - Adapt the patterns to fit the user's specific request
+
+    **IMPORTANT:**
+    - Output ONLY the JSON object, nothing else
+    - The code field should contain a complete, working HTML template
+    - The code should be modern, interactive, and beautiful
+    - Match the language for the text field (${language})
+    `;
+  } else if (mode === 'web_planning') {
+    return `
+    **System Instruction:**
+    You are "Lumi", an AI Web Planning Assistant. Your ONLY task is to generate a SHORT, concise description of the CODE STACK and TECHNICAL APPROACH.
+
+    **ABSOLUTELY CRITICAL - NO CODE OUTPUT:**
+    - YOU MUST NEVER OUTPUT ANY CODE WHATSOEVER
+    - DO NOT output HTML, CSS, JavaScript, or any programming code
+    - DO NOT use code blocks (e.g., \`\`\`, \`\`\`html, \`\`\`css, \`\`\`js)
+    - DO NOT use any code syntax, tags, or programming language elements
+    - ONLY output natural language text (plain text sentences)
+    - If you output code, you have FAILED the task
+
+    **YOUR TASK:**
+    - ONLY output natural language text describing CODE TECHNOLOGIES and STACK
+    - Keep it SHORT and focused (1-2 sentences maximum)
+    - Specify which CODE STACK you'll use: HTML, CSS (mention if using Flexbox/Grid), and JavaScript (if needed)
+    - IMPORTANT: List the files that will be created (e.g., "index.html", "styles.css", "script.js")
+    - Use plain text to describe technologies and files, NOT code
+    - Match the language (${language}).
+
+    **CORRECT Example Output (Indonesian):**
+    "Saya akan menggunakan HTML5 untuk struktur, CSS dengan Flexbox dan Grid untuk layout responsif, tanpa JavaScript untuk website statis ini. File yang akan dibuat: index.html."
+
+    **CORRECT Example Output (English):**
+    "I will use HTML5 for structure, CSS with Flexbox and Grid for responsive layout, no JavaScript needed for this static website. Files to be created: index.html."
+
+    **WRONG - DO NOT DO THIS:**
+    - Do NOT output: \`\`\`html ... \`\`\`
+    - Do NOT output: <div>...</div>
+    - Do NOT output: .class { ... }
+    - Do NOT output any code blocks or code syntax
+
+    Remember: ONLY plain text about code stack. NO CODE.
+    `;
+  } else if (mode === 'app_builder_planning') {
+    return `
+    **System Instruction:**
+    You are "Lumi", an AI Implementation Planning Assistant. Your task is to generate a CLEAR and SIMPLE implementation plan that explains how the website will be built in easy-to-understand language.
+
+    **ABSOLUTELY CRITICAL - NO CODE OUTPUT:**
+    - YOU MUST NEVER OUTPUT ANY CODE WHATSOEVER
+    - DO NOT output HTML, CSS, JavaScript, or any programming code
+    - DO NOT use code blocks (e.g., \`\`\`, \`\`\`html, \`\`\`css, \`\`\`js)
+    - DO NOT use any code syntax, tags, or programming language elements
+    - ONLY output natural language text (plain text sentences)
+    - If you output code, you have FAILED the task
+
+    **YOUR TASK:**
+    - Provide a CLEAR and SIMPLE implementation plan (2-3 sentences maximum)
+    - Use simple, everyday language that non-technical users can understand
+    - Explain HOW the website will be built in a friendly, conversational way
+    - Avoid ALL technical terms - do NOT mention HTML, CSS, JavaScript, or any technical jargon
+    - Focus on what will be created and how it will work, not technical details
+    - Keep it SHORT and SIMPLE - be concise
+    - Match the language (${language}).
+
+    **WRITING STYLE:**
+    - Write as if explaining to a friend who doesn't know about coding
+    - Use simple words: "tata letak" instead of "layout", "menyesuaikan" instead of "responsive"
+    - Keep it very short and easy to read (2-3 sentences only)
+    - Be friendly and encouraging
+    - Do NOT mention any technical terms at all
+
+    **CORRECT Example Output (Indonesian):**
+    "Saya akan membuat website dengan struktur yang rapi dan mudah diakses dari berbagai perangkat. Tampilan akan menyesuaikan otomatis untuk ponsel, tablet, dan komputer. Saya akan menambahkan efek interaktif dan animasi halus agar website terlihat modern dan menarik."
+
+    **CORRECT Example Output (English):**
+    "I will create the website with a clean structure that works well on all devices. The design will automatically adapt for phones, tablets, and computers. I'll add interactive effects and smooth animations to make the website look modern and engaging."
+
+    **WRONG - DO NOT DO THIS:**
+    - Do NOT output: \`\`\`html ... \`\`\`
+    - Do NOT output: <div>...</div>
+    - Do NOT output: .class { ... }
+    - Do NOT use technical terms like "HTML", "CSS", "JavaScript", "CSS Grid", "Flexbox", "media queries", "pseudo-classes", "breakpoints", "mobile-first"
+    - Do NOT output any code blocks or code syntax
+    - Do NOT be too long (keep it 2-3 sentences maximum)
+
+    Remember: ONLY plain text in simple, friendly language. NO CODE. NO TECHNICAL JARGON. KEEP IT SHORT.
     `;
   } else {
     return `
@@ -1021,7 +1384,7 @@ async function generateFinalResponse(
   language: string,
   history: StoredMessage[],
   images?: ImagePart[],
-  mode?: 'code' | 'finance' | 'app_builder' | 'general',
+  mode?: 'code' | 'finance' | 'app_builder' | 'app_builder_inspiration' | 'app_builder_inspiration_json' | 'web_planning' | 'app_builder_planning' | 'general',
   modelOverride?: string,
   planningContext?: string
 ): Promise<string> {
@@ -1062,7 +1425,9 @@ async function generateFinalResponse(
   ` : '';
 
   // [CRITICAL] Add explicit code block formatting instruction
-  const codeBlockInstruction = `
+  // BUT: Skip code block instruction for modes that should NOT output code
+  const shouldSkipCodeBlockInstruction = mode === 'app_builder_inspiration' || mode === 'web_planning';
+  const codeBlockInstruction = shouldSkipCodeBlockInstruction ? '' : `
   ---
   **[ABSOLUTELY CRITICAL] CODE BLOCK FORMATTING:**
   - When writing ANY code block in markdown, you MUST ALWAYS include the language identifier.
@@ -1081,6 +1446,11 @@ async function generateFinalResponse(
     ${planningContext}
     ---` : '';
 
+  // Build user prompt detail - different for modes that should NOT output code
+  const codeInstruction = shouldSkipCodeBlockInstruction 
+    ? '' 
+    : `**CRITICAL: Always use \`\`\`json for JSON, \`\`\`javascript for JS, \`\`\`python for Python, etc. NEVER use plain \`\`\`.**`;
+  
   const userPromptDetail = `
     **Previous Conversation History:**
     ${historyText}
@@ -1090,7 +1460,7 @@ async function generateFinalResponse(
     - Summary of what the user wants: "${summary}"
     - The user's original, verbatim prompt was: "${originalPrompt}"
     
-    **CRITICAL: Always use \`\`\`json for JSON, \`\`\`javascript for JS, \`\`\`python for Python, etc. NEVER use plain \`\`\`.**
+    ${codeInstruction}
     
     Now, considering all instructions, especially the protocol for the given intent, generate a helpful and professional response in **${language}**.
   `;

@@ -1,0 +1,45 @@
+/* Minimal CSS for share layout - no sidebar/topbar/breadcrumb styles */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* Hide topbar, sidebar, breadcrumb and any navigation elements */
+[role="navigation"],
+nav,
+[class*="breadcrumb"],
+[class*="Breadcrumb"],
+[class*="topbar"],
+[class*="TopBar"],
+[class*="top-bar"],
+header,
+header[class*="TopBar"],
+header > *,
+aside[class*="Sidebar"],
+[class*="sidebar"],
+[data-sidebar],
+[class*="SidebarInset"],
+[class*="SidebarProvider"] {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  width: 0 !important;
+  opacity: 0 !important;
+  position: absolute !important;
+  z-index: -1 !important;
+}
+
+/* Ensure iframe takes full screen */
+iframe {
+  width: 100vw !important;
+  height: 100vh !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: block !important;
+}

@@ -3,7 +3,7 @@
 import * as React from "react"
 import { useLanguage } from "@/components/language-provider"
 import { Button } from "@/components/ui/button"
-import { Plus, SendHorizonal, Copy, ThumbsUp, ThumbsDown, RefreshCw, Square, X, Loader2, Zap, AlertTriangle, ChevronUp, ChevronDown, Image as ImageIcon, FileUp, ArrowUpIcon, ShieldAlertIcon, User, Sparkles, Check as IconCheck, Plus as IconPlus } from "lucide-react"
+import { Copy, ThumbsUp, ThumbsDown, RefreshCw, Square, X, Loader2, Zap, AlertTriangle, ChevronDown, ArrowUpIcon, ShieldAlertIcon, User, Check as IconCheck, Plus as IconPlus, Brain, Search, Code2, Sparkles as SparklesIcon, FileCode, FileText, Bolt as IconBolt } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import { useAIStore } from "@/app/store/ai-store"
 import { cn } from "@/lib/utils"
@@ -18,6 +18,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { PanelCode } from "@/components/panel-code"
 import {
   InputGroup,
   InputGroupAddon,
@@ -38,6 +39,7 @@ import {
 } from "@/components/ui/item"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { IconDeviceLaptop, IconChartBar, IconBriefcase, IconShoppingCart, IconBulb, IconFileText } from "@tabler/icons-react"
+import { AnimatedShinyText } from "@/components/ui/animated-shiny-text"
 // END NEW
 
 
@@ -56,7 +58,7 @@ const getSuggestionIcon = (iconName: string) => {
     case "IconFileText":
       return <IconFileText className="mr-2 h-4 w-4" />
     default:
-      return <IconBulb className="mr-2 h-4 w-4" />
+      return <IconBolt className="mr-2 h-4 w-4" />
   }
 }
 
@@ -69,6 +71,10 @@ type ChatMessage = {
   thinkingResult?: {
     duration: number
     classification?: { summary?: string; rawResponse?: string }
+  } | null
+  actionResult?: {
+    title: string
+    description?: string
   } | null
 }
 
@@ -120,9 +126,9 @@ const CodeBlock = ({
   )
 }
 
-const AIMessage = ({ msg }: { msg: ChatMessage }) => (
-  <div className="w-full max-w-prose animate-in fade-in-0 duration-500">
-    <div className="prose prose-zinc max-w-none dark:prose-invert">
+const AIMessage = ({ msg, compact = false }: { msg: ChatMessage; compact?: boolean }) => (
+  <div className={cn("w-full max-w-prose animate-in fade-in-0 duration-500", compact && "-my-1")}>
+    <div className={cn("prose prose-zinc max-w-none dark:prose-invert", compact && "[&>p:first-child]:!mt-0 [&>p:last-child]:!mb-0")}>
       <ReactMarkdown
         components={{
           h1: ({ ...props }) => (
@@ -178,7 +184,7 @@ const AIMessage = ({ msg }: { msg: ChatMessage }) => (
           ),
           pre: ({ ...props }) => <CodeBlock {...props} />,
           p: ({ ...props }) => (
-            <p {...props} className="mb-3 leading-relaxed" />
+            <p {...props} className={cn("mb-3 leading-relaxed", compact && "first:!mt-0 last:!mb-0")} />
           ),
         }}
       >
@@ -323,9 +329,20 @@ const InputSection = ({
 }: any) => {
 
   const handleKeyDown = (e: any) => {
-    if (e.key === "Enter" && !e.shiftKey && !isSubmitDisabled) {
-      e.preventDefault()
-      handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>)
+    // Check if device is mobile
+    const isMobile = typeof window !== "undefined" && window.innerWidth < 768
+    
+    if (e.key === "Enter") {
+      // On mobile, Enter always creates new line
+      if (isMobile) {
+        // Allow default behavior (new line)
+        return
+      }
+      // On desktop, Enter submits (unless Shift is held)
+      if (!e.shiftKey && !isSubmitDisabled) {
+        e.preventDefault()
+        handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>)
+      }
     }
   }
 
@@ -333,8 +350,7 @@ const InputSection = ({
     <div className="flex w-full flex-col items-center">
 
       {/* ⭐ WRAPPER BARU AGAR MENYATU */}
-      <div className="w-full rounded-xl border border-white/10 bg-black/20 backdrop-blur-sm overflow-hidden">
-
+      <div className="w-full rounded-xl border bg-card/50 backdrop-blur-sm overflow-hidden">
         {/* ⭐ INPUT TANPA BORDER & TANPA ROUNDED */}
         <form onSubmit={handleSubmit} className="w-full">
           <InputGroup className="rounded-none border-0">
@@ -389,11 +405,11 @@ const InputSection = ({
           </InputGroup>
         </form>
 
-         {/* ⭐ SECTION UPGRADE — sekarang menyatu */}
-         <div className="flex items-center justify-between px-4 py-3 border-t border-white/10 bg-black/30">
-           <p className="text-sm text-white/70">
+{/* ⭐ SECTION UPGRADE — sekarang menyatu */}
+         <div className="flex items-center justify-between px-4 py-3 bg-muted">
+           <p className="text-sm text-muted-foreground">
              {t("upgradeToTeam").split("{plan}")[0]}
-             <span className="font-semibold text-white">{t("pro")}</span>
+             <span className="font-semibold text-foreground">{t("pro")}</span>
              {t("upgradeToTeam").split("{plan}")[1]}
            </p>
 
@@ -401,7 +417,6 @@ const InputSection = ({
              {t("upgradePlan")}
            </Button>
          </div>
-
       </div>
 
       {/* ⭐ SUGGESTIONS Tetap sama */}
@@ -433,10 +448,285 @@ const InputSection = ({
   )
 }
 
+// Extract file names from response text
+const extractFileNames = (text: string): string[] => {
+  const matches = text.match(/(?:index\.html|styles?\.css|script\.js|\.html|\.css|\.js)/gi)
+  if (matches) {
+    return [...new Set(matches.map(m => m.toLowerCase()))]
+  }
+  // Fallback: look for common file patterns
+  const commonFiles = text.match(/\b(index\.html|styles?\.css|script\.js|app\.html|main\.html)\b/gi)
+  return commonFiles ? [...new Set(commonFiles.map(f => f.toLowerCase()))] : ['index.html']
+}
+
+// File Attachment Component for Exploring codebase step
+const FileAttachment = ({ files }: { files: string[] }) => {
+  const getFileIcon = (fileName: string) => {
+    if (fileName.includes('.html')) return <FileCode className="h-3 w-3 text-blue-500" />
+    if (fileName.includes('.css')) return <FileText className="h-3 w-3 text-purple-500" />
+    if (fileName.includes('.js')) return <FileCode className="h-3 w-3 text-yellow-500" />
+    return <FileText className="h-3 w-3 text-muted-foreground" />
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {files.map((file, idx) => (
+        <div
+          key={idx}
+          className="flex items-center gap-1.5 rounded-md border bg-card px-2 py-1 text-xs"
+        >
+          {getFileIcon(file)}
+          <span className="text-foreground">{file}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Individual AI Step Item - appears one by one like attachment (for app_builder only)
+const AIStepItem = ({ step, t }: { 
+  step: { text: string; status: "pending" | "loading" | "done"; response?: string }
+  t: (key: string) => string
+}) => {
+  const [isExpanded, setIsExpanded] = React.useState(false)
+  const [isHovered, setIsHovered] = React.useState(false)
+  
+  // Get icon based on step text
+  const getStepIcon = (stepText: string) => {
+    const iconBaseClasses = "h-4 w-4 flex-shrink-0 text-muted-foreground transition-all"
+    if (stepText.includes("Thinking") || stepText.includes("Thought for") || stepText.includes("Analyzing requirements") || stepText.includes("Analyzing")) {
+      return <Brain className={iconBaseClasses} />
+    } else if (stepText.includes("Generating design inspiration") || stepText.includes("Generating design")) {
+      return <SparklesIcon className={iconBaseClasses} />
+    } else if (stepText.includes("Exploring codebase") || stepText.includes("Exploring")) {
+      return <Search className={iconBaseClasses} />
+    } else if (stepText.includes("Coding") || stepText.includes("final files")) {
+      return <Code2 className={iconBaseClasses} />
+    }
+    return <Brain className={iconBaseClasses} />
+  }
+
+  const stepResponse = step.response
+  const isExploringCodebase = step.text.includes("Exploring codebase")
+  const isCodingFinalFiles = step.text.includes("Coding") || step.text.includes("final files")
+  const extractedFiles = isExploringCodebase && stepResponse ? extractFileNames(stepResponse) : []
+
+  // Only show if loading or done (not pending) - appears one by one
+  if (step.status === "pending") return null
+
+  // Translate step text
+  const getTranslatedText = (stepText: string) => {
+    if (stepText === "Thinking..." || stepText.startsWith("Thought for")) {
+      if (step.status === "loading") {
+        return t("thinking")
+      } else if (stepText.startsWith("Thought for")) {
+        const seconds = stepText.match(/\d+/)?.[0] || "0"
+        return t("thoughtFor").replace("{seconds}", seconds)
+      }
+      return t("thinking")
+    } else if (stepText.includes("Exploring codebase")) {
+      return t("exploringCodebase")
+    } else if (stepText.includes("Coding") || stepText.includes("final files")) {
+      return t("codingFinalFiles")
+    }
+    return stepText
+  }
+
+  return (
+    <div 
+      className="w-full max-w-prose self-start animate-in fade-in-0 slide-in-from-bottom-1 duration-200 mb-3 group relative"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Clickable row - toggle expansion when clicking (not for Coding final files) */}
+      <div 
+        className={cn(
+          "flex items-center gap-2.5 text-sm transition-colors group",
+          // Only make clickable if not Coding final files and has response
+          step.status === "done" && stepResponse && !isCodingFinalFiles && "cursor-pointer hover:text-foreground"
+        )}
+        onClick={() => {
+          // Don't allow expansion for Coding final files
+          if (step.status === "done" && stepResponse && !isCodingFinalFiles) {
+            setIsExpanded(!isExpanded)
+          }
+        }}
+      >
+        {/* Icon - show Brain/icon by default, show ChevronDown on hover if done and has response (not for Coding final files) */}
+        <div className="w-4 flex-shrink-0">
+          {step.status === "done" && stepResponse && !isCodingFinalFiles && isHovered ? (
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-all" />
+          ) : step.status === "loading" ? (
+            <div className="relative">
+              {getStepIcon(step.text)}
+              <div 
+                className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent opacity-60"
+                style={{
+                  backgroundSize: '200% 100%',
+                  animation: 'shiny-text 1.5s linear infinite',
+                  backgroundPosition: '-200% 0',
+                  mixBlendMode: 'overlay',
+                }}
+              />
+            </div>
+        ) : (
+          getStepIcon(step.text)
+        )}
+        </div>
+        <span 
+          className={cn(
+          "transition-colors text-sm flex-1",
+          step.status === "done"
+              ? isHovered && stepResponse && !isCodingFinalFiles ? "text-foreground" : "text-muted-foreground"
+              : step.status === "loading"
+              ? "text-foreground"
+            : "text-foreground",
+          )}
+        >
+          {step.status === "loading" ? (
+            <AnimatedShinyText className="text-sm" shimmerWidth={150}>{getTranslatedText(step.text)}</AnimatedShinyText>
+          ) : (
+            getTranslatedText(step.text)
+          )}
+        </span>
+      </div>
+      {/* Expanded content - show as divider line with content beside it, not in card (not for Coding final files) */}
+      {isExpanded && stepResponse && !isCodingFinalFiles && (
+        <div className="mt-2 flex items-stretch gap-2.5 animate-in fade-in-0 slide-in-from-top-1 duration-200">
+          {/* Spacer untuk sejajar dengan icon (w-4 = 16px) - struktur sama persis dengan icon container */}
+          <div className="w-4 flex-shrink-0 flex items-center justify-center">
+            {/* Vertical divider line - sejajar dengan icon (di tengah w-4 container), tinggi mengikuti konten */}
+            <div className="w-px bg-border h-full" />
+          </div>
+          {/* Content beside the line - dengan scroll jika terlalu panjang */}
+          <div className="flex-1 min-w-0 max-h-[400px] relative">
+            {/* Gradient fade di bawah */}
+            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none" />
+            {/* Scroll container */}
+            <div className="overflow-y-auto pr-2 h-full scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+              {/* Show file attachments for Exploring codebase step */}
+              {isExploringCodebase && extractedFiles.length > 0 && (
+                <div className="mb-4">
+                  <FileAttachment files={extractedFiles} />
+                </div>
+              )}
+              <div className="text-muted-foreground prose prose-zinc max-w-none dark:prose-invert prose-p:text-muted-foreground prose-headings:text-muted-foreground prose-strong:text-muted-foreground prose-code:text-muted-foreground">
+                <ReactMarkdown
+                  components={{
+                    h1: ({ ...props }) => (
+                      <h1 {...props} className="mt-5 mb-3 text-3xl font-bold text-muted-foreground" />
+                    ),
+                    h2: ({ ...props }) => (
+                      <h2 {...props} className="mt-4 mb-2 border-b border-border pb-1 text-2xl font-bold text-muted-foreground" />
+                    ),
+                    h3: ({ ...props }) => (
+                      <h3 {...props} className="mt-3 mb-1 text-xl font-semibold text-muted-foreground" />
+                    ),
+                    p: ({ ...props }) => (
+                      <p {...props} className="mb-3 leading-relaxed text-muted-foreground" />
+                    ),
+                    strong: ({ ...props }) => (
+                      <strong {...props} className="font-semibold text-muted-foreground" />
+                    ),
+                    code: ({ ...props }) => (
+                      <code {...props} className="rounded-md bg-muted px-1.5 py-1 font-mono text-sm text-muted-foreground" />
+                    ),
+                    pre: ({ ...props }) => <CodeBlock {...props} />,
+                    ul: ({ ...props }) => (
+                      <ul {...props} className="my-3 list-inside list-disc space-y-1 text-muted-foreground" />
+                    ),
+                    ol: ({ ...props }) => (
+                      <ol {...props} className="my-3 list-inside list-decimal space-y-1 text-muted-foreground" />
+                    ),
+                    li: ({ ...props }) => <li {...props} className="pl-2 text-muted-foreground" />,
+                    a: ({ ...props }) => (
+                      <a
+                        {...props}
+                        className="text-muted-foreground underline hover:opacity-80"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      />
+                    ),
+                  }}
+                >
+                  {stepResponse}
+                </ReactMarkdown>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// App Builder AI Steps - displays steps one by one like attachments
+const AppBuilderAISteps = ({ 
+  onCodeCardClick, 
+  projectName,
+  t,
+  showOnlyFirstTwo = false,
+  showFinalStep = false
+}: { 
+  onCodeCardClick: () => void
+  projectName?: string | null
+  t: (key: string) => string
+  showOnlyFirstTwo?: boolean
+  showFinalStep?: boolean
+}) => {
+  const { aiSteps } = useAIStore()
+  if (!aiSteps || aiSteps.length === 0) return null
+
+  // Check if final step (Coding the final files) exists
+  const finalStep = aiSteps.find(step => 
+    step.text.includes("Coding") || step.text.includes("final files")
+  )
+  const isFinalStepDone = finalStep?.status === "done"
+
+  // Show steps based on mode
+  // If final step is done, hide it (will show card instead)
+  const stepsToShow = showOnlyFirstTwo 
+    ? aiSteps.slice(0, 2) // Only Thought and Exploring codebase
+    : showFinalStep && finalStep && !isFinalStepDone
+    ? [finalStep] // Only final step (if not done yet)
+    : isFinalStepDone
+    ? aiSteps.filter(step => !step.text.includes("Coding") && !step.text.includes("final files")) // Hide final step if done
+    : aiSteps // All steps
+
+  return (
+    <div className="w-full max-w-prose self-start">
+      {stepsToShow.map((step, index) => (
+        step && (
+        <AIStepItem 
+          key={index} 
+          step={step}
+            t={t}
+        />
+        )
+      ))}
+    </div>
+  )
+}
+
+// Original AIStepsDisplay for non-app_builder modes (with card wrapper)
 const AIStepsDisplay = ({ t }: { t: (key: string) => string }) => {
   const { aiSteps } = useAIStore()
   if (!aiSteps || aiSteps.length === 0) return null
 
+  // Check if this is app_builder mode (3 specific steps - no classification)
+  const isAppBuilder = aiSteps.length === 3 && 
+    (aiSteps[0]?.text === 'Thinking...' || aiSteps[0]?.text?.includes('Thought for')) &&
+    aiSteps[1]?.text === 'Exploring codebase structure' &&
+    aiSteps[2]?.text === 'Coding the final files'
+
+  // If app_builder, use the new component (without card)
+  // Note: We need to pass onCodeCardClick and projectName, but AIStepsDisplay doesn't have access to them
+  // So we'll handle this in the parent component instead
+  if (isAppBuilder) {
+    return null // Will be handled by AppBuilderAISteps in parent
+  }
+
+  // For other modes, use card wrapper
   const getStepIcon = (
     status: "pending" | "loading" | "done",
   ) => {
@@ -505,7 +795,11 @@ const AIStepsDisplay = ({ t }: { t: (key: string) => string }) => {
                   : "text-foreground",
               )}
             >
-              {step.text}
+              {step.status === "loading" ? (
+                <AnimatedShinyText className="text-sm" shimmerWidth={150}>{step.text}</AnimatedShinyText>
+              ) : (
+                step.text
+              )}
             </span>
           </div>
         ))}
@@ -700,8 +994,6 @@ export default function AppBuilderClientUI() {
   const [uploadedFiles, setUploadedFiles] = React.useState<
     { file: File; previewUrl: string }[]
   >([])
-  const [expandedResults, setExpandedResults] =
-    React.useState<Record<number, boolean>>({})
   const [selectedImageUrl, setSelectedImageUrl] =
     React.useState<string | null>(null)
   const [suggestions, setSuggestions] = React.useState<
@@ -710,6 +1002,23 @@ export default function AppBuilderClientUI() {
   const [isLoadingSuggestions, setIsLoadingSuggestions] =
     React.useState(true)
   const [apiError, setApiError] = React.useState<string | null>(null)
+  const [isCodePanelOpen, setIsCodePanelOpen] = React.useState(false)
+  const [finalCode, setFinalCode] = React.useState<string | undefined>(undefined)
+  const [sessionTitle, setSessionTitle] = React.useState<string | null>(null)
+  const [previewWidth, setPreviewWidth] = React.useState(50) // Default 50% width (balanced for chat and preview)
+  const [isResizing, setIsResizing] = React.useState(false)
+  const [isMobile, setIsMobile] = React.useState(false)
+  const resizeHandleRef = React.useRef<HTMLDivElement>(null)
+
+  // Detect mobile on mount and resize
+  React.useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const {
     messages,
@@ -721,6 +1030,8 @@ export default function AppBuilderClientUI() {
     startNewChat,
     error: storeError,
     aiSteps,
+    currentSessionId,
+    chatSessions,
   } = useAIStore()
 
   const CHAT_LIMIT = 8
@@ -762,8 +1073,95 @@ export default function AppBuilderClientUI() {
   }, [])
 
   React.useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages, isLoading, aiSteps])
+    // Don't scroll if preview panel is open (prevents bug where preview jumps to top)
+    if (!isCodePanelOpen && bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth" })
+    }
+  }, [messages, isLoading, aiSteps, isCodePanelOpen])
+
+  // Load session title when sessionId changes
+  React.useEffect(() => {
+    const loadSessionTitle = async () => {
+      if (currentSessionId) {
+        // Try to get title from chatSessions first (faster)
+        const session = chatSessions.find(s => s.id === currentSessionId)
+        if (session) {
+          setSessionTitle(session.title)
+        } else {
+          // Fallback: fetch from server
+          const { getChatSession } = await import("@/lib/actions/ai")
+          const sessionData = await getChatSession(currentSessionId)
+          if (sessionData) {
+            setSessionTitle(sessionData.title)
+          }
+        }
+      } else {
+        setSessionTitle(null)
+      }
+    }
+    loadSessionTitle()
+  }, [currentSessionId, chatSessions])
+
+  // Load existing code and steps when session is initialized or final step is done
+  React.useEffect(() => {
+    const finalStep = aiSteps.find(step => 
+      step.text.includes("Coding") || step.text.includes("final files")  || step.text.includes("Membuat kode final")
+    )
+    
+    // Debug logging
+    console.log('[App Builder Debug] useEffect triggered:', {
+      hasFinalCode: !!finalCode,
+      finalCodeLength: finalCode?.length || 0,
+      finalCodePreview: finalCode ? finalCode.substring(0, 100) : 'none',
+      finalStepStatus: finalStep?.status,
+      finalStepHasResponse: !!finalStep?.response,
+      finalStepResponseLength: finalStep?.response?.length || 0,
+      aiStepsCount: aiSteps.length,
+      isLoading,
+      currentSessionId
+    })
+    
+    if (finalStep?.status === "done" && finalStep?.response) {
+      // Step is done, check if we need to update finalCode
+      const needsUpdate = !finalCode || finalCode !== finalStep.response
+      
+      if (needsUpdate) {
+        console.log('[App Builder] ✅ Setting final code from AI step', {
+          from: finalCode ? 'updating' : 'initial',
+          responseLength: finalStep.response.length,
+          responsePreview: finalStep.response.substring(0, 150)
+        })
+        setFinalCode(finalStep.response)
+      } else {
+        console.log('[App Builder] ✓ Final code already synchronized')
+      }
+    } else if (finalStep?.status === "done" && !finalStep?.response) {
+      console.error('[App Builder] ❌ Final step done but NO RESPONSE! This should not happen.')
+    } else if (currentSessionId && !finalCode && !isLoading && aiSteps.length === 0) {
+      // Only load from Upstash when session is first initialized (not after save)
+      const loadExistingData = async () => {
+        console.log('[App Builder] 📥 Loading existing session from Upstash...')
+        const { getCodeFromUpstash, getAIStepsFromUpstash } = await import("@/lib/actions/ai")
+        
+        // Load code
+        const existingCode = await getCodeFromUpstash(currentSessionId)
+        if (existingCode) {
+          console.log('[App Builder] ✅ Loaded code from Upstash:', existingCode.substring(0, 100))
+          setFinalCode(existingCode)
+        } else {
+          console.log('[App Builder] ℹ️ No existing code in Upstash')
+        }
+        
+        // Load steps
+        const existingSteps = await getAIStepsFromUpstash(currentSessionId)
+        if (existingSteps && existingSteps.length > 0) {
+          console.log('[App Builder] ✅ Loaded steps from Upstash:', existingSteps.length)
+          useAIStore.setState({ aiSteps: existingSteps })
+        }
+      }
+      loadExistingData()
+    }
+  }, [aiSteps, currentSessionId, isLoading])
 
   const fileToBase64 = (file: File): Promise<ImagePart> =>
     new Promise((resolve, reject) => {
@@ -776,6 +1174,49 @@ export default function AppBuilderClientUI() {
       }
       reader.onerror = (error) => reject(error)
     })
+
+  // Resize handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsResizing(true)
+  }
+
+  React.useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return
+      
+      const handle = resizeHandleRef.current
+      if (!handle) return
+      
+      const container = handle.parentElement
+      if (!container) return
+      
+      const containerRect = container.getBoundingClientRect()
+      const newWidth = ((containerRect.right - e.clientX) / containerRect.width) * 100
+      
+      // Limit width between 30% and 80%
+      const clampedWidth = Math.max(30, Math.min(80, newWidth))
+      setPreviewWidth(clampedWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizing(false)
+    }
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isResizing])
 
   const handlePlusClick = () => fileInputRef.current?.click()
 
@@ -935,7 +1376,9 @@ export default function AppBuilderClientUI() {
         </SheetContent>
       </Sheet>
 
-      <div className="flex min-h-screen w-full flex-col items-center bg-background">
+
+
+      <div className="flex flex-col items-center h-full w-full bg-background transition-all duration-300 overflow-hidden">
         <input
           type="file"
           ref={fileInputRef}
@@ -956,8 +1399,8 @@ export default function AppBuilderClientUI() {
         !isLoading &&
         !isHistoryLoading ? (
           // EMPTY STATE – hero seperti v0.app
-          <>
-            <main className="flex w-full flex-grow flex-col items-center justify-center px-4 pb-16 pt-20">
+          <div className="flex flex-col flex-grow w-full h-0 items-center overflow-y-auto">
+            <main className="flex w-full flex-col items-center justify-center px-4 pb-16 pt-20">
               <div className="mx-auto flex w-full max-w-5xl flex-col items-center text-center">
                 <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground md:text-5xl">
                   {t("appBuilderTitle") ||
@@ -1008,84 +1451,52 @@ export default function AppBuilderClientUI() {
                 </Button>
               </div>
             </div>
-          </>
+          </div>
         ) : (
           // CHAT STATE
-          <div className="flex h-0 w-full flex-grow flex-col items-center">
-            <div className="flex w-full max-w-4xl flex-grow flex-col space-y-8 overflow-y-auto px-4 pt-6 pb-4">
-              {messages.map((msg, index) => (
-                <div
-                  key={index}
+          <div className={cn(
+            "flex flex-grow w-full h-0",
+            isCodePanelOpen ? "flex-row" : "flex-col items-center"
+          )}>
+            {/* Chat container - hidden on mobile when preview is open */}
+            <div 
+              className={cn(
+                "flex flex-col flex-grow h-full relative",
+                isCodePanelOpen ? "border-r border-border md:block hidden" : "w-full max-w-4xl"
+              )}
+              style={isCodePanelOpen && !isMobile ? { width: `${100 - previewWidth}%` } : undefined}
+            >
+              {/* Messages container - scrollable */}
+              <div className="flex-1 overflow-y-auto space-y-4 pt-4 pb-4 overflow-x-hidden px-6">
+                {/* Show messages */}
+                {messages.map((msg, index) => {
+                const isAppBuilderMode = aiSteps && aiSteps.length === 3 && 
+                  (aiSteps[0]?.text === 'Thinking...' || aiSteps[0]?.text?.includes('Thought for')) &&
+                  aiSteps[1]?.text === 'Exploring codebase structure' &&
+                  aiSteps[2]?.text === 'Coding the final files'
+                
+                // Check if this is the implementation plan message (first model message after user message)
+                // Implementation plan is the first model message that appears after user message and before coding step
+                const isImplementationPlan = msg.role === 'model' && 
+                  index > 0 && 
+                  messages[index - 1]?.role === 'user' &&
+                  isAppBuilderMode &&
+                  // Check if this message is not from coding step (coding step response is saved separately)
+                  !msg.content?.includes('```html') &&
+                  !msg.content?.includes('```css') &&
+                  !msg.content?.includes('```javascript') &&
+                  !msg.content?.includes('```js')
+                
+                return (
+                <React.Fragment key={index}>
+                  {msg.role === "user" ? (
+                    <>
+                      <div
                   className={cn(
                     "relative flex w-full flex-col gap-2 text-left group",
-                    msg.role === "user"
-                      ? "items-end"
-                      : "items-start",
+                          "items-end"
                   )}
                 >
-                  {msg.role === "model" &&
-                    msg.thinkingResult && (
-                      <div className="w-full max-w-prose self-start">
-                        <button
-                          onClick={() =>
-                            setExpandedResults((prev) => ({
-                              ...prev,
-                              [index]:
-                                !prev[index],
-                            }))
-                          }
-                          className="mb-2 flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground"
-                        >
-                          {t("resultThink") ||
-                            "Hasil Pemikiran"}{" "}
-                          ({msg.thinkingResult.duration}s)
-                          {expandedResults[index] ? (
-                            <ChevronUp className="h-4 w-4" />
-                          ) : (
-                            <ChevronDown className="h-4 w-4" />
-                          )}
-                        </button>
-                        {expandedResults[index] && (
-                          <div className="mb-2 rounded-md border bg-muted/50 p-3 text-sm animate-in fade-in-0">
-                            <p className="text-xs italic text-muted-foreground">
-                              {(() => {
-                                try {
-                                  const classification =
-                                    msg.thinkingResult
-                                      .classification
-                                  if (
-                                    classification &&
-                                    classification.summary
-                                  ) {
-                                    return classification.summary
-                                  }
-                                  if (
-                                    classification &&
-                                    classification.rawResponse
-                                  ) {
-                                    const rawJson =
-                                      classification.rawResponse.match(
-                                        /{[\s\S]*}/,
-                                      )?.[0] || "{}"
-                                    const parsed =
-                                      JSON.parse(rawJson)
-                                    return (
-                                      parsed.summary ||
-                                      t("noSummary")
-                                    )
-                                  }
-                                  return t("parseError")
-                                } catch {
-                                  return t("parseError")
-                                }
-                              })()}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                  {msg.role === "user" ? (
                     <div className="relative">
                       {msg.images &&
                         msg.images.length > 0 && (
@@ -1129,6 +1540,20 @@ export default function AppBuilderClientUI() {
                         />
                       )}
                     </div>
+                      </div>
+                      
+                      {/* Show AI Steps (Thought and Exploring codebase) AFTER user message */}
+                      {isAppBuilderMode && (isLoading || (aiSteps && aiSteps.length > 0)) && (
+                        <div className="flex w-full flex-col items-start gap-0 text-left group relative mt-6">
+                          <AppBuilderAISteps 
+                            onCodeCardClick={() => setIsCodePanelOpen(true)}
+                            projectName={sessionTitle}
+                            t={t}
+                            showOnlyFirstTwo={true}
+                          />
+                        </div>
+                      )}
+                    </>
                   ) : msg.content ===
                     t("generationStopped") ? (
                     <p className="text-sm italic text-muted-foreground">
@@ -1136,8 +1561,17 @@ export default function AppBuilderClientUI() {
                     </p>
                   ) : (
                     <>
+                      {/* Always show model messages (including implementation plan) */}
+                      <div
+                        className={cn(
+                          "relative flex w-full flex-col gap-2 text-left group",
+                          "items-start",
+                          // Reduce spacing if this is implementation plan (comes right after Exploring codebase step)
+                          isImplementationPlan && "-mt-1"
+                        )}
+                      >
                       {msg.content && (
-                        <AIMessage msg={msg} />
+                          <AIMessage msg={msg} compact={isImplementationPlan} />
                       )}
                       {msg.content &&
                         (msg.table || msg.chart) && (
@@ -1157,88 +1591,186 @@ export default function AppBuilderClientUI() {
                           />
                         </div>
                       )}
-                      <MessageActions
-                        msg={msg}
-                        onRegenerate={() =>
-                          handleRegenerate(index)
+                        
+                        {/* Show final step if still loading, or card if done (card opens Sheet from right) INSIDE implementation plan container, before MessageActions */}
+                        {isImplementationPlan && isAppBuilderMode && (() => {
+                          const finalStep = aiSteps?.find(step => 
+                            step.text.includes("Coding") || step.text.includes("final files")
+                          )
+                          const isFinalStepDone = finalStep?.status === "done"
+                          const isFinalStepLoading = finalStep?.status === "loading"
+                          
+                          // Show step if still loading
+                          if (isFinalStepLoading) {
+                            return (
+                              <div className="flex w-full flex-col items-start gap-2 text-left group relative mt-4">
+                                <AppBuilderAISteps 
+                                  onCodeCardClick={() => setIsCodePanelOpen(true)}
+                                  projectName={sessionTitle}
+                                  t={t}
+                                  showFinalStep={true}
+                                />
+                              </div>
+                            )
+                          }
+                          
+                          // If done, show card that opens Sheet from right (hide final step)
+                          if (isFinalStepDone && finalCode) {
+                            // Show card that opens Sheet
+                            return (
+                              <div className="flex w-full flex-col items-start gap-2 text-left group relative mt-4">
+                                <button
+                                  onClick={() => setIsCodePanelOpen(prev => !prev)}
+                                  className="w-full max-w-prose self-start rounded-lg border bg-card hover:bg-accent transition-colors text-left p-4 group cursor-pointer"
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <div className="flex-shrink-0">
+                                      <Code2 className="h-5 w-5 text-primary" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                                        {sessionTitle || "Created Luminite AI landing page v1"}
+                                      </div>
+                                      <div className="text-sm text-muted-foreground mt-1">
+                                        {isCodePanelOpen ? (t("clickToCloseCode") || "Click to close preview") : t("clickToViewCode")}
+                                      </div>
+                                    </div>
+                                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform", isCodePanelOpen ? "rotate-90deg" : "rotate-[-90deg]")} />
+                                  </div>
+                                </button>
+                              </div>
+                            )
+                          }
+                          
+                          return null
+                        })()}
+                        
+                      {/* Hide MessageActions if final step is still loading */}
+                      {(() => {
+                        const finalStep = aiSteps?.find(step => 
+                          step.text.includes("Coding") || step.text.includes("final files")
+                        )
+                        const isFinalStepLoading = finalStep?.status === "loading"
+                        
+                        // Hide actions if this is implementation plan and final step is still loading
+                        if (isImplementationPlan && isAppBuilderMode && isFinalStepLoading) {
+                          return null
                         }
-                        t={t}
-                      />
+                        
+                        return (
+                          <MessageActions
+                            msg={msg}
+                            onRegenerate={() =>
+                              handleRegenerate(index)
+                            }
+                            t={t}
+                          />
+                        )
+                      })()}
+                      </div>
                     </>
                   )}
-                </div>
-              ))}
+                </React.Fragment>
+              )})}
 
-              {isLoading &&
-                messages[messages.length - 1]?.role ===
-                  "user" && (
-                  <div className="flex w-full flex-col items-start gap-4 text-left group relative">
-                    <div className="flex items-center gap-3">
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-primary" />
-                      <p className="text-muted-foreground animate-pulse">
-                        {t("thinking")}
-                      </p>
-                    </div>
-                    <AIStepsDisplay t={t} />
+              <div ref={bottomRef} />
+              </div>
+              
+              {/* Input Section - sticky at bottom */}
+              <div className="w-full flex-shrink-0 bg-background sticky bottom-0 z-10 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+                {apiError === "QUOTA_EXCEEDED" && (
+                  <QuotaErrorNotification
+                    onDismiss={() => setApiError(null)}
+                    t={t}
+                  />
+                )}
+
+                {hasReachedLimit && (
+                  <div className="mb-3">
+                    <ChatLimitNotification
+                      t={t}
+                      onStartNewChat={() => {
+                        startNewChat()
+                        const current =
+                          typeof window !== "undefined"
+                            ? window.location.pathname
+                            : ""
+                        if (
+                          !current.startsWith(
+                            "/playground/app-builder",
+                          )
+                        ) {
+                          window.history.replaceState(
+                            {},
+                            "",
+                            "/playground/app-builder",
+                          )
+                        }
+                      }}
+                    />
                   </div>
                 )}
 
-              <div ref={bottomRef} />
-            </div>
-
-            <div className="relative w-full max-w-4xl flex-shrink-0 px-4 pb-6">
-              {apiError === "QUOTA_EXCEEDED" && (
-                <QuotaErrorNotification
-                  onDismiss={() => setApiError(null)}
+                <FilePreview />
+                <InputSection
+                  inputValue={inputValue}
+                  setInputValue={setInputValue}
+                  handleSubmit={handleSubmit}
+                  handlePlusClick={handlePlusClick}
+                  isLoading={isLoading}
+                  stopGeneration={() =>
+                    stopGeneration(t("generationStopped"))
+                  }
+                  suggestions={[]}
+                  isLoadingSuggestions={false}
                   t={t}
+                  isSubmitDisabled={isSubmitDisabled}
+                  usageText={usageText}
+                  usagePercentage={usagePercentage}
+                  isLimitReached={hasReachedLimit}
                 />
-              )}
-
-              {hasReachedLimit && (
-                <div className="mb-3">
-                  <ChatLimitNotification
-                    t={t}
-                    onStartNewChat={() => {
-                      startNewChat()
-                      const current =
-                        typeof window !== "undefined"
-                          ? window.location.pathname
-                          : ""
-                      if (
-                        !current.startsWith(
-                          "/playground/app-builder",
-                        )
-                      ) {
-                        window.history.replaceState(
-                          {},
-                          "",
-                          "/playground/app-builder",
-                        )
-                      }
-                    }}
-                  />
-                </div>
-              )}
-
-              <FilePreview />
-              <InputSection
-                inputValue={inputValue}
-                setInputValue={setInputValue}
-                handleSubmit={handleSubmit}
-                handlePlusClick={handlePlusClick}
-                isLoading={isLoading}
-                stopGeneration={() =>
-                  stopGeneration(t("generationStopped"))
-                }
-                suggestions={[]}
-                isLoadingSuggestions={false}
-                t={t}
-                isSubmitDisabled={isSubmitDisabled}
-                usageText={usageText}
-                usagePercentage={usagePercentage}
-                isLimitReached={hasReachedLimit}
-              />
+              </div>
             </div>
+
+            {/* Resize Handle - hidden on mobile */}
+            {isCodePanelOpen && finalCode && (
+              <div
+                ref={resizeHandleRef}
+                onMouseDown={handleMouseDown}
+                className={cn(
+                  "w-1 flex-shrink-0 cursor-col-resize relative z-20 group hidden md:block",
+                  isResizing ? "bg-primary/50" : "bg-transparent hover:bg-primary/20"
+                )}
+              >
+                <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-0.5 bg-border group-hover:bg-primary transition-colors" />
+              </div>
+            )}
+
+            {/* Code Preview Panel - part of main layout (not overlay) */}
+            {isCodePanelOpen && finalCode && (
+              <div 
+                className={cn(
+                  "flex-shrink-0 h-full w-full md:w-auto",
+                  !isMobile && "border-l border-border"
+                )}
+                style={{ 
+                  width: isMobile ? '100%' : `${previewWidth}%`, 
+                  minWidth: isMobile ? '100%' : '300px', 
+                  maxWidth: '100%' 
+                }}
+              >
+                <PanelCode 
+                  code={finalCode}
+                  isOpen={isCodePanelOpen}
+                  onClose={() => setIsCodePanelOpen(false)}
+                  projectName={sessionTitle || "Preview"}
+                  sessionId={currentSessionId}
+                  variant="full"
+                  showActions={true}
+                  isLoading={isLoading}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

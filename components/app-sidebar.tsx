@@ -41,8 +41,10 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
   const { chatSessions, fetchChatSessions, isSessionsLoading } = useAIStore();
 
   React.useEffect(() => {
+    // Only fetch once on mount, don't reload on every fetchChatSessions change
     fetchChatSessions();
-  }, [fetchChatSessions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty dependency array - only run once on mount
 
   const translate = React.useCallback((key: string): string => t(key), [t]);
 

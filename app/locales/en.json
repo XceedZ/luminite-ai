@@ -142,5 +142,20 @@
   "createAnything": "Create anything according to your idea...",
   "upgradeToTeam": "Upgrade to {plan} to unlock all features and more credits",
   "upgradePlan": "Upgrade Plan",
-  "pro": "Pro"
+  "pro": "Pro",
+  "thoughtFor": "Thought for {seconds}s",
+  "exploringCodebase": "Exploring codebase structure",
+  "codingFinalFiles": "Coding the final files",
+  "clickToViewCode": "Click to view and edit code",
+  "clickToCloseCode": "Click to close preview",
+  "publish": "Publish",
+  "unpublish": "Unpublish",
+  "publishConfirmTitle": "Publish to community?",
+  "publishConfirmDescription": "By publishing, your web will be visible to everyone and the source code will be published to the community. This action cannot be undone.",
+  "codeGenerating": "Code is being generated...",
+  "codeGeneratingDesc": "AI is writing code for you. Please wait a moment.",
+  "noCodeYet": "No code yet",
+  "noCodeYetDesc": "Start by writing a prompt to create your website or app.",
+  "preview": "Preview",
+  "code": "Code"
 }
