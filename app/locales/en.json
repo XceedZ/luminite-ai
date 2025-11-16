@@ -128,6 +128,7 @@
   "deleteAll": "Delete all",
   "changelog": "Changelog",
   "latest": "Latest",
+  "changelog131Date": "Released on April 20, 2025",
   "changelog130Date": "Released on April 15, 2025",
   "changelog129Date": "Released on April 12, 2025",
   "changelog128Date": "Released on April 8, 2025",
@@ -145,7 +146,8 @@
   "pro": "Pro",
   "thoughtFor": "Thought for {seconds}s",
   "exploringCodebase": "Exploring codebase structure",
-  "codingFinalFiles": "Coding the final files",
+  "codingFinalFiles": "Coding the app",
+  "addingFinishingTouches": "Adding finishing touches",
   "clickToViewCode": "Click to view and edit code",
   "clickToCloseCode": "Click to close preview",
   "publish": "Publish",
@@ -157,5 +159,9 @@
   "noCodeYet": "No code yet",
   "noCodeYetDesc": "Start by writing a prompt to create your website or app.",
   "preview": "Preview",
-  "code": "Code"
+  "code": "Code",
+  "loadingComponent": "Loading component...",
+  "renderingComponent": "Rendering...",
+  "enhancePrompt": "Enhance prompt",
+  "attachFile": "Attach file"
 }

@@ -3,11 +3,11 @@
 import * as React from "react"
 import { useLanguage } from "@/components/language-provider"
 import { Button } from "@/components/ui/button"
-import { Copy, ThumbsUp, ThumbsDown, RefreshCw, Square, X, Loader2, Zap, AlertTriangle, ChevronDown, ArrowUpIcon, ShieldAlertIcon, User, Check as IconCheck, Plus as IconPlus, Brain, Search, Code2, Sparkles as SparklesIcon, FileCode, FileText, Bolt as IconBolt } from "lucide-react"
+import { Copy, ThumbsUp, ThumbsDown, RefreshCw, Square, X, Loader2, Zap, AlertTriangle, ChevronDown, ArrowUpIcon, ShieldAlertIcon, User, Check as IconCheck, Plus as IconPlus, Brain, Search, Code2, FileCode, FileText, Bolt as IconBolt, Wand2 } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import { useAIStore } from "@/app/store/ai-store"
 import { cn } from "@/lib/utils"
-import { generateAppBuilderSuggestions, AIGeneratedChart, ImagePart } from "@/lib/actions/ai"
+import { generateAppBuilderSuggestions, AIGeneratedChart, ImagePart, enhancePrompt } from "@/lib/actions/ai"
 import type { StoredMessage } from "@/lib/actions/ai"
 import { ChartDisplay } from "@/components/ChartDisplay"
 import { TableDisplay } from "@/components/TableDisplay"
@@ -317,7 +317,9 @@ const InputSection = ({
   setInputValue,
   handleSubmit,
   handlePlusClick,
+  handleEnhancePrompt,
   isLoading,
+  isEnhancingPrompt,
   stopGeneration,
   suggestions,
   isLoadingSuggestions,
@@ -370,8 +372,26 @@ const InputSection = ({
                 className="rounded-full"
                 size="icon-xs"
                 onClick={handlePlusClick}
+                disabled={isLoading || isEnhancingPrompt || isLimitReached}
+                title={t("attachFile") || "Attach file"}
               >
                 <IconPlus />
+              </InputGroupButton>
+
+              <InputGroupButton
+                type="button"
+                variant="outline"
+                className="rounded-full"
+                size="icon-xs"
+                onClick={handleEnhancePrompt}
+                disabled={isLoading || isEnhancingPrompt || isLimitReached || !inputValue || inputValue.trim().length === 0}
+                title={t("enhancePrompt") || "Enhance prompt"}
+              >
+                {isEnhancingPrompt ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="h-4 w-4" />
+                )}
               </InputGroupButton>
 
               <InputGroupText className="ml-auto flex items-center gap-2">
@@ -493,15 +513,16 @@ const AIStepItem = ({ step, t }: {
   
   // Get icon based on step text
   const getStepIcon = (stepText: string) => {
-    const iconBaseClasses = "h-4 w-4 flex-shrink-0 text-muted-foreground transition-all"
-    if (stepText.includes("Thinking") || stepText.includes("Thought for") || stepText.includes("Analyzing requirements") || stepText.includes("Analyzing")) {
+    const iconBaseClasses = "h-4 w-4 flex-shrink-0 text-muted-foreground"
+    // Match exact step names used in ai-store.ts
+    if (stepText === "Thinking..." || stepText.startsWith("Thought for")) {
       return <Brain className={iconBaseClasses} />
-    } else if (stepText.includes("Generating design inspiration") || stepText.includes("Generating design")) {
-      return <SparklesIcon className={iconBaseClasses} />
-    } else if (stepText.includes("Exploring codebase") || stepText.includes("Exploring")) {
+    } else if (stepText === "Exploring codebase structure" || stepText.includes("Exploring codebase")) {
       return <Search className={iconBaseClasses} />
-    } else if (stepText.includes("Coding") || stepText.includes("final files")) {
+    } else if (stepText === "Coding the final files" || stepText.includes("Coding") || stepText.includes("final files")) {
       return <Code2 className={iconBaseClasses} />
+    } else if (stepText === "Adding finishing touches" || stepText.includes("finishing touches")) {
+      return <Wand2 className={iconBaseClasses} />
     }
     return <Brain className={iconBaseClasses} />
   }
@@ -516,6 +537,7 @@ const AIStepItem = ({ step, t }: {
 
   // Translate step text
   const getTranslatedText = (stepText: string) => {
+    // Match exact step names used in ai-store.ts
     if (stepText === "Thinking..." || stepText.startsWith("Thought for")) {
       if (step.status === "loading") {
         return t("thinking")
@@ -524,10 +546,12 @@ const AIStepItem = ({ step, t }: {
         return t("thoughtFor").replace("{seconds}", seconds)
       }
       return t("thinking")
-    } else if (stepText.includes("Exploring codebase")) {
+    } else if (stepText === "Exploring codebase structure" || stepText.includes("Exploring codebase")) {
       return t("exploringCodebase")
-    } else if (stepText.includes("Coding") || stepText.includes("final files")) {
+    } else if (stepText === "Coding the final files" || stepText.includes("Coding") || stepText.includes("final files")) {
       return t("codingFinalFiles")
+    } else if (stepText === "Adding finishing touches" || stepText.includes("finishing touches")) {
+      return t("addingFinishingTouches")
     }
     return stepText
   }
@@ -677,20 +701,27 @@ const AppBuilderAISteps = ({
   const { aiSteps } = useAIStore()
   if (!aiSteps || aiSteps.length === 0) return null
 
-  // Check if final step (Coding the final files) exists
-  const finalStep = aiSteps.find(step => 
+  // Check if coding step exists
+  const codingStep = aiSteps.find(step => 
     step.text.includes("Coding") || step.text.includes("final files")
   )
-  const isFinalStepDone = finalStep?.status === "done"
+  const isCodingStepDone = codingStep?.status === "done"
+  
+  // Check if finishing touches step exists
+  const finishingStep = aiSteps.find(step => 
+    step.text.includes("Adding finishing touches") || step.text.includes("finishing touches")
+  )
+  const isFinishingStepDone = finishingStep?.status === "done"
 
   // Show steps based on mode
-  // If final step is done, hide it (will show card instead)
   const stepsToShow = showOnlyFirstTwo 
     ? aiSteps.slice(0, 2) // Only Thought and Exploring codebase
-    : showFinalStep && finalStep && !isFinalStepDone
-    ? [finalStep] // Only final step (if not done yet)
-    : isFinalStepDone
-    ? aiSteps.filter(step => !step.text.includes("Coding") && !step.text.includes("final files")) // Hide final step if done
+    : showFinalStep && codingStep && !isCodingStepDone
+    ? [codingStep] // Only coding step (if not done yet)
+    : showFinalStep && isCodingStepDone && finishingStep && !isFinishingStepDone
+    ? [codingStep, finishingStep] // Show both coding (done) and finishing (loading)
+    : isFinishingStepDone
+    ? aiSteps.filter(step => !step.text.includes("Coding") && !step.text.includes("final files") && !step.text.includes("finishing touches")) // Hide coding and finishing steps if all done
     : aiSteps // All steps
 
   return (
@@ -713,8 +744,8 @@ const AIStepsDisplay = ({ t }: { t: (key: string) => string }) => {
   const { aiSteps } = useAIStore()
   if (!aiSteps || aiSteps.length === 0) return null
 
-  // Check if this is app_builder mode (3 specific steps - no classification)
-  const isAppBuilder = aiSteps.length === 3 && 
+  // Check if this is app_builder mode (4 specific steps - no classification)
+  const isAppBuilder = aiSteps.length >= 3 && 
     (aiSteps[0]?.text === 'Thinking...' || aiSteps[0]?.text?.includes('Thought for')) &&
     aiSteps[1]?.text === 'Exploring codebase structure' &&
     aiSteps[2]?.text === 'Coding the final files'
@@ -1001,6 +1032,7 @@ export default function AppBuilderClientUI() {
   >([])
   const [isLoadingSuggestions, setIsLoadingSuggestions] =
     React.useState(true)
+  const [isEnhancingPrompt, setIsEnhancingPrompt] = React.useState(false)
   const [apiError, setApiError] = React.useState<string | null>(null)
   const [isCodePanelOpen, setIsCodePanelOpen] = React.useState(false)
   const [finalCode, setFinalCode] = React.useState<string | undefined>(undefined)
@@ -1220,6 +1252,23 @@ export default function AppBuilderClientUI() {
 
   const handlePlusClick = () => fileInputRef.current?.click()
 
+  const handleEnhancePrompt = React.useCallback(async () => {
+    if (!inputValue || inputValue.trim().length === 0 || isEnhancingPrompt) {
+      return
+    }
+
+    setIsEnhancingPrompt(true)
+    try {
+      const enhanced = await enhancePrompt(inputValue, lang)
+      setInputValue(enhanced)
+    } catch (error) {
+      console.error("Failed to enhance prompt:", error)
+      // Keep original prompt on error
+    } finally {
+      setIsEnhancingPrompt(false)
+    }
+  }, [inputValue, lang, isEnhancingPrompt])
+
   const handleFileChange = (
     event: React.ChangeEvent<HTMLInputElement>,
   ) => {
@@ -1419,7 +1468,9 @@ export default function AppBuilderClientUI() {
                     setInputValue,
                     handleSubmit,
                     handlePlusClick,
+                    handleEnhancePrompt,
                     isLoading,
+                    isEnhancingPrompt,
                     stopGeneration: () =>
                       stopGeneration(
                         t("generationStopped"),
@@ -1470,7 +1521,7 @@ export default function AppBuilderClientUI() {
               <div className="flex-1 overflow-y-auto space-y-4 pt-4 pb-4 overflow-x-hidden px-6">
                 {/* Show messages */}
                 {messages.map((msg, index) => {
-                const isAppBuilderMode = aiSteps && aiSteps.length === 3 && 
+                const isAppBuilderMode = aiSteps && aiSteps.length >= 3 && 
                   (aiSteps[0]?.text === 'Thinking...' || aiSteps[0]?.text?.includes('Thought for')) &&
                   aiSteps[1]?.text === 'Exploring codebase structure' &&
                   aiSteps[2]?.text === 'Coding the final files'
@@ -1592,16 +1643,21 @@ export default function AppBuilderClientUI() {
                         </div>
                       )}
                         
-                        {/* Show final step if still loading, or card if done (card opens Sheet from right) INSIDE implementation plan container, before MessageActions */}
+                        {/* Show final steps (Coding & Finishing touches) if still loading, or card if done (card opens Sheet from right) INSIDE implementation plan container, before MessageActions */}
                         {isImplementationPlan && isAppBuilderMode && (() => {
-                          const finalStep = aiSteps?.find(step => 
+                          const codingStep = aiSteps?.find(step => 
                             step.text.includes("Coding") || step.text.includes("final files")
                           )
-                          const isFinalStepDone = finalStep?.status === "done"
-                          const isFinalStepLoading = finalStep?.status === "loading"
+                          const finishingStep = aiSteps?.find(step => 
+                            step.text.includes("Adding finishing touches") || step.text.includes("finishing touches")
+                          )
+                          const isCodingStepDone = codingStep?.status === "done"
+                          const isCodingStepLoading = codingStep?.status === "loading"
+                          const isFinishingStepLoading = finishingStep?.status === "loading"
+                          const isFinishingStepDone = finishingStep?.status === "done"
                           
-                          // Show step if still loading
-                          if (isFinalStepLoading) {
+                          // Show steps if any is still loading
+                          if (isCodingStepLoading || (isCodingStepDone && isFinishingStepLoading)) {
                             return (
                               <div className="flex w-full flex-col items-start gap-2 text-left group relative mt-4">
                                 <AppBuilderAISteps 
@@ -1614,21 +1670,21 @@ export default function AppBuilderClientUI() {
                             )
                           }
                           
-                          // If done, show card that opens Sheet from right (hide final step)
-                          if (isFinalStepDone && finalCode) {
-                            // Show card that opens Sheet
+                          // If all done, show button that opens Sheet from right (hide steps)
+                          if (isCodingStepDone && isFinishingStepDone && finalCode) {
+                            // Show button without container, hover effect only
                             return (
                               <div className="flex w-full flex-col items-start gap-2 text-left group relative mt-4">
                                 <button
                                   onClick={() => setIsCodePanelOpen(prev => !prev)}
-                                  className="w-full max-w-prose self-start rounded-lg border bg-card hover:bg-accent transition-colors text-left p-4 group cursor-pointer"
+                                  className="w-full max-w-prose self-start text-left p-2 -mx-2 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group/button"
                                 >
                                   <div className="flex items-center gap-3">
                                     <div className="flex-shrink-0">
-                                      <Code2 className="h-5 w-5 text-primary" />
+                                      <Code2 className="h-5 w-5 text-muted-foreground group-hover/button:text-primary transition-colors" />
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <div className="font-semibold text-foreground group-hover:text-primary transition-colors">
+                                      <div className="font-semibold text-foreground group-hover/button:text-primary transition-colors">
                                         {sessionTitle || "Created Luminite AI landing page v1"}
                                       </div>
                                       <div className="text-sm text-muted-foreground mt-1">
@@ -1645,15 +1701,19 @@ export default function AppBuilderClientUI() {
                           return null
                         })()}
                         
-                      {/* Hide MessageActions if final step is still loading */}
+                      {/* Hide MessageActions if final steps are still loading */}
                       {(() => {
-                        const finalStep = aiSteps?.find(step => 
+                        const codingStep = aiSteps?.find(step => 
                           step.text.includes("Coding") || step.text.includes("final files")
                         )
-                        const isFinalStepLoading = finalStep?.status === "loading"
+                        const finishingStep = aiSteps?.find(step => 
+                          step.text.includes("Adding finishing touches") || step.text.includes("finishing touches")
+                        )
+                        const isCodingStepLoading = codingStep?.status === "loading"
+                        const isFinishingStepLoading = finishingStep?.status === "loading"
                         
-                        // Hide actions if this is implementation plan and final step is still loading
-                        if (isImplementationPlan && isAppBuilderMode && isFinalStepLoading) {
+                        // Hide actions if this is implementation plan and any step is still loading
+                        if (isImplementationPlan && isAppBuilderMode && (isCodingStepLoading || isFinishingStepLoading)) {
                           return null
                         }
                         
@@ -1717,7 +1777,9 @@ export default function AppBuilderClientUI() {
                   setInputValue={setInputValue}
                   handleSubmit={handleSubmit}
                   handlePlusClick={handlePlusClick}
+                  handleEnhancePrompt={handleEnhancePrompt}
                   isLoading={isLoading}
+                  isEnhancingPrompt={isEnhancingPrompt}
                   stopGeneration={() =>
                     stopGeneration(t("generationStopped"))
                   }

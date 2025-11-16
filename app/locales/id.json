@@ -128,6 +128,7 @@
   "deleteAll": "Hapus semua",
   "changelog": "Catatan Rilis",
   "latest": "Terbaru",
+  "changelog131Date": "Dirilis pada 20 April 2025",
   "changelog130Date": "Dirilis pada 15 April 2025",
   "changelog129Date": "Dirilis pada 12 April 2025",
   "changelog128Date": "Dirilis pada 8 April 2025",
@@ -145,7 +146,8 @@
   "pro": "Pro",
   "thoughtFor": "Berpikir selama {seconds}s",
   "exploringCodebase": "Menjelajahi struktur codebase",
-  "codingFinalFiles": "Membuat kode final",
+  "codingFinalFiles": "Membuat kode aplikasi",
+  "addingFinishingTouches": "Menambahkan sentuhan akhir",
   "clickToViewCode": "Klik untuk melihat dan mengedit kode",
   "clickToCloseCode": "Klik untuk menutup preview",
   "publish": "Publikasikan",
@@ -157,5 +159,9 @@
   "noCodeYet": "Belum ada kode",
   "noCodeYetDesc": "Mulai dengan menulis prompt untuk membuat website atau aplikasi Anda.",
   "preview": "Preview",
-  "code": "Code"
+  "code": "Code",
+  "loadingComponent": "Memuat komponen...",
+  "renderingComponent": "Merender...",
+  "enhancePrompt": "Perbaiki prompt",
+  "attachFile": "Lampirkan file"
 }

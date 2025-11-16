@@ -4,6 +4,7 @@ import Link from "next/link"
 import { ChevronRight } from "lucide-react"
 import { type Icon } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
+import { useState, useEffect } from "react"
 
 import {
   Collapsible,
@@ -38,6 +39,21 @@ interface NavDataProps {
 
 export function NavData({ items, pathname, t }: NavDataProps) {
   const isActive = (href: string) => pathname.startsWith(href)
+  
+  // Track open state for each collapsible to avoid hydration mismatch
+  const [openStates, setOpenStates] = useState<Record<string, boolean>>({})
+  
+  // Set initial open states based on pathname only on client side
+  // This avoids hydration mismatch by setting state only after mount
+  useEffect(() => {
+    const initialStates: Record<string, boolean> = {}
+    items.forEach((item) => {
+      if (item.items && item.items.length > 0) {
+        initialStates[item.name] = pathname.startsWith(item.href)
+      }
+    })
+    setOpenStates(initialStates)
+  }, [pathname, items])
 
   return (
     <SidebarGroup>
@@ -51,7 +67,8 @@ export function NavData({ items, pathname, t }: NavDataProps) {
             <Collapsible
               key={item.name}
               asChild
-              defaultOpen={isActive(item.href)}
+              open={openStates[item.name] ?? false}
+              onOpenChange={(open) => setOpenStates(prev => ({ ...prev, [item.name]: open }))}
               className="group/collapsible"
             >
               <SidebarMenuItem className={isActive(item.href) ? "bg-sidebar-accent" : ""}>

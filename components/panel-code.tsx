@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Button } from "@/components/ui/button"
-import { Code2, Eye, X, Copy, Share2, Maximize, Check, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, Minimize2, Monitor, Tablet, Smartphone, Globe } from "lucide-react"
+import { Code2, Eye, X, Copy, Share2, Maximize, Check, ChevronDown, ChevronLeft, ChevronRight, RefreshCw, Monitor, Tablet, Smartphone, Globe } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { togglePublishStatus, saveCodeToUpstash } from "@/lib/actions/ai"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -18,18 +18,23 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useLanguage } from "@/components/language-provider"
 import ReactMarkdown from "react-markdown"
+import { renderReactComponent } from '@/lib/utils/react-to-html'
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
+import { Tree, File, Folder, type TreeViewElement } from "@/components/ui/file-tree"
 
 // Browser Header Component (reusable)
 const BrowserHeader = ({ 
   onRefresh, 
   isRefreshing,
   deviceSize,
-  onDeviceChange
+  onDeviceChange,
+  sessionId
 }: { 
   onRefresh?: () => void
   isRefreshing?: boolean
   deviceSize?: "desktop" | "tablet" | "phone"
   onDeviceChange?: (size: "desktop" | "tablet" | "phone") => void
+  sessionId?: string | null
 }) => {
   // Get icon based on device size
   const getDeviceIcon = () => {
@@ -44,9 +49,17 @@ const BrowserHeader = ({
     }
   }
 
+  // Get current URL - only show sessionId
+  const getCurrentUrl = () => {
+    if (sessionId) {
+      return sessionId
+    }
+    return ""
+  }
+
   return (
     <div className="flex items-center justify-between border-b border-border bg-muted/30 px-3 py-2">
-      {/* Left: Navigation buttons */}
+      {/* Left: Navigation buttons and device selector */}
       <div className="flex items-center gap-1">
         <button
           className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
@@ -67,15 +80,11 @@ const BrowserHeader = ({
         >
           <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
         </button>
-      </div>
-      
-      {/* Center: Device selector */}
-      <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-background/50 border border-border/50 flex-1 max-w-md mx-4">
+        {/* Device selector - icon only, same style as other buttons */}
         <Select value={deviceSize || "desktop"} onValueChange={(value) => onDeviceChange?.(value as "desktop" | "tablet" | "phone")}>
-          <SelectTrigger className="h-auto p-0 border-0 bg-transparent hover:bg-transparent focus:ring-0 focus:ring-offset-0 shadow-none gap-2 [&_[data-slot=select-value]]:hidden [&>svg:last-of-type]:hidden">
+          <SelectTrigger className="p-1.5 h-auto rounded border-0 bg-transparent hover:bg-muted focus:ring-0 focus:ring-offset-0 shadow-none text-muted-foreground hover:text-foreground transition-colors [&>svg]:hidden">
             {getDeviceIcon()}
-            <span className="text-xs text-muted-foreground ml-3">/</span>
-            <SelectValue />
+            <SelectValue className="sr-only" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="desktop">
@@ -100,14 +109,17 @@ const BrowserHeader = ({
         </Select>
       </div>
       
+      {/* Center: Globe icon and URL */}
+      <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-background/50 border border-border/50 flex-1 max-w-md mx-4">
+        <Globe className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+        <span className="text-xs text-muted-foreground">/</span>
+        <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
+          {getCurrentUrl()}
+        </span>
+      </div>
+      
       {/* Right: Window controls */}
       <div className="flex items-center gap-1">
-        <button
-          className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-          aria-label="Minimize"
-        >
-          <Minimize2 className="h-3.5 w-3.5" />
-        </button>
         <button
           className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
           aria-label="Maximize"
@@ -218,30 +230,164 @@ export function PanelCode({
   const [isRefreshing, setIsRefreshing] = React.useState(false)
   const [deviceSize, setDeviceSize] = React.useState<"desktop" | "tablet" | "phone">("desktop")
   const [isPublishConfirmOpen, setIsPublishConfirmOpen] = React.useState(false)
+  const [reactHtml, setReactHtml] = React.useState<string>('')
+  const [isRenderingReact, setIsRenderingReact] = React.useState(false)
+  const [reactRenderError, setReactRenderError] = React.useState<string | null>(null)
+  const [loadingTextIndex, setLoadingTextIndex] = React.useState(0)
 
   // Memoize code processing to prevent hydration mismatch
   const hasMarkdownBlocks = React.useMemo(() => {
     const result = code?.includes('```') || false
+    const isReactCode = code?.includes('```tsx') || code?.includes('```ts') || code?.includes('```jsx') ||
+                       code?.includes('"use client"') || code?.includes("'use client'") ||
+                       code?.includes('export default') || code?.includes('from "@/components/ui')
     console.log('[PanelCode] hasMarkdownBlocks check:', {
       hasCode: !!code,
       codeLength: code?.length || 0,
       hasBackticks: code?.includes('```'),
+      isReactCode,
       result,
       codePreview: code?.substring(0, 100)
     })
     return result
   }, [code])
 
-  // Extract HTML and CSS from code blocks or use code directly
+  // Note: React code detection is done inline below when extracting code
+
+  // Extract file names from code (imports and related files)
+  const extractFilesFromCode = React.useMemo(() => {
+    if (!code) return [];
+    
+    const mainFile: TreeViewElement = {
+      id: 'main',
+      name: 'Component.tsx',
+      isSelectable: true
+    };
+    
+    // Extract imports from code
+    const importRegex = /import\s+(?:(?:\{[^}]+\}|\*\s+as\s+\w+|\w+)\s+from\s+)?['"]([^'"]+)['"]/g;
+    const imports = new Set<string>();
+    let match;
+    
+    while ((match = importRegex.exec(code)) !== null) {
+      const importPath = match[1];
+      // Only include local imports (starting with @/ or ./ or ../)
+      if (importPath.startsWith('@/') || importPath.startsWith('./') || importPath.startsWith('../')) {
+        imports.add(importPath);
+      }
+    }
+    
+    // Organize imports into folders
+    const components: string[] = [];
+    const utils: string[] = [];
+    const lib: string[] = [];
+    const others: string[] = [];
+    
+    imports.forEach(imp => {
+      if (imp.includes('/components/')) {
+        components.push(imp);
+      } else if (imp.includes('/utils/') || imp.includes('/lib/utils')) {
+        utils.push(imp);
+      } else if (imp.includes('/lib/')) {
+        lib.push(imp);
+      } else {
+        others.push(imp);
+      }
+    });
+    
+    const children: TreeViewElement[] = [];
+    
+    if (components.length > 0) {
+      children.push({
+        id: 'components',
+        name: 'components',
+        isSelectable: false,
+        children: components.map((comp, idx) => ({
+          id: `comp-${idx}`,
+          name: comp.split('/').pop() || comp,
+          isSelectable: true
+        }))
+      });
+    }
+    
+    if (utils.length > 0) {
+      children.push({
+        id: 'utils',
+        name: 'utils',
+        isSelectable: false,
+        children: utils.map((util, idx) => ({
+          id: `util-${idx}`,
+          name: util.split('/').pop() || util,
+          isSelectable: true
+        }))
+      });
+    }
+    
+    if (lib.length > 0) {
+      children.push({
+        id: 'lib',
+        name: 'lib',
+        isSelectable: false,
+        children: lib.map((l, idx) => ({
+          id: `lib-${idx}`,
+          name: l.split('/').pop() || l,
+          isSelectable: true
+        }))
+      });
+    }
+    
+    if (others.length > 0) {
+      children.push({
+        id: 'others',
+        name: 'others',
+        isSelectable: false,
+        children: others.map((other, idx) => ({
+          id: `other-${idx}`,
+          name: other.split('/').pop() || other,
+          isSelectable: true
+        }))
+      });
+    }
+    
+    if (children.length > 0) {
+      mainFile.children = children;
+    }
+    
+    return [mainFile];
+  }, [code]);
+
+  // Extract React/TSX, HTML, and CSS from code blocks or use code directly
+  const tsxMatch = code?.match(/```tsx\s*\n?([\s\S]*?)```/) || 
+                   code?.match(/```ts\s*\n?([\s\S]*?)```/) ||
+                   code?.match(/```jsx\s*\n?([\s\S]*?)```/);
   const htmlMatch = code?.match(/```html\s*\n?([\s\S]*?)```/);
   const cssMatch = code?.match(/```css\s*\n?([\s\S]*?)```/);
+  
+  // Extract code from markdown blocks if present
+  let reactCode = tsxMatch ? tsxMatch[1].trim() : '';
   let htmlCode = htmlMatch ? htmlMatch[1].trim() : '';
   const cssCode = cssMatch ? cssMatch[1].trim() : '';
   
-  // If no markdown code blocks found, check if code is already HTML
-  if (!htmlCode && !cssCode && code) {
+  // If no markdown code blocks found, check if code is already React/TSX or HTML
+  if (!reactCode && !htmlCode && !cssCode && code) {
+    // Check if it's React/TSX code (contains "use client" or "export default")
+    const isReactCodeDirect = code.includes('"use client"') || 
+                              code.includes("'use client'") || 
+                              code.includes('export default') || 
+                              code.includes('import {') || 
+                              code.includes('from "@/components/ui') ||
+                              (code.includes('function ') && code.includes('return')) ||
+                              (code.includes('const ') && code.includes('return <'))
+    
+    if (isReactCodeDirect) {
+      // Code is already extracted React/TSX (no markdown wrapper), use it directly
+      reactCode = code.trim();
+      console.log('[PanelCode] Detected extracted React code (no markdown blocks)', {
+        codeLength: reactCode.length,
+        codePreview: reactCode.substring(0, 100)
+      });
+    } else if (code.includes('<!DOCTYPE') || code.includes('<html') || code.includes('<HTML')) {
     // Check if the entire code is HTML (might be stored as plain HTML)
-    if (code.includes('<!DOCTYPE') || code.includes('<html') || code.includes('<HTML')) {
       htmlCode = code.trim();
     } else if (code.includes('<') && code.includes('>')) {
       // Might be HTML without DOCTYPE
@@ -255,9 +401,88 @@ export function PanelCode({
   // Check if HTML is already a complete document
   const isCompleteHtml = htmlCode.includes('<!DOCTYPE') || htmlCode.includes('<html') || htmlCode.includes('<HTML');
   
-  // Build fullHtml
+  // Animate loading text
+  React.useEffect(() => {
+    if (isRenderingReact) {
+      const interval = setInterval(() => {
+        setLoadingTextIndex(prev => (prev + 1) % 2)
+      }, 1500) // Change text every 1.5 seconds
+      return () => clearInterval(interval)
+    } else {
+      setLoadingTextIndex(0)
+    }
+  }, [isRenderingReact])
+
+  // Render React component directly (no iframe)
+  React.useEffect(() => {
+    if (reactCode && !isRenderingReact && !reactHtml) {
+      setIsRenderingReact(true)
+      setReactRenderError(null)
+      setLoadingTextIndex(0)
+      console.log('[PanelCode] Starting React component render', {
+        reactCodeLength: reactCode.length,
+        codePreview: reactCode.substring(0, 200)
+      })
+      
+      renderReactComponent(reactCode)
+        .then(html => {
+          console.log('[PanelCode] React component rendered successfully', {
+            htmlLength: html.length,
+            htmlPreview: html.substring(0, 200)
+          })
+          
+          // Use iframe with srcDoc for React component because:
+          // 1. HTML contains complete document with <html>, <head>, <body> tags
+          // 2. Scripts in <head> need to execute in proper document context
+          // 3. This prevents interference with parent document's theme/CSS
+          // Store the complete HTML for iframe srcDoc
+          setReactHtml(html)
+          setIsRenderingReact(false)
+          setLoadingTextIndex(0)
+        })
+        .catch(err => {
+          console.error('[PanelCode] Error rendering React component:', err)
+          setReactRenderError(err instanceof Error ? err.message : 'Failed to render component')
+          setIsRenderingReact(false)
+          setLoadingTextIndex(0)
+        })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reactCode]) // Only depend on reactCode - isRenderingReact and reactHtml are intentionally excluded
+
+  // Reset reactHtml when reactCode changes (including when it becomes empty)
+  React.useEffect(() => {
+    if (!reactCode) {
+      setReactHtml('')
+      setReactRenderError(null)
+      setIsRenderingReact(false)
+    } else {
+      // If reactCode changes, reset to trigger re-render
+      setReactHtml('')
+      setReactRenderError(null)
+      setIsRenderingReact(false)
+    }
+  }, [reactCode])
+
+  // Build fullHtml - prioritize React/TSX code (but React will be rendered directly, not via iframe)
   let fullHtml = '';
-  if (isCompleteHtml && hasInlineStyle) {
+  if (reactCode) {
+    // React/TSX component - will be rendered directly using dangerouslySetInnerHTML
+    // Don't build iframe wrapper, just mark that we have React code
+    console.log('[PanelCode] React code detected, will render directly', {
+      hasReactCode: !!reactCode,
+      reactCodeLength: reactCode.length,
+      hasReactHtml: !!reactHtml,
+      isRendering: isRenderingReact
+    });
+  } else {
+    console.log('[PanelCode] No React code, building HTML preview', {
+      hasHtmlCode: !!htmlCode,
+      htmlCodeLength: htmlCode?.length || 0
+    });
+  }
+  
+  if (!fullHtml && isCompleteHtml && hasInlineStyle) {
     // HTML is complete with inline CSS, use as-is
     fullHtml = htmlCode;
   } else if (htmlCode && cssCode) {
@@ -370,6 +595,30 @@ export function PanelCode({
   const handleRefresh = () => {
     setIsRefreshing(true)
     setRefreshKey(prev => prev + 1)
+    // Reset and re-render React component if present
+    if (reactCode) {
+      setReactHtml('')
+      setReactRenderError(null)
+      setIsRenderingReact(false)
+      // Trigger re-render by clearing and re-setting
+      setTimeout(() => {
+        setIsRenderingReact(true)
+        setReactRenderError(null)
+        renderReactComponent(reactCode)
+          .then(html => {
+            setReactHtml(html)
+            setIsRenderingReact(false)
+            setIsRefreshing(false)
+          })
+          .catch(err => {
+            console.error('[PanelCode] Error re-rendering React component:', err)
+            setReactRenderError(err instanceof Error ? err.message : 'Failed to render component')
+            setIsRenderingReact(false)
+            setIsRefreshing(false)
+          })
+      }, 100)
+      return
+    }
     setTimeout(() => setIsRefreshing(false), 500)
   }
 
@@ -517,9 +766,52 @@ export function PanelCode({
                   isRefreshing={isRefreshing}
                   deviceSize={deviceSize}
                   onDeviceChange={setDeviceSize}
+                  sessionId={sessionId}
                 />
                 <div className="flex-1 overflow-hidden bg-muted/20 flex items-center justify-center w-full transition-all duration-300">
-                  {fullHtml ? (
+                  {reactCode ? (
+                    // React component - render directly
+                    isRenderingReact ? (
+                      <div className="flex items-center justify-center h-full w-full">
+                        <div className="text-center">
+                          <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                          <p className="text-sm text-muted-foreground">
+                            {loadingTextIndex === 0 ? t("loadingComponent") : t("renderingComponent")}
+                          </p>
+                        </div>
+                      </div>
+                    ) : reactRenderError ? (
+                      <div className="flex items-center justify-center h-full w-full">
+                        <div className="text-center p-4">
+                          <p className="text-sm font-medium text-destructive mb-2">Render Error</p>
+                          <p className="text-xs text-muted-foreground">{reactRenderError}</p>
+                        </div>
+                      </div>
+                    ) : reactHtml ? (
+                      // Use iframe for React component to isolate scripts/styles and prevent theme interference
+                      <div className="h-full flex items-center justify-center w-full transition-all duration-300">
+                        <iframe
+                          key={refreshKey}
+                          srcDoc={reactHtml}
+                          className="h-full border-0 transition-all duration-300"
+                          style={{ 
+                            width: getIframeWidth(),
+                            maxWidth: "100%"
+                          }}
+                          title="React Component Preview"
+                          sandbox="allow-scripts allow-same-origin"
+                        />
+                      </div>
+                    ) : (
+                      <div className="flex h-full items-center justify-center text-muted-foreground">
+                        <div className="text-center">
+                          <Code2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                          <p className="text-xs">No preview available</p>
+                        </div>
+                      </div>
+                    )
+                  ) : fullHtml ? (
+                    // HTML preview - use iframe
                     <div className="h-full flex items-center justify-center w-full transition-all duration-300">
                       <iframe
                         key={refreshKey}
@@ -543,7 +835,7 @@ export function PanelCode({
                 </div>
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0">
+              <div className="flex-1 overflow-hidden min-h-0">
                 {isLoading ? (
                   <div className="flex h-full items-center justify-center text-muted-foreground py-12">
                     <div className="text-center">
@@ -561,79 +853,114 @@ export function PanelCode({
                     </div>
                   </div>
                 ) : (
-                  <div className="prose prose-zinc max-w-none dark:prose-invert">
-                    {(() => {
-                      console.log('[PanelCode] Rendering code tab (full variant):', {
-                        hasMarkdownBlocks,
-                        codeLength: code?.length,
-                        activeTab
-                      })
-                      return null
-                    })()}
-                    {hasMarkdownBlocks ? (
-                      <ReactMarkdown
-                        components={{
-                          h1: ({ ...props }) => (
-                            <h1 {...props} className="mt-5 mb-3 text-3xl font-bold text-foreground" />
-                          ),
-                          h2: ({ ...props }) => (
-                            <h2 {...props} className="mt-4 mb-2 border-b pb-1 text-2xl font-bold text-foreground" />
-                          ),
-                          h3: ({ ...props }) => (
-                            <h3 {...props} className="mt-3 mb-1 text-xl font-semibold text-foreground" />
-                          ),
-                          p: ({ ...props }) => (
-                            <p {...props} className="mb-3 leading-relaxed text-foreground" />
-                          ),
-                          ul: ({ ...props }) => (
-                            <ul {...props} className="my-3 list-inside list-disc space-y-1 text-foreground" />
-                          ),
-                          ol: ({ ...props }) => (
-                            <ol {...props} className="my-3 list-inside list-decimal space-y-1 text-foreground" />
-                          ),
-                          li: ({ ...props }) => <li {...props} className="pl-2" />,
-                          strong: ({ ...props }) => (
-                            <strong {...props} className="font-semibold text-foreground" />
-                          ),
-                          code: ({ className, children, ...props }) => {
-                            const match = /language-(\w+)/.exec(className || "")
-                            return match ? (
-                              <CodeBlock className={className} {...props}>
-                                {String(children).replace(/\n$/, "")}
-                              </CodeBlock>
-                            ) : (
-                              <code className="rounded-md bg-muted px-1.5 py-1 font-mono text-sm text-foreground" {...props}>
-                                {children}
-                              </code>
-                            )
-                          },
-                          pre: () => null,
-                        }}
-                      >
-                        {code}
-                      </ReactMarkdown>
-                    ) : (
-                      <div className="relative my-4 overflow-hidden rounded-lg border border-border">
-                        <div className="flex items-center justify-between border-b border-border bg-muted px-4 py-2 text-sm text-muted-foreground">
-                          <span className="font-medium">HTML</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              navigator.clipboard.writeText(code);
-                              alert('Code copied!');
-                            }}
-                            className="h-6 w-6 p-0 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                          >
-                            <Copy className="h-3 w-3" />
-                          </Button>
-                        </div>
-                        <pre className="bg-muted p-4 text-sm text-foreground overflow-x-auto">
-                          <code className="language-html">{code}</code>
-                        </pre>
-                      </div>
+                  <ResizablePanelGroup direction="horizontal" className="h-full">
+                    {/* File Tree Sidebar - Optional, collapsible */}
+                    {extractFilesFromCode.length > 0 && (
+                      <>
+                        <ResizablePanel defaultSize={18} minSize={10} maxSize={30} className="border-r border-border">
+                          <div className="h-full overflow-y-auto p-3">
+                            <div className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                              Files
+                            </div>
+                            <Tree elements={extractFilesFromCode} initialExpandedItems={['main']}>
+                              {extractFilesFromCode.map((file) => (
+                                <Folder key={file.id} element={file.name} value={file.id}>
+                                  {file.children?.map((child) => (
+                                    <Folder key={child.id} element={child.name} value={child.id}>
+                                      {child.children?.map((grandchild) => (
+                                        <File key={grandchild.id} value={grandchild.id}>
+                                          {grandchild.name}
+                                        </File>
+                                      ))}
+                                    </Folder>
+                                  ))}
+                                </Folder>
+                              ))}
+                            </Tree>
+                          </div>
+                        </ResizablePanel>
+                        <ResizableHandle withHandle />
+                      </>
                     )}
-                  </div>
+                    {/* Code Content - Always visible */}
+                    <ResizablePanel defaultSize={extractFilesFromCode.length > 0 ? 82 : 100} minSize={50}>
+                      <div className="h-full overflow-y-auto px-4 py-4">
+                        <div className="prose prose-zinc max-w-none dark:prose-invert">
+                          {(() => {
+                            console.log('[PanelCode] Rendering code tab (full variant):', {
+                              hasMarkdownBlocks,
+                              codeLength: code?.length,
+                              activeTab
+                            })
+                            return null
+                          })()}
+                          {hasMarkdownBlocks ? (
+                            <ReactMarkdown
+                              components={{
+                                h1: ({ ...props }) => (
+                                  <h1 {...props} className="mt-5 mb-3 text-3xl font-bold text-foreground" />
+                                ),
+                                h2: ({ ...props }) => (
+                                  <h2 {...props} className="mt-4 mb-2 border-b pb-1 text-2xl font-bold text-foreground" />
+                                ),
+                                h3: ({ ...props }) => (
+                                  <h3 {...props} className="mt-3 mb-1 text-xl font-semibold text-foreground" />
+                                ),
+                                p: ({ ...props }) => (
+                                  <p {...props} className="mb-3 leading-relaxed text-foreground" />
+                                ),
+                                ul: ({ ...props }) => (
+                                  <ul {...props} className="my-3 list-inside list-disc space-y-1 text-foreground" />
+                                ),
+                                ol: ({ ...props }) => (
+                                  <ol {...props} className="my-3 list-inside list-decimal space-y-1 text-foreground" />
+                                ),
+                                li: ({ ...props }) => <li {...props} className="pl-2" />,
+                                strong: ({ ...props }) => (
+                                  <strong {...props} className="font-semibold text-foreground" />
+                                ),
+                                code: ({ className, children, ...props }) => {
+                                  const match = /language-(\w+)/.exec(className || "")
+                                  return match ? (
+                                    <CodeBlock className={className} {...props}>
+                                      {String(children).replace(/\n$/, "")}
+                                    </CodeBlock>
+                                  ) : (
+                                    <code className="rounded-md bg-muted px-1.5 py-1 font-mono text-sm text-foreground" {...props}>
+                                      {children}
+                                    </code>
+                                  )
+                                },
+                                pre: () => null,
+                              }}
+                            >
+                              {code}
+                            </ReactMarkdown>
+                          ) : (
+                            <div className="relative my-4 overflow-hidden rounded-lg border border-border">
+                              <div className="flex items-center justify-between border-b border-border bg-muted px-4 py-2 text-sm text-muted-foreground">
+                                <span className="font-medium">{reactCode ? 'TSX' : 'HTML'}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(code);
+                                    alert('Code copied!');
+                                  }}
+                                  className="h-6 w-6 p-0 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              <pre className="bg-muted p-4 text-sm text-foreground overflow-x-auto">
+                                <code className={reactCode ? "language-tsx" : "language-html"}>{code}</code>
+                              </pre>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </ResizablePanel>
+                  </ResizablePanelGroup>
                 )}
               </div>
             )}
@@ -805,9 +1132,45 @@ export function PanelCode({
                         isRefreshing={isRefreshing}
                         deviceSize={deviceSize}
                         onDeviceChange={setDeviceSize}
+                        sessionId={sessionId}
                       />
                       <div className="flex-1 overflow-hidden bg-muted/20 flex items-center justify-center w-full transition-all duration-300">
-                        {fullHtml ? (
+                        {reactCode ? (
+                          // React component - render directly
+                          isRenderingReact ? (
+                            <div className="flex items-center justify-center h-full w-full">
+                              <div className="text-center">
+                                <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                                <p className="text-sm text-muted-foreground">Rendering component...</p>
+                              </div>
+                            </div>
+                          ) : reactRenderError ? (
+                            <div className="flex items-center justify-center h-full w-full">
+                              <div className="text-center p-4">
+                                <p className="text-sm font-medium text-destructive mb-2">Render Error</p>
+                                <p className="text-xs text-muted-foreground">{reactRenderError}</p>
+                              </div>
+                            </div>
+                          ) : reactHtml ? (
+                            <div 
+                              className="h-full w-full"
+                              style={{ 
+                                width: getIframeWidth(),
+                                maxWidth: "100%",
+                                overflow: 'auto'
+                              }}
+                              dangerouslySetInnerHTML={{ __html: reactHtml }}
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-muted-foreground">
+                              <div className="text-center">
+                                <Code2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                <p className="text-xs">No preview available</p>
+                              </div>
+                            </div>
+                          )
+                        ) : fullHtml ? (
+                          // HTML preview - use iframe
                           <div className="h-full flex items-center justify-center w-full transition-all duration-300">
                             <iframe
                               key={refreshKey}
@@ -1102,9 +1465,45 @@ export function PanelCode({
                         isRefreshing={isRefreshing}
                         deviceSize={deviceSize}
                         onDeviceChange={setDeviceSize}
+                        sessionId={sessionId}
                       />
                       <div className="flex-1 overflow-hidden bg-muted/20 flex items-center justify-center w-full transition-all duration-300">
-                        {fullHtml ? (
+                        {reactCode ? (
+                          // React component - render directly
+                          isRenderingReact ? (
+                            <div className="flex items-center justify-center h-full w-full">
+                              <div className="text-center">
+                                <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                                <p className="text-sm text-muted-foreground">Rendering component...</p>
+                              </div>
+                            </div>
+                          ) : reactRenderError ? (
+                            <div className="flex items-center justify-center h-full w-full">
+                              <div className="text-center p-4">
+                                <p className="text-sm font-medium text-destructive mb-2">Render Error</p>
+                                <p className="text-xs text-muted-foreground">{reactRenderError}</p>
+                              </div>
+                            </div>
+                          ) : reactHtml ? (
+                            <div 
+                              className="h-full w-full"
+                              style={{ 
+                                width: getIframeWidth(),
+                                maxWidth: "100%",
+                                overflow: 'auto'
+                              }}
+                              dangerouslySetInnerHTML={{ __html: reactHtml }}
+                            />
+                          ) : (
+                            <div className="flex h-full items-center justify-center text-muted-foreground">
+                              <div className="text-center">
+                                <Code2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                <p className="text-xs">No preview available</p>
+                              </div>
+                            </div>
+                          )
+                        ) : fullHtml ? (
+                          // HTML preview - use iframe
                           <div className="h-full flex items-center justify-center w-full transition-all duration-300">
                             <iframe
                               key={refreshKey}

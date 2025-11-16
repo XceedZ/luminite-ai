@@ -392,7 +392,8 @@ export const useAIStore = create<AIState>()(
                 const newAiSteps: AIStep[] = [
                   { text: 'Thinking...', status: 'pending' }, // Step 0: Thinking (will update to "Thought for Xs" when done)
                   { text: 'Exploring codebase structure', status: 'pending' }, // Step 1: Explore codebase
-                  { text: 'Coding the final files', status: 'pending' } // Step 2: Generate code
+                  { text: 'Coding the final files', status: 'pending' }, // Step 2: Generate code
+                  { text: 'Adding finishing touches', status: 'pending' } // Step 3: Polish design with images
                 ];
                 set({ aiSteps: newAiSteps });
 
@@ -570,6 +571,27 @@ The template is already beautiful and perfect. Your job is to make the CONTENT r
                     i === 2 ? { ...s, status: 'done' as const, response: finalResponseText } : s
                   )
                 }));
+                
+                // --- Step 3: Adding finishing touches (enhance visuals with images) ---
+                updateStepStatus(3, 'loading'); // 'Adding finishing touches' (index 3)
+                let finalCodeWithImages = finalResponseText;
+                try {
+                  const { injectPexelsImagesIntoCode } = await import("@/lib/actions/ai");
+                  finalCodeWithImages = await injectPexelsImagesIntoCode(finalResponseText, prompt, classificationResult.language);
+                  console.log('[App Builder] ✅ Design enhanced with visual elements');
+                } catch (error) {
+                  console.error('[App Builder] ⚠️ Failed to enhance visuals, using original code:', error);
+                  // Keep original code if enhancement fails
+                }
+                updateStepStatus(3, 'done'); // 'Adding finishing touches' Selesai (index 3)
+                set(state => ({
+                  aiSteps: state.aiSteps.map((s, i) => 
+                    i === 3 ? { ...s, status: 'done' as const, response: 'Design polished successfully' } : s
+                  )
+                }));
+                
+                // Use the final code with images
+                finalResponseText = finalCodeWithImages;
                 
                 // Save code to Upstash for app_builder (don't reload after save)
                 if (finalResponseText && sessionId) {

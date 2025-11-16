@@ -4,8 +4,6 @@ import { GoogleGenAI, Part } from "@google/genai"
 import { headers } from 'next/headers' // [MODIFIKASI] Import 'headers' dari next/headers
 import { Redis } from '@upstash/redis'
 import { nanoid } from 'nanoid'
-import { readFileSync } from 'fs'
-import { join } from 'path'
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GOOGLE_API_KEY || ""
@@ -16,45 +14,459 @@ const ai = new GoogleGenAI({
     token: process.env.UPSTASH_REDIS_REST_TOKEN!,
   })
 
-  // Helper function to get template examples
-  function getTemplateExample(userPrompt: string): string {
+  // Helper function to fetch images from Pexels API with retry logic
+  async function fetchPexelsImages(query: string, perPage: number = 1, retries: number = 2): Promise<string[]> {
     try {
-      const promptLower = userPrompt.toLowerCase();
+      const apiKey = process.env.PEXELS_API_KEY;
+      if (!apiKey) {
+        console.warn('[Pexels] API key not found, skipping image fetch');
+        return [];
+      }
+
+      // Validate and clean query
+      const cleanQuery = query.trim().slice(0, 100); // Limit query length
+      if (!cleanQuery || cleanQuery.length === 0) {
+        console.warn('[Pexels] Empty query, skipping image fetch');
+        return [];
+      }
+
+      const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(cleanQuery)}&per_page=${Math.min(perPage, 80)}&orientation=landscape`;
       
-      // Determine which template to use based on keywords
-      let templateFile = '';
-      
-      if (promptLower.includes('portfolio') || promptLower.includes('portofolio')) {
-        // Choose between modern or creative portfolio based on keywords
-        if (promptLower.includes('creative') || promptLower.includes('kreatif') || promptLower.includes('artistic')) {
-          templateFile = 'portfolio-creative.html';
-        } else {
-          templateFile = 'portfolio-modern.html';
+      // Retry logic with exponential backoff
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+          const response = await fetch(url, {
+            headers: {
+              'Authorization': apiKey,
+              'User-Agent': 'Luminite-AI/1.0'
+            },
+            // Add timeout
+            signal: AbortSignal.timeout(10000) // 10 second timeout
+          });
+
+          if (!response.ok) {
+            // Try to get error details
+            let errorDetails = '';
+            try {
+              const errorData = await response.json();
+              errorDetails = JSON.stringify(errorData);
+            } catch {
+              errorDetails = await response.text().catch(() => 'Unable to read error response');
+            }
+
+            console.error(`[Pexels] API error (attempt ${attempt + 1}/${retries + 1}):`, {
+              status: response.status,
+              statusText: response.statusText,
+              query: cleanQuery,
+              errorDetails: errorDetails.substring(0, 200)
+            });
+
+            // If it's a client error (4xx), don't retry
+            if (response.status >= 400 && response.status < 500) {
+              return [];
+            }
+
+            // If it's a server error (5xx) and we have retries left, wait and retry
+            if (response.status >= 500 && attempt < retries) {
+              const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
+              console.log(`[Pexels] Retrying in ${delay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            }
+
+            return [];
+          }
+
+          const data = await response.json() as { photos?: Array<{ src?: { large2x?: string; large?: string; original?: string } }> };
+          if (data.photos && Array.isArray(data.photos)) {
+            // Return large image URLs (original or large2x)
+            const imageUrls = data.photos
+              .map((photo) => photo.src?.large2x || photo.src?.large || photo.src?.original || '')
+              .filter((url): url is string => Boolean(url));
+            console.log(`[Pexels] Successfully fetched ${imageUrls.length} images for query: "${cleanQuery}"`);
+            return imageUrls;
+          }
+
+          return [];
+        } catch (fetchError: unknown) {
+          // Handle timeout or network errors
+          const error = fetchError as { name?: string; message?: string };
+          if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+            console.error(`[Pexels] Request timeout (attempt ${attempt + 1}/${retries + 1}) for query: "${cleanQuery}"`);
+          } else if (error.name === 'TypeError' && error.message?.includes('fetch')) {
+            console.error(`[Pexels] Network error (attempt ${attempt + 1}/${retries + 1}):`, error.message);
+          } else {
+            console.error(`[Pexels] Unexpected error (attempt ${attempt + 1}/${retries + 1}):`, fetchError);
+          }
+
+          // Retry on network errors if we have retries left
+          if (attempt < retries) {
+            const delay = Math.pow(2, attempt) * 1000;
+            console.log(`[Pexels] Retrying in ${delay}ms...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+
+          return [];
         }
-      } else if (promptLower.includes('saas') || promptLower.includes('software') || promptLower.includes('app landing') || promptLower.includes('product')) {
-        templateFile = 'landing-page-saas.html';
-      } else if (promptLower.includes('restaurant') || promptLower.includes('resto') || promptLower.includes('cafe') || promptLower.includes('food')) {
-        templateFile = 'landing-page-restaurant.html';
-      } else if (promptLower.includes('dashboard') || promptLower.includes('admin') || promptLower.includes('panel')) {
-        templateFile = 'dashboard-admin.html';
-      } else if (promptLower.includes('ecommerce') || promptLower.includes('e-commerce') || promptLower.includes('shop') || promptLower.includes('product page') || promptLower.includes('toko')) {
-        templateFile = 'ecommerce-product.html';
-      } else if (promptLower.includes('blog') || promptLower.includes('article') || promptLower.includes('writing')) {
-        templateFile = 'blog-personal.html';
+      }
+
+      return [];
+    } catch (error) {
+      console.error('[Pexels] Fatal error fetching images:', error);
+      return [];
+    }
+  }
+
+  // New function: Analyze code and determine image queries for each section
+  async function analyzeCodeForImageQueries(code: string, originalPrompt: string): Promise<Array<{ section: string; query: string; placeholder: string }>> {
+    try {
+      const systemInstruction = `You are an expert web developer analyzing React component code to determine which sections need images and what search queries should be used to fetch appropriate images from Pexels.
+
+Your task:
+1. Analyze the provided React component code
+2. Identify sections that would benefit from images (hero sections, feature cards, gallery sections, testimonials with avatars, etc.)
+3. For each section that needs an image, determine an appropriate Pexels search query
+4. Identify placeholder text or comments in the code that indicate where images should be placed
+
+Return ONLY a valid JSON array with this structure:
+[
+  {
+    "section": "hero",
+    "query": "modern business workspace",
+    "placeholder": "HERO_IMAGE_PLACEHOLDER"
+  },
+  {
+    "section": "features",
+    "query": "technology innovation",
+    "placeholder": "FEATURE_IMAGE_1"
+  }
+]
+
+Rules:
+- Only include sections that actually need images (not decorative elements)
+- Make queries specific and relevant to the section's content
+- Use English for queries (Pexels works best with English)
+- Identify unique placeholders for each image location
+- Maximum 10 sections
+- If no images are needed, return empty array: []`;
+
+      const userPrompt = `Analyze this React component code and determine image requirements:
+
+**Original User Request:** ${originalPrompt}
+
+**Component Code:**
+\`\`\`tsx
+${code}
+\`\`\`
+
+Return a JSON array of sections that need images with their search queries.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemma-3-4b-it",
+        contents: [
+          { role: 'user', parts: [{ text: systemInstruction }] },
+          { role: 'user', parts: [{ text: userPrompt }] }
+        ]
+      });
+
+      const responseText = response.text || "";
+      console.log('[Image Analysis] AI Response:', responseText);
+
+      // Extract JSON from response
+      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+      if (jsonMatch && jsonMatch[0]) {
+        const imageQueries = JSON.parse(jsonMatch[0]) as Array<{ section: string; query: string; placeholder: string }>;
+        console.log('[Image Analysis] Parsed image queries:', imageQueries);
+        return imageQueries;
+      }
+
+      return [];
+    } catch (error) {
+      console.error('[Image Analysis] Error:', error);
+      return [];
+    }
+  }
+
+  // New function: Inject Pexels images into code
+  export async function injectPexelsImagesIntoCode(code: string, originalPrompt: string, language: string): Promise<string> {
+    'use server';
+    try {
+      console.log('[Image Injection] Starting image analysis and injection...');
+      
+      // Step 1: Analyze code to determine image queries
+      const imageQueries = await analyzeCodeForImageQueries(code, originalPrompt);
+      
+      if (imageQueries.length === 0) {
+        console.log('[Image Injection] No images needed, returning original code');
+        return code;
+      }
+
+      console.log(`[Image Injection] Found ${imageQueries.length} sections that need images`);
+
+      // Step 2: Fetch images for each query
+      const imageMap: Record<string, string> = {};
+      for (const { section, query, placeholder } of imageQueries) {
+        const images = await fetchPexelsImages(query, 1);
+        if (images.length > 0) {
+          imageMap[placeholder] = images[0];
+          console.log(`[Image Injection] Fetched image for section "${section}": ${images[0].substring(0, 50)}...`);
       } else {
-        // Default to portfolio modern for general websites
-        templateFile = 'portfolio-modern.html';
+          console.warn(`[Image Injection] No image found for query: "${query}"`);
+        }
+      }
+
+      // Step 3: Inject images into code
+      let updatedCode = code;
+      
+      // Replace placeholders with actual image URLs
+      for (const [placeholder, imageUrl] of Object.entries(imageMap)) {
+        // Look for common patterns where images might be used
+        const patterns = [
+          // Pattern 1: Placeholder in src attribute
+          new RegExp(`src=["']${placeholder}["']`, 'gi'),
+          // Pattern 2: Placeholder as variable
+          new RegExp(`\\b${placeholder}\\b`, 'g'),
+          // Pattern 3: Placeholder in className or comment
+          new RegExp(`(?:src=|imageUrl=|url=)["']?${placeholder}["']?`, 'gi'),
+        ];
+
+        for (const pattern of patterns) {
+          if (pattern.test(updatedCode)) {
+            updatedCode = updatedCode.replace(pattern, `src="${imageUrl}"`);
+            console.log(`[Image Injection] Replaced placeholder "${placeholder}" with image URL`);
+            break;
+          }
+        }
+
+        // Also try to find and replace common image placeholder patterns
+        // Look for comments or strings that mention the section
+        const sectionPattern = new RegExp(`(?://|/\\*|['"])\\s*${placeholder}\\s*(?:\\*/|['"])?`, 'gi');
+        if (sectionPattern.test(updatedCode)) {
+          // Find the nearest img tag or Image component and replace
+          updatedCode = updatedCode.replace(
+            /(<img[^>]*src=["'])([^"']*)(["'][^>]*>)/gi,
+            (match, prefix, currentSrc, suffix) => {
+              if (currentSrc.includes(placeholder) || currentSrc === '' || currentSrc === '#' || currentSrc.includes('placeholder')) {
+                return `${prefix}${imageUrl}${suffix}`;
+              }
+              return match;
+            }
+          );
+        }
       }
       
-      // Read the template file
-      const templatePath = join(process.cwd(), 'templates', templateFile);
-      const templateCode = readFileSync(templatePath, 'utf-8');
-      
-      return templateCode;
+      // Step 4: If no placeholders found, use AI to intelligently inject images
+      if (updatedCode === code && Object.keys(imageMap).length > 0) {
+        console.log('[Image Injection] No placeholders found, using AI to inject images...');
+        
+        const injectionPrompt = `You are an expert React developer. Inject the following Pexels image URLs into the provided React component code at appropriate locations.
+
+**Image URLs by section:**
+${imageQueries.map(({ section, placeholder }) => `- ${section}: ${imageMap[placeholder] || 'NOT_AVAILABLE'}`).join('\n')}
+
+**Rules:**
+1. Replace placeholder images, empty src attributes, or generic placeholders with the provided URLs
+2. Use the image URL that matches the section (hero section gets hero image, features get feature images, etc.)
+3. Keep all other code unchanged
+4. Ensure images are properly formatted for React (use <img> tag with src attribute)
+5. Add appropriate alt text based on the section
+
+**Component Code:**
+\`\`\`tsx
+${code}
+\`\`\`
+
+Return ONLY the updated code without markdown code blocks, just the pure TSX code.`;
+
+        const injectionResponse = await ai.models.generateContent({
+          model: "gemma-3-4b-it",
+          contents: [
+            { role: 'user', parts: [{ text: injectionPrompt }] }
+          ]
+        });
+
+        const injectedCode = injectionResponse.text || code;
+        // Extract code from markdown if present
+        const codeMatch = injectedCode.match(/```tsx\s*\n?([\s\S]*?)```/) || 
+                          injectedCode.match(/```ts\s*\n?([\s\S]*?)```/) ||
+                          injectedCode.match(/```jsx\s*\n?([\s\S]*?)```/);
+        
+        if (codeMatch && codeMatch[1]) {
+          updatedCode = codeMatch[1].trim();
+          console.log('[Image Injection] Successfully injected images using AI');
+        } else {
+          updatedCode = injectedCode.trim();
+        }
+      }
+
+      console.log('[Image Injection] Image injection completed');
+      return updatedCode;
     } catch (error) {
-      console.error('Error loading template:', error);
-      return ''; // Return empty string if template not found
+      console.error('[Image Injection] Error:', error);
+      return code; // Return original code if injection fails
     }
+  }
+
+  // Helper function to get available Shadcn UI components list
+  function getAvailableComponents(): string {
+    return `
+**AVAILABLE REUSABLE COMPONENTS:**
+
+**Navbar Component (from @/components/navbar):**
+- Import: import { Navbar } from "@/components/navbar"
+- Props:
+  - logo?: React.ReactNode - Custom logo element (optional, overrides logoImg and logoText)
+  - logoImg?: string - URL/path to logo image (optional, used if logo is not provided)
+  - logoText?: string - Text to display as logo (default: "Logo", used if logo and logoImg are not provided)
+  - navItems?: Array<{ label: string, href: string }> - Array of navigation items
+  - rightContent?: React.ReactNode - Content to display on the right side (buttons, search, etc.)
+  - className?: string - Additional CSS classes
+- Features: Responsive with hamburger menu on mobile, sticky header, no backdrop blur
+- Example usage:
+  \`\`\`tsx
+  import { Navbar } from "@/components/navbar"
+  import { Button } from "@/components/ui/button"
+  
+  <Navbar
+    logoText="My Brand"
+    navItems={[
+      { label: "Home", href: "#home" },
+      { label: "About", href: "#about" },
+      { label: "Contact", href: "#contact" }
+    ]}
+    rightContent={<Button size="sm">Get Started</Button>}
+  />
+  \`\`\`
+- With logo image:
+  \`\`\`tsx
+  <Navbar
+    logoImg="/logo.png"
+    logoText="My Brand"
+    navItems={[...]}
+  />
+  \`\`\`
+
+**AVAILABLE SHADCN UI COMPONENTS (from @/components/ui/):**
+
+**Layout & Structure:**
+- Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter: For content sections and feature cards
+- Separator: For visual separation between sections
+- Section: For page sections
+- Sidebar: For navigation sidebars
+
+**Interactive Elements:**
+- Button: For CTAs and actions (variants: default, outline, ghost, secondary, destructive, link; sizes: default, sm, lg, icon, icon-sm, icon-lg)
+- Badge: For tags and labels (variants: default, secondary, destructive, outline)
+- Toggle, ToggleGroup: For toggle switches
+- Switch: For on/off switches
+- Checkbox: For checkboxes
+- Radio Group: For radio buttons
+
+**Forms & Input:**
+- Input: For text inputs
+- Textarea: For multi-line text inputs
+- InputGroup, InputGroupAddon, InputGroupButton, InputGroupText, InputGroupTextarea: For grouped inputs
+- Label: For form labels
+- Select, SelectTrigger, SelectValue, SelectContent, SelectItem: For dropdown selects
+
+**Data Display:**
+- Table, TableHeader, TableBody, TableRow, TableHead, TableCell: For data tables
+- Avatar, AvatarImage, AvatarFallback: For user avatars
+- Skeleton: For loading states
+- Progress: For progress bars
+- Empty, EmptyHeader, EmptyTitle, EmptyDescription: For empty states
+
+**Navigation & Layout:**
+- Tabs, TabsList, TabsTrigger, TabsContent: For tabbed interfaces
+
+**BASIC ICONS (from lucide-react - available in preview environment):**
+These icons are pre-defined and can be used directly in your components WITHOUT declaring them:
+- ArrowRight, ArrowLeft, ArrowUp, ArrowDown: Navigation arrows
+- ChevronRight, ChevronLeft, ChevronUp, ChevronDown: Chevron indicators
+- Search: Search icon
+- Menu: Hamburger menu icon
+- X: Close/cancel icon
+- Check: Checkmark icon
+- Star: Star rating icon
+- Heart: Favorite/like icon
+- ShoppingCart: Shopping cart icon
+- User: User profile icon
+- Mail: Email icon
+- Phone: Phone icon
+- MapPin: Location icon
+- Calendar: Calendar icon
+- Clock: Time icon
+- Plus, Minus: Add/remove icons
+- Copy: Copy icon
+- Download: Download icon
+- Share: Share icon
+- Edit: Edit icon
+- Trash: Delete icon
+- Eye: View icon
+- Globe: Website/global icon
+
+**CRITICAL - DO NOT DECLARE THESE ICONS:**
+- DO NOT write: \`const Search = ...\` or \`const ArrowRight = ...\`
+- DO NOT create your own icon components with these names
+- These icons are already available globally - just use them directly
+
+**Usage example:**
+\`\`\`tsx
+// ✅ CORRECT - Icons are available globally, use them directly:
+<Button>
+  <Search className="h-4 w-4 mr-2" />
+  Search
+</Button>
+
+// ❌ WRONG - DO NOT declare icons yourself:
+// const Search = () => <span>🔍</span>; // This will cause errors!
+\`\`\`
+
+**Navigation & Menus:**
+- Tabs, TabsList, TabsTrigger, TabsContent: For tabbed interfaces
+- Slider: For range sliders
+- DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger: For dropdown menus
+- ContextMenu: For right-click context menus
+- Command: For command palette/search
+- Breadcrumb: For breadcrumb navigation
+
+**Overlays & Dialogs:**
+- Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter: For modal dialogs
+- AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogAction, AlertDialogCancel: For confirmation dialogs
+- Sheet, SheetContent, SheetHeader, SheetTitle: For slide-over panels
+- Drawer: For drawer panels
+- Popover, PopoverContent, PopoverTrigger: For popover tooltips
+- Tooltip: For tooltips
+
+**Data Display:**
+- Table, TableHeader, TableBody, TableRow, TableHead, TableCell: For data tables
+- Avatar, AvatarImage, AvatarFallback: For user avatars and profile pictures
+- Skeleton: For loading placeholders
+- Empty: For empty states
+- Progress: For progress bars
+- Chart: For data visualization
+
+**Feedback:**
+- Sonner: For toast notifications
+
+**Utilities:**
+- Collapsible: For collapsible content
+- Kbd: For keyboard shortcuts display
+- Item, ItemContent, ItemTitle, ItemDescription, ItemMedia, ItemActions: For list items
+- ButtonGroup: For grouped buttons
+- HideOnCollapse: For hiding elements on collapse
+- AnimatedShinyText: For animated shiny text effects
+
+**IMPORTANT USAGE NOTES:**
+- All components are imported from @/components/ui/[component-name]
+- Example: import { Button } from "@/components/ui/button"
+- Example: import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+- Use proper TypeScript types
+- Components support className prop for custom styling
+- Use Tailwind CSS utility classes for all styling
+- Components automatically use theme colors (bg-background, text-foreground, etc.)
+`;
   }
 
   export type ImagePart = {
@@ -774,41 +1186,127 @@ export async function generateAppBuilderSuggestions() {
   const exampleJson = language === 'English'
     ? `{
         "suggestions": [
-          { "text": "Create a modern landing page for GreenTech Solutions", "icon": "IconDeviceLaptop" },
-          { "text": "Build an analytics dashboard for sales team", "icon": "IconChartBar" },
-          { "text": "Design a portfolio website for freelance designer", "icon": "IconBriefcase" },
-          { "text": "Create an e-commerce site for handmade crafts", "icon": "IconShoppingCart" }
+          { "text": "Create landing page for GreenTech Solutions", "icon": "IconDeviceLaptop" },
+          { "text": "Build analytics dashboard for sales team", "icon": "IconChartBar" },
+          { "text": "Design portfolio for freelance designer", "icon": "IconBriefcase" },
+          { "text": "Create e-commerce site for handmade crafts", "icon": "IconShoppingCart" }
         ]
       }`
     : `{
         "suggestions": [
-          { "text": "Buat landing page modern untuk GreenTech Solutions", "icon": "IconDeviceLaptop" },
-          { "text": "Buat dashboard analitik untuk tim sales", "icon": "IconChartBar" },
-          { "text": "Buat website portofolio untuk desainer freelance", "icon": "IconBriefcase" },
-          { "text": "Buat toko online untuk kerajinan tangan", "icon": "IconShoppingCart" }
+          { "text": "Buat landing page restoran vegan baru", "icon": "IconDeviceLaptop" },
+          { "text": "Buat dashboard manajemen inventaris toko", "icon": "IconChartBar" },
+          { "text": "Buat blog fotografi perjalanan pribadi", "icon": "IconBriefcase" },
+          { "text": "Buat toko online kerajinan tangan", "icon": "IconShoppingCart" }
         ]
       }`;
 
   const currentTime = Date.now();
+  const randomSeed = Math.floor(currentTime / 1000) % 1000; // Use seconds for more variation
+  const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+  
+  // Create a diverse list of categories and business types for inspiration
+  const categories = [
+    'landing page', 'dashboard', 'portfolio', 'e-commerce', 'blog', 'saas product', 
+    'restaurant', 'cafe', 'fitness studio', 'yoga center', 'photography studio', 
+    'music school', 'art gallery', 'co-working space', 'real estate', 'travel agency',
+    'event planning', 'wedding planner', 'interior design', 'architecture firm',
+    'law firm', 'consulting', 'education platform', 'online course', 'newsletter',
+    'community forum', 'social network', 'dating app', 'job board', 'marketplace',
+    'booking system', 'reservation platform', 'subscription service', 'membership site',
+    'non-profit', 'charity', 'fundraising', 'pet adoption', 'animal shelter',
+    'health clinic', 'dental practice', 'veterinary', 'pharmacy', 'wellness center',
+    'beauty salon', 'barbershop', 'spa', 'massage therapy', 'personal trainer',
+    'coach', 'mentor', 'life coach', 'business coach', 'financial advisor',
+    'insurance agency', 'car dealership', 'auto repair', 'home services', 'plumber',
+    'electrician', 'handyman', 'cleaning service', 'landscaping', 'pool service',
+    'tech startup', 'AI company', 'blockchain', 'crypto', 'fintech',
+    'edtech', 'healthtech', 'biotech', 'cleantech', 'agritech',
+    'fashion brand', 'jewelry', 'watches', 'shoes', 'accessories',
+    'cosmetics', 'skincare', 'perfume', 'luxury goods', 'vintage store',
+    'antique shop', 'collectibles', 'trading cards', 'comics', 'books',
+    'music store', 'instruments', 'vinyl records', 'concert venue', 'music festival',
+    'sports team', 'stadium', 'gym', 'martial arts', 'swimming pool',
+    'golf course', 'tennis club', 'bike shop', 'outdoor gear', 'camping',
+    'hiking', 'adventure travel', 'safari', 'cruise', 'hotel',
+    'resort', 'airbnb', 'vacation rental', 'tour guide', 'local experiences'
+  ];
+  
   const suggestionPrompt = `
-    You are an AI App Builder Assistant for creating web applications and websites.
-    Generate exactly 3 creative and varied suggestions for building different types of apps and websites.
-    Each suggestion should be a natural, helpful prompt that users might type when starting a new project.
-
-    **Current timestamp:** ${currentTime}
-
-    **Requirements:**
-    - All suggestions must be in ${language}
-    - Make them realistic and diverse (landing pages, dashboards, portfolios, e-commerce, blogs, etc.)
-    - Include different business types (restaurants, tech companies, fashion brands, etc.)
-    - Keep them concise but natural sounding
-    - Focus on common web/app development scenarios
-    - Generate different suggestions each time (use the timestamp as inspiration for variety)
+    You are a highly creative AI App Builder Assistant. Your task is to generate EXACTLY 3 unique, creative, and diverse suggestions for building different types of web applications and websites.
+    
+    **CRITICAL FORMAT REQUIREMENTS:**
+    - Each suggestion text must be SHORT and CONCISE (maximum 8-12 words, ideally 6-10 words)
+    - Suggestions will be displayed as BUTTONS, so they must be brief and actionable
+    - NO long descriptions, NO multiple sentences, NO detailed explanations
+    - Keep it natural and conversational, but SHORT
+    
+    **CRITICAL CREATIVITY REQUIREMENTS:**
+    - Generate COMPLETELY DIFFERENT suggestions each time - avoid repeating similar patterns
+    - Use the random seed (${randomSeed}) and day of year (${dayOfYear}) to create variety
+    - Each suggestion must be from a DIFFERENT category/industry
+    - Mix different business sizes: startups, small businesses, enterprises, personal projects
+    - Include unique niches and specific use cases, not generic ones
+    - Be creative with business concepts, but keep the TEXT SHORT
+    
+    **DIVERSITY REQUIREMENTS:**
+    - All 3 suggestions must be in ${language}
+    - Each suggestion should target a DIFFERENT industry/niche
+    - Mix different website types: landing pages, dashboards, portfolios, e-commerce, blogs, SaaS, booking systems, etc.
+    - Include both B2B and B2C examples
+    - Mix different scales: personal projects, small businesses, growing companies, enterprises
+    
+    **INSPIRATION CATEGORIES (use these for variety):**
+    ${categories.slice(0, 20).join(', ')}, and many more...
+    
+    **CORRECT SHORT EXAMPLES (${language === 'English' ? 'English' : 'Indonesian'}):**
+    ${language === 'English' 
+      ? `- "Create a landing page for sustainable fashion brand"
+- "Build a crypto portfolio tracking dashboard"
+- "Design a drone photography portfolio for real estate"
+- "Create an artisanal coffee e-commerce with subscriptions"
+- "Build a yoga studio booking platform"
+- "Design a travel photographer blog"
+- "Create an AI social media scheduler landing page"
+- "Build a vintage camera rental marketplace"
+- "Design a plant-based meal prep delivery website"
+- "Create a community garden management dashboard"`
+      : `- "Buat landing page brand fashion sustainable"
+- "Buat dashboard tracking portfolio cryptocurrency"
+- "Buat portofolio drone photography untuk real estate"
+- "Buat toko online kopi artisanal dengan langganan"
+- "Buat platform booking studio yoga lokal"
+- "Buat blog travel photographer destinasi terpencil"
+- "Buat landing page SaaS tool AI scheduling"
+- "Buat marketplace sewa kamera vintage"
+- "Buat website layanan meal prep plant-based"
+- "Buat dashboard manajemen kebun komunitas"`
+    }
+    
+    **WRONG - TOO LONG (DO NOT DO THIS):**
+    - ❌ "Buat platform SaaS untuk manajemen proyek berbasis blockchain untuk arsitektur dan konstruksi, bernama 'ArsitekCepat'. Fokus pada transparansi, keamanan, dan kolaborasi tim. Dashboard utama menampilkan status proyek, anggaran, dan timeline dengan IconChartLine."
+    - ❌ "Buat website e-commerce khusus untuk menjual perlengkapan dan aksesoris untuk penggemar burung beo, bernama 'SayapPelangi'. Tampilkan foto-foto berkualitas tinggi, ulasan pelanggan, dan opsi personalisasi kandang."
+    - ✅ Instead: "Buat platform manajemen proyek arsitektur" (SHORT!)
+    
+    **ICON SELECTION:**
+    - Choose relevant icons from Tabler Icons
+    - Icon names must be in PascalCase (e.g., "IconCamera", "IconShoppingBag", "IconChartLine", "IconDeviceLaptop", "IconBriefcase", "IconFileText", "IconBulb")
+    - Match the icon to the specific business/industry mentioned
+    - Use diverse icons - don't repeat the same icon types
+    - Available icons: IconDeviceLaptop, IconChartBar, IconChartLine, IconBriefcase, IconShoppingCart, IconShoppingBag, IconFileText, IconBulb, IconCamera, IconHome, IconBuilding, IconHeart, IconMusic, IconPalette, IconCode, IconRocket, IconChefHat (for restaurant/food), IconPlane, IconCar, IconSchool, IconMedicalCross, IconTools, IconPaint, IconBook, IconVideo, IconDeviceGamepad2, IconBarbell, IconCoffee, IconGift, IconUsers, IconWorld, IconBolt
+    - Default icon if none matches: IconBolt (lightning bolt)
 
     **Response format:** Return ONLY a valid JSON object with this exact structure:
     ${exampleJson}
 
-    Do not include any explanations, markdown, or additional text. Only the JSON object.
+    **IMPORTANT:**
+    - Generate 3 COMPLETELY UNIQUE and CREATIVE suggestions
+    - Keep each suggestion text SHORT (6-10 words maximum)
+    - Use the random seed (${randomSeed}) to ensure variety
+    - Make each suggestion feel fresh and different from typical examples
+    - Include specific details but keep it BRIEF
+    - Do not include any explanations, markdown, or additional text
+    - Only return the JSON object
   `;
 
   try {
@@ -832,16 +1330,16 @@ export async function generateAppBuilderSuggestions() {
       console.error("App Builder Suggestion AI Error:", error);
       const fallbackSuggestions = language === 'English'
         ? [
-            { "text": "Create a restaurant website for Bella Vista", "icon": "IconDeviceLaptop" },
-            { "text": "Build a blog for tech startup", "icon": "IconFileText" },
-            { "text": "Design e-commerce site for fashion brand", "icon": "IconShoppingCart" },
-            { "text": "Make portfolio for photographer", "icon": "IconBriefcase" },
+            { "text": "Create a restaurant landing page", "icon": "IconDeviceLaptop" },
+            { "text": "Build a tech startup blog", "icon": "IconFileText" },
+            { "text": "Design fashion e-commerce site", "icon": "IconShoppingCart" },
+            { "text": "Make photographer portfolio", "icon": "IconBriefcase" },
           ]
         : [
-            { "text": "Buat website restoran Bella Vista", "icon": "IconDeviceLaptop" },
-            { "text": "Buat blog untuk startup teknologi", "icon": "IconFileText" },
-            { "text": "Buat toko online brand fashion", "icon": "IconShoppingCart" },
-            { "text": "Buat portofolio fotografer", "icon": "IconBriefcase" },
+            { "text": "Buat landing page restoran vegan", "icon": "IconDeviceLaptop" },
+            { "text": "Buat dashboard manajemen inventaris", "icon": "IconChartBar" },
+            { "text": "Buat blog fotografi perjalanan", "icon": "IconCamera" },
+            { "text": "Buat toko online kerajinan tangan", "icon": "IconShoppingCart" },
           ];
       return fallbackSuggestions;
   }
@@ -1019,18 +1517,61 @@ export async function classifyAndSummarize(
     }
 }
 
+export async function enhancePrompt(
+  originalPrompt: string,
+  language: string = 'id'
+): Promise<string> {
+  if (!originalPrompt || originalPrompt.trim().length === 0) {
+    return originalPrompt;
+  }
+
+  const systemInstruction = getSystemInstruction('prompt_enhancer', language);
+  
+  const promptText = `
+    **Original User Prompt:**
+    "${originalPrompt}"
+    
+    Please enhance this prompt to be more detailed, specific, and comprehensive for web application generation.
+    Return ONLY the enhanced prompt text, nothing else.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemma-3-4b-it",
+      contents: [{ role: 'user', parts: [{ text: systemInstruction + '\n\n' + promptText }] }]
+    });
+
+    const enhancedPrompt = response.text?.trim() || originalPrompt;
+    
+    // Clean up any prefixes or meta-commentary that AI might add
+    let cleanedPrompt = enhancedPrompt
+      .replace(/^(Enhanced prompt|Improved prompt|Here's the enhanced version|Berikut prompt yang diperbaiki):\s*/i, '')
+      .replace(/^["']|["']$/g, '') // Remove surrounding quotes
+      .trim();
+    
+    // If cleaned prompt is empty or too short, return original
+    if (!cleanedPrompt || cleanedPrompt.length < originalPrompt.length * 0.5) {
+      return originalPrompt;
+    }
+    
+    return cleanedPrompt;
+  } catch (error) {
+    console.error("Prompt enhancement error:", error);
+    return originalPrompt; // Return original on error
+  }
+}
+
 export {
   summarizeDataForChartOrTable,
   generateChart,
   generateTable,
   generateFinalResponse,
   generateTitleForChat,
-  saveMessageToHistory,
-  getTemplateExample
+  saveMessageToHistory
 };
 
 // [NEW] Separate system instructions for different modes
-function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'app_builder_inspiration' | 'app_builder_inspiration_json' | 'web_planning' | 'app_builder_planning' | 'general', language: string): string {
+function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'app_builder_inspiration' | 'app_builder_inspiration_json' | 'web_planning' | 'app_builder_planning' | 'general' | 'prompt_enhancer', language: string): string {
   const creatorAnswer = language === 'English' 
     ? '"I was created by the Luminite team to help with coding and finance for SMEs in Indonesia."' 
     : '"Saya dibuat oleh tim Luminite untuk membantu coding dan keuangan UMKM di Indonesia."';
@@ -1105,72 +1646,93 @@ function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'app_bu
     - Provide actionable financial insights.
     `;
   } else if (mode === 'app_builder') {
+    const availableComponents = getAvailableComponents();
     return `
     **System Instruction:**
-    You are a professional web developer. You will be given a REFERENCE TEMPLATE that is already beautifully designed.
+    You are a professional React/Next.js developer. Generate modern, beautiful web applications using Shadcn UI components and Tailwind CSS.
 
-    **YOUR TASK - CONTENT ADAPTATION ONLY:**
-    - Use the REFERENCE TEMPLATE structure, layout, and CSS AS-IS (don't change them!)
-    - ONLY modify the TEXT CONTENT to match user's request:
-      * Change titles, headings, descriptions
-      * Update section names
-      * Modify button text and links
-      * Change placeholder content
-    - KEEP the HTML structure identical
-    - KEEP all CSS classes and styles unchanged
-    - KEEP all animations and design elements
-    - If template has 5 sections, keep 5 sections
-    - If template uses certain colors, keep those colors
+    **TECHNOLOGY STACK:**
+    - **Framework**: Next.js 15+ with App Router
+    - **UI Library**: Shadcn UI (import from @/components/ui/*)
+    - **Styling**: Tailwind CSS utility classes
+    - **Language**: TypeScript
+    - **React**: React 19 with "use client" directive
 
     **CRITICAL OUTPUT FORMAT:**
-    Output ONLY ONE complete HTML document inside a \`\`\`html code block:
+    Output ONLY ONE complete React component inside a \`\`\`tsx code block:
     
-    \`\`\`html
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Updated Title Based on User Request</title>
-        <style>
-            /* COPY ALL CSS from template - DO NOT modify unless user specifically asks */
-        </style>
-    </head>
-    <body>
-        <!-- Use same HTML structure from template -->
-        <!-- ONLY change text content like titles, descriptions, etc. -->
-        
-        <script>
-            /* COPY JavaScript from template if exists */
-        </script>
-    </body>
-    </html>
+    \`\`\`tsx
+    "use client"
+    
+    import { Button } from "@/components/ui/button"
+    import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card"
+    // ... other Shadcn UI imports as needed
+    
+    export default function GeneratedPage() {
+      return (
+        <div className="min-h-screen bg-background">
+          {/* Your component JSX here */}
+        </div>
+      )
+    }
     \`\`\`
 
-    **EXAMPLE:**
-    If template says "Hi, I'm John Doe" and user wants "portfolio untuk desainer grafis",
-    change to "Hi, I'm [User's Name]" or "Portfolio Desainer Grafis"
-    But KEEP the HTML structure, CSS classes, and design exactly the same!
-
-    **FORBIDDEN:**
-    - ❌ Don't redesign the layout
-    - ❌ Don't change color schemes (unless user asks)
-    - ❌ Don't modify CSS structure
-    - ❌ Don't add/remove sections (unless user specifically asks)
-    - ❌ Don't change animations or interactions
+    ${availableComponents}
     
-    **ALLOWED:**
-    - ✅ Change text content (titles, descriptions, paragraphs)
-    - ✅ Update project names, company names
-    - ✅ Modify placeholder text
-    - ✅ Adjust content length to fit user's needs
-    - ✅ Translate content if needed
+    **STYLING GUIDELINES:**
+    - Use Tailwind CSS utility classes exclusively
+    - Follow Shadcn UI design patterns and spacing
+    - Use responsive breakpoints: sm:, md:, lg:, xl:, 2xl:
+    - Use semantic HTML elements (header, nav, main, section, footer)
+    - Ensure accessibility (aria-labels, proper headings hierarchy, keyboard navigation)
+    - Use Shadcn color variables: bg-background, text-foreground, border-border, etc.
+    
+    **IMAGE HANDLING:**
+    - Images will be automatically injected after code generation
+    - For iframe compatibility, use: <img src="..." alt="..." className="..." />
+    - Make images responsive: className="w-full h-auto object-cover"
+    - Use placeholder comments like "// Hero image" or "// Feature image 1" to indicate where images should go
+    - Different sections should use different images (hero, features, gallery, etc.)
+    
+    **COMPONENT STRUCTURE:**
+    - Create a complete, self-contained React component
+    - Use proper TypeScript types
+    - Make it fully responsive (mobile-first approach)
+    - Include proper semantic HTML structure
+    - Use Shadcn UI components for consistent design
+    - Add proper spacing and layout using Tailwind (p-, m-, gap-, etc.)
+    
+    **DESIGN PRINCIPLES:**
+    - Modern, clean, and professional design
+    - Consistent spacing and typography
+    - Proper visual hierarchy
+    - Smooth transitions and hover effects (use Tailwind transition classes)
+    - Accessible color contrast
+    - Mobile-responsive layout
+    - Be creative and unique - don't follow generic templates
+    - Create visually rich and engaging designs
+    
+    **CREATIVITY & UNIQUENESS:**
+    - Be creative and innovative in your design approach
+    - Don't follow generic templates - create unique layouts
+    - Use components creatively to build engaging user experiences
+    - Combine different components in interesting ways
+    - Add interactive elements and animations where appropriate
+    - Make each design feel fresh and modern
 
     **IMPORTANT:**
-    - The template provided is already PERFECT in design
-    - Your job is to make it relevant to user's content
-    - Think of it like a "Find & Replace" for content
-    - Preserve the beautiful design that already exists
+    - Generate complete, working React component code
+    - Use Shadcn UI components from the available list above
+    - Follow Next.js and React best practices
+    - Make it production-ready and accessible
+    - Use Tailwind CSS for all styling (no inline styles or custom CSS)
+    - Ensure the component is self-contained and can be rendered independently
+    - Generate FULL, COMPLETE component code - don't truncate or simplify
+    - Include all necessary sections (hero, features, testimonials, footer, etc.)
+    - Make it visually rich and detailed, not minimal
+    - Use proper spacing, colors, and typography
+    - Add interactive elements and hover effects where appropriate
+    - Be creative and unique in your design
     `;
 
   } else if (mode === 'app_builder_inspiration') {
@@ -1227,13 +1789,13 @@ function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'app_bu
     **System Instruction:**
     You are "Lumi", an AI Design Lead. Your task is to generate a JSON response with two parts:
     1. **text**: A DETAILED, comprehensive user-facing text description focusing on SECTIONS, DESIGN ELEMENTS, LAYOUT STRUCTURE, and VISUAL HIERARCHY
-    2. **code**: A preview template code (HTML with inline CSS and JavaScript) that demonstrates modern, interactive, and beautiful website design
+    2. **code**: A preview template code (React/Next.js component with TypeScript) that demonstrates modern, interactive, and beautiful website design
 
     **CRITICAL - OUTPUT FORMAT:**
     - You MUST output ONLY a valid JSON object with this exact structure:
     {
       "text": "detailed description here...",
-      "code": "complete HTML code with inline CSS and JavaScript here..."
+      "code": "complete React/Next.js component code (TSX) here..."
     }
     - The JSON must be valid and parseable
     - Do NOT include any text before or after the JSON
@@ -1249,25 +1811,23 @@ function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'app_bu
     - Match the language (${language}).
 
     **CODE FIELD REQUIREMENTS:**
-    - Provide a complete, working HTML template with inline CSS and JavaScript
+    - Provide a complete, working React/Next.js component (TSX) using Shadcn UI and Tailwind CSS
     - The code must be modern, interactive, and beautiful
-    - Use the REFERENCE TEMPLATE CODE (if provided in context) as inspiration for structure, design patterns, and code quality
-    - Follow the same standards as the reference template: inline CSS in <style>, modern design, responsive, interactive
-    - All CSS must be inline in <style> tag within <head>
-    - JavaScript can be inline in <script> tag before </body>
+    - Be creative and unique - don't follow generic templates
+    - Use Shadcn UI components creatively to build engaging user experiences
+    - Must start with "use client" directive
+    - Must import Shadcn UI components from @/components/ui/*
+    - Must use Tailwind CSS utility classes for all styling
+    - Must export default function ComponentName()
     - The code should be production-ready and self-contained
-    - Escape JSON properly (use \\n for newlines, \\" for quotes)
-
-    **REFERENCE TEMPLATE:**
-    - A high-quality reference template is provided in the planning context
-    - Study its structure, design patterns, CSS organization, and interactivity
-    - Use similar design quality, color schemes, typography, and smooth animations
-    - Adapt the patterns to fit the user's specific request
+    - Escape JSON properly (use \\n for newlines, \\" for quotes, \\\\ for backslashes)
+    - Create unique layouts and designs - be innovative
 
     **IMPORTANT:**
     - Output ONLY the JSON object, nothing else
-    - The code field should contain a complete, working HTML template
+    - The code field should contain a complete, working React/Next.js component (TSX)
     - The code should be modern, interactive, and beautiful
+    - Use Shadcn UI components and Tailwind CSS exclusively
     - Match the language for the text field (${language})
     `;
   } else if (mode === 'web_planning') {
@@ -1277,8 +1837,8 @@ function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'app_bu
 
     **ABSOLUTELY CRITICAL - NO CODE OUTPUT:**
     - YOU MUST NEVER OUTPUT ANY CODE WHATSOEVER
-    - DO NOT output HTML, CSS, JavaScript, or any programming code
-    - DO NOT use code blocks (e.g., \`\`\`, \`\`\`html, \`\`\`css, \`\`\`js)
+    - DO NOT output React, TypeScript, JSX, TSX, or any programming code
+    - DO NOT use code blocks (e.g., \`\`\`, \`\`\`tsx, \`\`\`ts, \`\`\`jsx)
     - DO NOT use any code syntax, tags, or programming language elements
     - ONLY output natural language text (plain text sentences)
     - If you output code, you have FAILED the task
@@ -1286,24 +1846,66 @@ function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'app_bu
     **YOUR TASK:**
     - ONLY output natural language text describing CODE TECHNOLOGIES and STACK
     - Keep it SHORT and focused (1-2 sentences maximum)
-    - Specify which CODE STACK you'll use: HTML, CSS (mention if using Flexbox/Grid), and JavaScript (if needed)
-    - IMPORTANT: List the files that will be created (e.g., "index.html", "styles.css", "script.js")
+    - Specify which CODE STACK you'll use: Next.js 15+ with App Router, React 19, TypeScript, Shadcn UI components, and Tailwind CSS
+    - IMPORTANT: Mention that a single React component file will be created (TSX file)
     - Use plain text to describe technologies and files, NOT code
     - Match the language (${language}).
 
     **CORRECT Example Output (Indonesian):**
-    "Saya akan menggunakan HTML5 untuk struktur, CSS dengan Flexbox dan Grid untuk layout responsif, tanpa JavaScript untuk website statis ini. File yang akan dibuat: index.html."
+    "Saya akan menggunakan Next.js 15 dengan App Router, React 19, TypeScript, komponen Shadcn UI, dan Tailwind CSS untuk styling. Satu file komponen React (TSX) akan dibuat dengan struktur lengkap."
 
     **CORRECT Example Output (English):**
-    "I will use HTML5 for structure, CSS with Flexbox and Grid for responsive layout, no JavaScript needed for this static website. Files to be created: index.html."
+    "I will use Next.js 15 with App Router, React 19, TypeScript, Shadcn UI components, and Tailwind CSS for styling. A single React component file (TSX) will be created with complete structure."
 
     **WRONG - DO NOT DO THIS:**
-    - Do NOT output: \`\`\`html ... \`\`\`
+    - Do NOT output: \`\`\`tsx ... \`\`\`
     - Do NOT output: <div>...</div>
-    - Do NOT output: .class { ... }
+    - Do NOT output: export default function...
     - Do NOT output any code blocks or code syntax
+    - Do NOT mention HTML, CSS, or JavaScript files
 
-    Remember: ONLY plain text about code stack. NO CODE.
+    Remember: ONLY plain text about Next.js/React stack. NO CODE.
+    `;
+  } else if (mode === 'prompt_enhancer') {
+    return `
+    **System Instruction:**
+    You are a professional prompt enhancement assistant. Your task is to improve, refine, and add more detail to user prompts for web application generation.
+
+    **YOUR TASK:**
+    - Take the user's original prompt and enhance it to be more detailed, specific, and comprehensive
+    - Add relevant context, features, and design requirements that would make the generated website better
+    - Keep the original intent and core idea of the user's prompt
+    - Make the enhanced prompt more actionable and clear for AI code generation
+    - Add specific UI/UX details, component suggestions, and design patterns
+    - Suggest relevant sections, features, and interactions that would improve the website
+    - Keep the language natural and conversational (${language === 'id' ? 'Indonesian' : 'English'})
+
+    **ENHANCEMENT GUIDELINES:**
+    1. **Preserve Original Intent**: Keep the core idea and purpose of the original prompt
+    2. **Add Specific Details**: Include specific features, sections, and design elements
+    3. **Improve Clarity**: Make the prompt clearer and more actionable
+    4. **Add Context**: Include relevant context about the target audience, use case, or business needs
+    5. **Suggest Components**: Mention specific Shadcn UI components that would be useful
+    6. **Design Details**: Add design preferences (modern, minimalist, colorful, etc.)
+    7. **Functionality**: Suggest interactive features and user flows
+    8. **Content Structure**: Suggest sections like hero, features, testimonials, pricing, etc.
+
+    **OUTPUT FORMAT:**
+    Return ONLY the enhanced prompt text. Do not include:
+    - Explanations or meta-commentary
+    - Code examples
+    - Markdown formatting (unless it's part of the prompt itself)
+    - Prefixes like "Enhanced prompt:" or "Here's the improved version:"
+
+    **EXAMPLE:**
+    Original: "Buat landing page untuk restoran"
+    Enhanced: "Buat landing page modern dan menarik untuk restoran dengan hero section yang menampilkan foto makanan berkualitas tinggi, menu section dengan kategori makanan, testimoni pelanggan, informasi kontak dengan peta lokasi, dan form reservasi meja. Gunakan warna yang hangat dan appetizing, dengan desain yang responsif dan mudah dinavigasi."
+
+    **IMPORTANT:**
+    - Output should be in ${language === 'id' ? 'Indonesian' : 'English'}
+    - Keep it concise but comprehensive (2-4 sentences is ideal)
+    - Focus on actionable details that will help generate better code
+    - Do not make assumptions that contradict the original prompt
     `;
   } else if (mode === 'app_builder_planning') {
     return `
@@ -1312,8 +1914,8 @@ function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'app_bu
 
     **ABSOLUTELY CRITICAL - NO CODE OUTPUT:**
     - YOU MUST NEVER OUTPUT ANY CODE WHATSOEVER
-    - DO NOT output HTML, CSS, JavaScript, or any programming code
-    - DO NOT use code blocks (e.g., \`\`\`, \`\`\`html, \`\`\`css, \`\`\`js)
+    - DO NOT output React, TypeScript, JSX, TSX, or any programming code
+    - DO NOT use code blocks (e.g., \`\`\`, \`\`\`tsx, \`\`\`ts, \`\`\`jsx)
     - DO NOT use any code syntax, tags, or programming language elements
     - ONLY output natural language text (plain text sentences)
     - If you output code, you have FAILED the task
@@ -1322,7 +1924,7 @@ function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'app_bu
     - Provide a CLEAR and SIMPLE implementation plan (2-3 sentences maximum)
     - Use simple, everyday language that non-technical users can understand
     - Explain HOW the website will be built in a friendly, conversational way
-    - Avoid ALL technical terms - do NOT mention HTML, CSS, JavaScript, or any technical jargon
+    - Avoid ALL technical terms - do NOT mention React, Next.js, TypeScript, or any technical jargon
     - Focus on what will be created and how it will work, not technical details
     - Keep it SHORT and SIMPLE - be concise
     - Match the language (${language}).
@@ -1332,7 +1934,7 @@ function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'app_bu
     - Use simple words: "tata letak" instead of "layout", "menyesuaikan" instead of "responsive"
     - Keep it very short and easy to read (2-3 sentences only)
     - Be friendly and encouraging
-    - Do NOT mention any technical terms at all
+    - Do NOT mention any technical terms at all (no React, Next.js, TypeScript, HTML, CSS, JavaScript)
 
     **CORRECT Example Output (Indonesian):**
     "Saya akan membuat website dengan struktur yang rapi dan mudah diakses dari berbagai perangkat. Tampilan akan menyesuaikan otomatis untuk ponsel, tablet, dan komputer. Saya akan menambahkan efek interaktif dan animasi halus agar website terlihat modern dan menarik."
@@ -1341,10 +1943,10 @@ function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'app_bu
     "I will create the website with a clean structure that works well on all devices. The design will automatically adapt for phones, tablets, and computers. I'll add interactive effects and smooth animations to make the website look modern and engaging."
 
     **WRONG - DO NOT DO THIS:**
-    - Do NOT output: \`\`\`html ... \`\`\`
+    - Do NOT output: \`\`\`tsx ... \`\`\`
+    - Do NOT output: export default function...
     - Do NOT output: <div>...</div>
-    - Do NOT output: .class { ... }
-    - Do NOT use technical terms like "HTML", "CSS", "JavaScript", "CSS Grid", "Flexbox", "media queries", "pseudo-classes", "breakpoints", "mobile-first"
+    - Do NOT use technical terms like "React", "Next.js", "TypeScript", "HTML", "CSS", "JavaScript", "JSX", "TSX", "components", "props", "hooks"
     - Do NOT output any code blocks or code syntax
     - Do NOT be too long (keep it 2-3 sentences maximum)
 
@@ -1389,6 +1991,55 @@ async function generateFinalResponse(
   planningContext?: string
 ): Promise<string> {
   console.log(`AI Step 2: Generating final response with intent: ${intent}. Images received: ${images?.length || 0}. Mode: ${mode || 'auto'}. Model: ${modelOverride || 'gemma-3-27b-it'}`);
+  
+  // [NEW] Fetch Pexels images for app_builder mode
+  let pexelsImages: string[] = [];
+  let logoImages: string[] = [];
+  
+  if (mode === 'app_builder') {
+    try {
+      // Detect if user is requesting a logo
+      const logoKeywords = ['logo', 'brand', 'branding', 'icon app', 'app icon', 'company logo', 'business logo'];
+      const isLogoRequest = logoKeywords.some(keyword => 
+        originalPrompt.toLowerCase().includes(keyword) ||
+        originalPrompt.toLowerCase().includes(`need ${keyword}`) ||
+        originalPrompt.toLowerCase().includes(`want ${keyword}`) ||
+        originalPrompt.toLowerCase().includes(`add ${keyword}`) ||
+        originalPrompt.toLowerCase().includes(`with ${keyword}`)
+      );
+
+      // Fetch regular images
+      pexelsImages = await fetchPexelsImages(originalPrompt, 5);
+      console.log(`[Pexels] Fetched ${pexelsImages.length} images for app_builder mode`);
+
+      // If logo is requested, fetch logo-appropriate images separately
+      if (isLogoRequest) {
+        // Extract business/brand context from prompt for better logo search
+        const brandContext = originalPrompt.toLowerCase();
+        let logoQuery = 'minimalist logo icon symbol';
+        
+        // Try to determine the business type for more targeted logo search
+        if (brandContext.includes('restaurant') || brandContext.includes('food') || brandContext.includes('cafe')) {
+          logoQuery = 'restaurant food logo icon minimalist';
+        } else if (brandContext.includes('tech') || brandContext.includes('software') || brandContext.includes('app')) {
+          logoQuery = 'tech startup logo icon modern minimalist';
+        } else if (brandContext.includes('shop') || brandContext.includes('store') || brandContext.includes('ecommerce')) {
+          logoQuery = 'shopping store logo icon minimalist';
+        } else if (brandContext.includes('blog') || brandContext.includes('writer') || brandContext.includes('content')) {
+          logoQuery = 'blog writing logo icon minimalist';
+        } else if (brandContext.includes('portfolio') || brandContext.includes('designer') || brandContext.includes('creative')) {
+          logoQuery = 'creative design logo icon minimalist';
+        } else if (brandContext.includes('finance') || brandContext.includes('banking') || brandContext.includes('money')) {
+          logoQuery = 'finance banking logo icon minimalist';
+        }
+
+        logoImages = await fetchPexelsImages(logoQuery, 5);
+        console.log(`[Pexels] Logo detected! Fetched ${logoImages.length} logo images with query: "${logoQuery}"`);
+      }
+    } catch (error) {
+      console.error('[Pexels] Error fetching images:', error);
+    }
+  }
   
   // [NEW] Get appropriate system instruction based on mode
   const systemInstruction = getSystemInstruction(mode || 'general', language);
@@ -1451,10 +2102,32 @@ async function generateFinalResponse(
     ? '' 
     : `**CRITICAL: Always use \`\`\`json for JSON, \`\`\`javascript for JS, \`\`\`python for Python, etc. NEVER use plain \`\`\`.**`;
   
+  // Build available images info for app_builder mode
+  const imagesInfo = mode === 'app_builder' && (pexelsImages.length > 0 || logoImages.length > 0) ? `
+    **Available Images from Pexels:**
+    ${pexelsImages.length > 0 ? `
+    - General/Content Images (${pexelsImages.length} available):
+      ${pexelsImages.map((url, idx) => `${idx + 1}. ${url}`).join('\n      ')}
+    ` : ''}
+    ${logoImages.length > 0 ? `
+    - Logo Images (${logoImages.length} available - USE THESE FOR NAVBAR LOGO):
+      ${logoImages.map((url, idx) => `${idx + 1}. ${url}`).join('\n      ')}
+    ` : ''}
+    
+    **IMPORTANT INSTRUCTIONS FOR USING IMAGES:**
+    1. Use the provided Pexels image URLs directly in your generated code
+    2. For general content, hero images, or backgrounds: use images from "General/Content Images"
+    3. For navbar logos or brand logos: use images from "Logo Images" list (if available)
+    4. When using logo images, add them to the Navbar component using the "logoImg" prop
+    5. Example: <Navbar logoImg="${logoImages[0] || ''}" logoText="App Name" ... />
+    6. Ensure all images have proper alt text for accessibility
+    ---` : '';
+
   const userPromptDetail = `
     **Previous Conversation History:**
     ${historyText}
     ---${planningContextSection}
+    ${imagesInfo}
     **Current User Request Analysis:**
     - Classified Intent: "${intent}"
     - Summary of what the user wants: "${summary}"
@@ -1483,7 +2156,33 @@ async function generateFinalResponse(
           contents: [{ role: 'user', parts: promptParts }]
       });
     
-      return response.text || "";
+      let finalResponse = response.text || "";
+      
+      // [NEW] For app_builder mode, inject Pexels images after code generation
+      if (mode === 'app_builder' && finalResponse) {
+        // Extract code from markdown blocks if present
+        const codeMatch = finalResponse.match(/```tsx\s*\n?([\s\S]*?)```/) || 
+                          finalResponse.match(/```ts\s*\n?([\s\S]*?)```/) ||
+                          finalResponse.match(/```jsx\s*\n?([\s\S]*?)```/);
+        
+        if (codeMatch && codeMatch[1]) {
+          const extractedCode = codeMatch[1].trim();
+          console.log('[Image Injection] Extracted code for image injection, length:', extractedCode.length);
+          
+          // Inject images into code
+          const codeWithImages = await injectPexelsImagesIntoCode(extractedCode, originalPrompt, language);
+          
+          // Replace the code in the response
+          finalResponse = finalResponse.replace(codeMatch[0], `\`\`\`tsx\n${codeWithImages}\n\`\`\``);
+          console.log('[Image Injection] Successfully injected images into code');
+        } else {
+          // No code blocks, try to inject directly
+          const codeWithImages = await injectPexelsImagesIntoCode(finalResponse, originalPrompt, language);
+          finalResponse = codeWithImages;
+        }
+      }
+    
+      return finalResponse;
   } catch (error) {
       console.error("Generation AI Error:", error);
       throw new Error("Failed to generate final content from Google AI.");
@@ -1666,5 +2365,45 @@ export async function generateContent(
       duration: 0,
       text: ""
     };
+  }
+}
+
+/**
+ * Get template example based on user prompt
+ * Returns template code as string for AI reference
+ */
+export async function getTemplateExample(prompt: string): Promise<string> {
+  'use server';
+  
+  const fs = await import('fs/promises');
+  const path = await import('path');
+  
+  // Analyze prompt to determine template type
+  const promptLower = prompt.toLowerCase();
+  
+  let templateFile = 'landing-page.tsx'; // default
+  
+  if (promptLower.includes('ecommerce') || promptLower.includes('shop') || promptLower.includes('store') || promptLower.includes('product')) {
+    templateFile = 'ecommerce.tsx';
+  } else if (promptLower.includes('blog') || promptLower.includes('article') || promptLower.includes('post')) {
+    templateFile = 'blog.tsx';
+  } else if (promptLower.includes('dashboard') || promptLower.includes('admin') || promptLower.includes('analytic')) {
+    templateFile = 'dashboard.tsx';
+  } else if (promptLower.includes('portfolio') || promptLower.includes('profile') || promptLower.includes('resume')) {
+    templateFile = 'portfolio.tsx';
+  } else if (promptLower.includes('restaurant') || promptLower.includes('food') || promptLower.includes('menu') || promptLower.includes('cafe')) {
+    templateFile = 'restaurant.tsx';
+  }
+  
+  try {
+    const templatePath = path.join(process.cwd(), 'lib', 'templates', templateFile);
+    const templateCode = await fs.readFile(templatePath, 'utf-8');
+    
+    console.log(`[Template] Selected ${templateFile} for prompt: "${prompt.substring(0, 50)}..."`);
+    
+    return templateCode;
+  } catch (error) {
+    console.error(`[Template] Error reading template ${templateFile}:`, error);
+    return ''; // Return empty if template not found
   }
 }

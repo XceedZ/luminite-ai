@@ -257,8 +257,22 @@ export function NavUser({
         <div className="space-y-8">
           <section className="rounded-lg border p-5 bg-muted/30">
             <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold">Version 1.3.0</h3>
+              <h3 className="text-lg font-semibold">Version 1.3.1</h3>
               <Badge variant="secondary">{t("latest")}</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">{t("changelog131Date")}</p>
+            <ul className="list-disc list-inside mt-4 space-y-2 text-sm">
+              <li>Added prompt enhancement feature in App Builder - improve and refine prompts with AI assistance.</li>
+              <li>Added file tree view in code tab showing imported files and components.</li>
+              <li>Improved code tab with resizable panels for better code navigation.</li>
+              <li>Added basic icon library (lucide-react) available globally in preview environment.</li>
+              <li>Enhanced icon conflict prevention - automatically removes duplicate icon declarations from generated code.</li>
+              <li>Improved error handling for HMR (Hot Module Replacement) issues.</li>
+            </ul>
+          </section>
+          <section className="rounded-lg border p-5 bg-muted/30">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold">Version 1.3.0</h3>
             </div>
             <p className="text-xs text-muted-foreground mt-1">{t("changelog130Date")}</p>
             <ul className="list-disc list-inside mt-4 space-y-2 text-sm">
