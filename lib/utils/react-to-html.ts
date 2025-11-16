@@ -244,31 +244,55 @@ export async function renderReactComponent(componentCode: string): Promise<strin
   <title>Preview</title>
   <script crossorigin src="https://unpkg.com/react@17/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@17/umd/react-dom.production.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com?v=3.4.1"></script>
   <script>
-    // Configure Tailwind to ensure it processes all classes
-    // Wait for Tailwind to load
-    (function() {
-      function configureTailwind() {
-        if (typeof tailwind !== 'undefined') {
-          try {
-            tailwind.config = {
-              content: ['*'],
-              theme: {
-                extend: {}
-              }
-            };
-            console.log('[react-to-html] Tailwind CSS loaded and configured');
-          } catch (e) {
-            console.warn('[react-to-html] Error configuring Tailwind:', e);
-          }
-        } else {
-          // Retry after a short delay
-          setTimeout(configureTailwind, 100);
-        }
-      }
-      configureTailwind();
-    })();
+    // Configure Tailwind IMMEDIATELY before it initializes
+    window.tailwind = window.tailwind || {};
+    window.tailwind.config = {
+      // Force Tailwind to scan ALL content
+      content: [''],
+      // Add all CSS variable colors to ensure they work
+      theme: {
+        extend: {
+          colors: {
+            border: 'var(--border)',
+            input: 'var(--input)',
+            ring: 'var(--ring)',
+            background: 'var(--background)',
+            foreground: 'var(--foreground)',
+            primary: {
+              DEFAULT: 'var(--primary)',
+              foreground: 'var(--primary-foreground)',
+            },
+            secondary: {
+              DEFAULT: 'var(--secondary)',
+              foreground: 'var(--secondary-foreground)',
+            },
+            destructive: {
+              DEFAULT: 'var(--destructive)',
+              foreground: 'var(--destructive-foreground)',
+            },
+            muted: {
+              DEFAULT: 'var(--muted)',
+              foreground: 'var(--muted-foreground)',
+            },
+            accent: {
+              DEFAULT: 'var(--accent)',
+              foreground: 'var(--accent-foreground)',
+            },
+            popover: {
+              DEFAULT: 'var(--popover)',
+              foreground: 'var(--popover-foreground)',
+            },
+            card: {
+              DEFAULT: 'var(--card)',
+              foreground: 'var(--card-foreground)',
+            },
+          },
+        },
+      },
+    };
+    console.log('[react-to-html] Tailwind config set BEFORE load');
   </script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
@@ -323,9 +347,15 @@ export async function renderReactComponent(componentCode: string): Promise<strin
       box-sizing: border-box;
     }
     
+    html {
+      font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
     body {
-      margin: 0;
-      padding: 0;
+      margin: 0 !important;
+      padding: 0 !important;
       background-color: var(--background);
       color: var(--foreground);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
@@ -333,13 +363,46 @@ export async function renderReactComponent(componentCode: string): Promise<strin
       min-height: 100vh;
       width: 100%;
       overflow-x: hidden;
+      /* Force visibility */
+      opacity: 1 !important;
+      visibility: visible !important;
+      display: block !important;
     }
     
     #root {
       width: 100%;
       min-height: 100vh;
-      display: block;
+      display: block !important;
+      /* Force visibility */
+      opacity: 1 !important;
+      visibility: visible !important;
+      position: relative;
     }
+    
+    /* Force show all children */
+    #root > * {
+      opacity: 1 !important;
+      visibility: visible !important;
+    }
+    
+    /* Utility classes fallback - ensure core Tailwind utilities work */
+    .bg-background { background-color: var(--background) !important; }
+    .bg-card { background-color: var(--card) !important; }
+    .bg-primary { background-color: var(--primary) !important; color: var(--primary-foreground) !important; }
+    .bg-secondary { background-color: var(--secondary) !important; color: var(--secondary-foreground) !important; }
+    .bg-muted { background-color: var(--muted) !important; color: var(--muted-foreground) !important; }
+    .bg-destructive { background-color: var(--destructive) !important; color: var(--destructive-foreground) !important; }
+    
+    .text-foreground { color: var(--foreground) !important; }
+    .text-card-foreground { color: var(--card-foreground) !important; }
+    .text-primary { color: var(--primary) !important; }
+    .text-primary-foreground { color: var(--primary-foreground) !important; }
+    .text-secondary-foreground { color: var(--secondary-foreground) !important; }
+    .text-muted-foreground { color: var(--muted-foreground) !important; }
+    .text-destructive-foreground { color: var(--destructive-foreground) !important; }
+    
+    .border-border { border-color: var(--border) !important; }
+    .border-input { border-color: var(--input) !important; }
     
     /* Basic Shadcn UI component styles */
     button {
@@ -1151,6 +1214,207 @@ export async function renderReactComponent(componentCode: string): Promise<strin
       });
     };
     
+    // Switch component (matching components/ui/switch.tsx)
+    const Switch = ({ className = '', checked = false, onCheckedChange, ...props }) => {
+      const [isChecked, setIsChecked] = useState(checked);
+      
+      useEffect(() => {
+        setIsChecked(checked);
+      }, [checked]);
+      
+      const handleClick = () => {
+        const newValue = !isChecked;
+        setIsChecked(newValue);
+        if (onCheckedChange) onCheckedChange(newValue);
+      };
+      
+      return React.createElement('button', {
+        type: 'button',
+        role: 'switch',
+        'aria-checked': isChecked,
+        'data-state': isChecked ? 'checked' : 'unchecked',
+        'data-slot': 'switch',
+        onClick: handleClick,
+        className: ('peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-input shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ' + (isChecked ? 'bg-primary' : 'bg-input') + ' ' + className).trim(),
+        ...props
+      }, React.createElement('span', {
+        'data-slot': 'switch-thumb',
+        className: ('pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform ' + (isChecked ? 'translate-x-4' : 'translate-x-0')).trim()
+      }));
+    };
+    
+    // Checkbox component (matching components/ui/checkbox.tsx)
+    const Checkbox = ({ className = '', checked = false, onCheckedChange, ...props }) => {
+      const [isChecked, setIsChecked] = useState(checked);
+      
+      useEffect(() => {
+        setIsChecked(checked);
+      }, [checked]);
+      
+      const handleClick = () => {
+        const newValue = !isChecked;
+        setIsChecked(newValue);
+        if (onCheckedChange) onCheckedChange(newValue);
+      };
+      
+      return React.createElement('button', {
+        type: 'button',
+        role: 'checkbox',
+        'aria-checked': isChecked,
+        'data-state': isChecked ? 'checked' : 'unchecked',
+        'data-slot': 'checkbox',
+        onClick: handleClick,
+        className: ('peer h-4 w-4 shrink-0 rounded-sm border border-primary shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ' + (isChecked ? 'bg-primary text-primary-foreground' : 'bg-background') + ' ' + className).trim(),
+        ...props
+      }, isChecked && React.createElement(Check, { className: 'h-3 w-3' }));
+    };
+    
+    // RadioGroup component (matching components/ui/radio-group.tsx)
+    const RadioGroup = ({ children, value, onValueChange, className = '', ...props }) => {
+      return React.createElement('div', {
+        role: 'radiogroup',
+        'data-slot': 'radio-group',
+        className: ('grid gap-2 ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const RadioGroupItem = ({ value, checked = false, onCheckedChange, className = '', ...props }) => {
+      const [isChecked, setIsChecked] = useState(checked);
+      
+      const handleClick = () => {
+        const newValue = !isChecked;
+        setIsChecked(newValue);
+        if (onCheckedChange) onCheckedChange(newValue);
+      };
+      
+      return React.createElement('button', {
+        type: 'button',
+        role: 'radio',
+        'aria-checked': isChecked,
+        'data-state': isChecked ? 'checked' : 'unchecked',
+        'data-slot': 'radio',
+        onClick: handleClick,
+        className: ('aspect-square h-4 w-4 rounded-full border border-primary text-primary shadow focus:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ' + className).trim(),
+        ...props
+      }, isChecked && React.createElement('span', {
+        className: 'flex items-center justify-center'
+      }, React.createElement('span', {
+        className: 'h-2 w-2 rounded-full bg-primary'
+      })));
+    };
+    
+    // Toggle components (matching components/ui/toggle.tsx)
+    const Toggle = ({ children, pressed = false, onPressedChange, variant = 'default', size = 'default', className = '', ...props }) => {
+      const [isPressed, setIsPressed] = useState(pressed);
+      
+      useEffect(() => {
+        setIsPressed(pressed);
+      }, [pressed]);
+      
+      const handleClick = () => {
+        const newValue = !isPressed;
+        setIsPressed(newValue);
+        if (onPressedChange) onPressedChange(newValue);
+      };
+      
+      const variantClasses = {
+        default: 'bg-transparent hover:bg-muted hover:text-muted-foreground data-[state=on]:bg-accent data-[state=on]:text-accent-foreground',
+        outline: 'border border-input bg-transparent hover:bg-accent hover:text-accent-foreground data-[state=on]:bg-accent data-[state=on]:text-accent-foreground'
+      };
+      
+      const sizeClasses = {
+        default: 'h-9 px-3',
+        sm: 'h-8 px-2',
+        lg: 'h-10 px-4'
+      };
+      
+      return React.createElement('button', {
+        type: 'button',
+        'aria-pressed': isPressed,
+        'data-state': isPressed ? 'on' : 'off',
+        'data-slot': 'toggle',
+        onClick: handleClick,
+        className: ('inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 ' + variantClasses[variant] + ' ' + sizeClasses[size] + ' ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const ToggleGroup = ({ children, type = 'single', value, onValueChange, className = '', ...props }) => {
+      return React.createElement('div', {
+        role: 'group',
+        'data-slot': 'toggle-group',
+        className: ('flex items-center justify-center gap-1 ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    // Slider component (matching components/ui/slider.tsx)
+    const Slider = ({ value = [50], onValueChange, min = 0, max = 100, step = 1, className = '', ...props }) => {
+      const [sliderValue, setSliderValue] = useState(value[0] || 50);
+      
+      const handleChange = (e) => {
+        const newValue = parseInt(e.target.value);
+        setSliderValue(newValue);
+        if (onValueChange) onValueChange([newValue]);
+      };
+      
+      return React.createElement('div', {
+        'data-slot': 'slider',
+        className: ('relative flex w-full touch-none select-none items-center ' + className).trim(),
+        ...props
+      }, React.createElement('input', {
+        type: 'range',
+        min: min,
+        max: max,
+        step: step,
+        value: sliderValue,
+        onChange: handleChange,
+        className: 'w-full h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary'
+      }));
+    };
+    
+    // InputGroup components (for grouped inputs)
+    const InputGroup = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'input-group',
+        className: ('flex w-full items-center ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const InputGroupAddon = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'input-group-addon',
+        className: ('flex h-9 items-center rounded-md border border-input bg-muted px-3 text-sm ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const InputGroupButton = ({ children, className = '', ...props }) => {
+      return React.createElement('button', {
+        'data-slot': 'input-group-button',
+        className: ('flex h-9 items-center justify-center rounded-md border border-input bg-background px-3 text-sm hover:bg-accent ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const InputGroupText = ({ children, className = '', ...props }) => {
+      return React.createElement('span', {
+        'data-slot': 'input-group-text',
+        className: ('flex h-9 items-center px-3 text-sm text-muted-foreground ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const InputGroupTextarea = ({ className = '', ...props }) => {
+      return React.createElement('textarea', {
+        'data-slot': 'input-group-textarea',
+        className: ('flex min-h-16 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ' + className).trim(),
+        ...props
+      });
+    };
+    
     const Textarea = ({ className = '', ...props }) => {
       return React.createElement('textarea', {
         'data-slot': 'textarea',
@@ -1313,6 +1577,500 @@ export async function renderReactComponent(componentCode: string): Promise<strin
         className: 'bg-primary h-full w-full flex-1 transition-all',
         style: { transform: \`translateX(-\${100 - (value || 0)}%)\` }
       }));
+    };
+    
+    // Dialog components (matching components/ui/dialog.tsx)
+    const Dialog = ({ children, open = false, onOpenChange, ...props }) => {
+      const [isOpen, setIsOpen] = useState(open);
+      
+      useEffect(() => {
+        setIsOpen(open);
+      }, [open]);
+      
+      return isOpen ? React.createElement('div', {
+        'data-slot': 'dialog',
+        className: 'fixed inset-0 z-50 flex items-center justify-center',
+        ...props
+      }, [
+        React.createElement('div', {
+          key: 'overlay',
+          className: 'fixed inset-0 bg-black/50',
+          onClick: () => {
+            setIsOpen(false);
+            if (onOpenChange) onOpenChange(false);
+          }
+        }),
+        children
+      ]) : null;
+    };
+    
+    const DialogContent = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'dialog-content',
+        className: ('relative z-50 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-lg rounded-lg ' + className).trim(),
+        onClick: (e) => e.stopPropagation(),
+        ...props
+      }, children);
+    };
+    
+    const DialogHeader = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'dialog-header',
+        className: ('flex flex-col space-y-1.5 text-center sm:text-left ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const DialogTitle = ({ children, className = '', ...props }) => {
+      return React.createElement('h2', {
+        'data-slot': 'dialog-title',
+        className: ('text-lg font-semibold leading-none tracking-tight ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const DialogDescription = ({ children, className = '', ...props }) => {
+      return React.createElement('p', {
+        'data-slot': 'dialog-description',
+        className: ('text-sm text-muted-foreground ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const DialogFooter = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'dialog-footer',
+        className: ('flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    // AlertDialog components (similar to Dialog)
+    const AlertDialog = Dialog;
+    const AlertDialogContent = DialogContent;
+    const AlertDialogHeader = DialogHeader;
+    const AlertDialogTitle = DialogTitle;
+    const AlertDialogDescription = DialogDescription;
+    const AlertDialogFooter = DialogFooter;
+    const AlertDialogAction = ({ children, className = '', ...props }) => {
+      return React.createElement('button', {
+        'data-slot': 'alert-dialog-action',
+        className: ('inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 ' + className).trim(),
+        ...props
+      }, children);
+    };
+    const AlertDialogCancel = ({ children, className = '', ...props }) => {
+      return React.createElement('button', {
+        'data-slot': 'alert-dialog-cancel',
+        className: ('inline-flex h-9 items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    // Sheet components (matching components/ui/sheet.tsx)
+    const Sheet = ({ children, open = false, onOpenChange, side = 'right', ...props }) => {
+      const [isOpen, setIsOpen] = useState(open);
+      
+      useEffect(() => {
+        setIsOpen(open);
+      }, [open]);
+      
+      return isOpen ? React.createElement('div', {
+        'data-slot': 'sheet',
+        className: 'fixed inset-0 z-50',
+        ...props
+      }, [
+        React.createElement('div', {
+          key: 'overlay',
+          className: 'fixed inset-0 bg-black/50',
+          onClick: () => {
+            setIsOpen(false);
+            if (onOpenChange) onOpenChange(false);
+          }
+        }),
+        children
+      ]) : null;
+    };
+    
+    const SheetContent = ({ children, side = 'right', className = '', ...props }) => {
+      const sideClasses = {
+        top: 'inset-x-0 top-0 border-b',
+        bottom: 'inset-x-0 bottom-0 border-t',
+        left: 'inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm',
+        right: 'inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm'
+      };
+      
+      return React.createElement('div', {
+        'data-slot': 'sheet-content',
+        className: ('fixed z-50 gap-4 bg-background p-6 shadow-lg ' + sideClasses[side] + ' ' + className).trim(),
+        onClick: (e) => e.stopPropagation(),
+        ...props
+      }, children);
+    };
+    
+    const SheetHeader = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'sheet-header',
+        className: ('flex flex-col space-y-2 text-center sm:text-left ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const SheetTitle = ({ children, className = '', ...props }) => {
+      return React.createElement('h2', {
+        'data-slot': 'sheet-title',
+        className: ('text-lg font-semibold text-foreground ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    // Drawer component (similar to Sheet)
+    const Drawer = Sheet;
+    
+    // Popover components (matching components/ui/popover.tsx)
+    const Popover = ({ children, open = false, onOpenChange, ...props }) => {
+      const [isOpen, setIsOpen] = useState(open);
+      
+      return React.createElement('div', {
+        'data-slot': 'popover',
+        className: 'relative inline-block',
+        ...props
+      }, children);
+    };
+    
+    const PopoverTrigger = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'popover-trigger',
+        className: className,
+        ...props
+      }, children);
+    };
+    
+    const PopoverContent = ({ children, align = 'center', className = '', ...props }) => {
+      const alignClasses = {
+        start: 'left-0',
+        center: 'left-1/2 -translate-x-1/2',
+        end: 'right-0'
+      };
+      
+      return React.createElement('div', {
+        'data-slot': 'popover-content',
+        className: ('absolute z-50 mt-2 w-72 rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-none ' + alignClasses[align] + ' ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    // Tooltip component (matching components/ui/tooltip.tsx)
+    const Tooltip = ({ children, content, ...props }) => {
+      const [isVisible, setIsVisible] = useState(false);
+      
+      return React.createElement('div', {
+        'data-slot': 'tooltip',
+        className: 'relative inline-block',
+        onMouseEnter: () => setIsVisible(true),
+        onMouseLeave: () => setIsVisible(false),
+        ...props
+      }, [
+        children,
+        isVisible && React.createElement('div', {
+          key: 'tooltip-content',
+          className: 'absolute z-50 px-3 py-1.5 text-xs text-primary-foreground bg-primary rounded-md shadow-md whitespace-nowrap bottom-full left-1/2 -translate-x-1/2 mb-2',
+          role: 'tooltip'
+        }, content)
+      ]);
+    };
+    
+    // DropdownMenu components (matching components/ui/dropdown-menu.tsx)
+    const DropdownMenu = ({ children, ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'dropdown-menu',
+        className: 'relative inline-block text-left',
+        ...props
+      }, children);
+    };
+    
+    const DropdownMenuTrigger = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'dropdown-menu-trigger',
+        className: className,
+        ...props
+      }, children);
+    };
+    
+    const DropdownMenuContent = ({ children, align = 'start', className = '', ...props }) => {
+      const alignClasses = {
+        start: 'left-0',
+        center: 'left-1/2 -translate-x-1/2',
+        end: 'right-0'
+      };
+      
+      return React.createElement('div', {
+        'data-slot': 'dropdown-menu-content',
+        className: ('absolute z-50 mt-2 min-w-[8rem] overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md ' + alignClasses[align] + ' ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const DropdownMenuItem = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'dropdown-menu-item',
+        className: ('relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    // ContextMenu component (similar to DropdownMenu)
+    const ContextMenu = DropdownMenu;
+    const ContextMenuTrigger = DropdownMenuTrigger;
+    const ContextMenuContent = DropdownMenuContent;
+    const ContextMenuItem = DropdownMenuItem;
+    
+    // Breadcrumb components (matching components/ui/breadcrumb.tsx)
+    const Breadcrumb = ({ children, className = '', ...props }) => {
+      return React.createElement('nav', {
+        'data-slot': 'breadcrumb',
+        'aria-label': 'breadcrumb',
+        className: className,
+        ...props
+      }, React.createElement('ol', {
+        className: 'flex items-center gap-2 text-sm text-muted-foreground'
+      }, children));
+    };
+    
+    const BreadcrumbItem = ({ children, className = '', ...props }) => {
+      return React.createElement('li', {
+        'data-slot': 'breadcrumb-item',
+        className: ('inline-flex items-center gap-2 ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const BreadcrumbLink = ({ children, href = '#', className = '', ...props }) => {
+      return React.createElement('a', {
+        'data-slot': 'breadcrumb-link',
+        href: href,
+        className: ('transition-colors hover:text-foreground ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const BreadcrumbSeparator = ({ children, className = '', ...props }) => {
+      return React.createElement('span', {
+        'data-slot': 'breadcrumb-separator',
+        role: 'presentation',
+        className: ('text-muted-foreground ' + className).trim(),
+        ...props
+      }, children || '/');
+    };
+    
+    // Command component (matching components/ui/command.tsx)
+    const Command = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'command',
+        className: ('flex h-full w-full flex-col overflow-hidden rounded-md bg-popover text-popover-foreground ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const CommandInput = ({ className = '', placeholder = 'Type a command...', ...props }) => {
+      return React.createElement('input', {
+        'data-slot': 'command-input',
+        type: 'text',
+        placeholder: placeholder,
+        className: ('flex h-10 w-full rounded-md bg-transparent py-3 px-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 ' + className).trim(),
+        ...props
+      });
+    };
+    
+    const CommandList = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'command-list',
+        className: ('max-h-[300px] overflow-y-auto overflow-x-hidden ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const CommandItem = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'command-item',
+        className: ('relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    // Sidebar component (matching components/ui/sidebar.tsx)
+    const Sidebar = ({ children, side = 'left', className = '', ...props }) => {
+      const sideClasses = side === 'left' ? 'left-0 border-r' : 'right-0 border-l';
+      
+      return React.createElement('aside', {
+        'data-slot': 'sidebar',
+        className: ('fixed top-0 z-40 h-screen w-64 bg-background ' + sideClasses + ' ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    // Collapsible component (matching components/ui/collapsible.tsx)
+    const Collapsible = ({ children, open = false, onOpenChange, className = '', ...props }) => {
+      const [isOpen, setIsOpen] = useState(open);
+      
+      useEffect(() => {
+        setIsOpen(open);
+      }, [open]);
+      
+      return React.createElement('div', {
+        'data-slot': 'collapsible',
+        'data-state': isOpen ? 'open' : 'closed',
+        className: className,
+        ...props
+      }, children);
+    };
+    
+    const CollapsibleTrigger = ({ children, className = '', ...props }) => {
+      return React.createElement('button', {
+        'data-slot': 'collapsible-trigger',
+        type: 'button',
+        className: className,
+        ...props
+      }, children);
+    };
+    
+    const CollapsibleContent = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'collapsible-content',
+        className: ('overflow-hidden transition-all ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    // Kbd component (for keyboard shortcuts display)
+    const Kbd = ({ children, className = '', ...props }) => {
+      return React.createElement('kbd', {
+        'data-slot': 'kbd',
+        className: ('pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100 ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    // ButtonGroup component (for grouped buttons)
+    const ButtonGroup = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'button-group',
+        className: ('inline-flex rounded-md shadow-sm ' + className).trim(),
+        role: 'group',
+        ...props
+      }, children);
+    };
+    
+    // HideOnCollapse component
+    const HideOnCollapse = ({ children, collapsed = false, className = '', ...props }) => {
+      return !collapsed ? React.createElement('div', {
+        'data-slot': 'hide-on-collapse',
+        className: className,
+        ...props
+      }, children) : null;
+    };
+    
+    // AnimatedShinyText component (for animated text effects)
+    const AnimatedShinyText = ({ children, className = '', ...props }) => {
+      return React.createElement('span', {
+        'data-slot': 'animated-shiny-text',
+        className: ('inline-flex animate-shimmer bg-gradient-to-r from-foreground via-foreground/80 to-foreground bg-[length:200%_100%] bg-clip-text text-transparent ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    // Item components (for list items)
+    const Item = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'item',
+        className: ('flex items-center gap-4 rounded-lg border bg-card p-4 ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const ItemContent = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'item-content',
+        className: ('flex-1 space-y-1 ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const ItemTitle = ({ children, className = '', ...props }) => {
+      return React.createElement('h3', {
+        'data-slot': 'item-title',
+        className: ('font-semibold leading-none tracking-tight ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const ItemDescription = ({ children, className = '', ...props }) => {
+      return React.createElement('p', {
+        'data-slot': 'item-description',
+        className: ('text-sm text-muted-foreground ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    const ItemMedia = ({ src, alt, className = '', ...props }) => {
+      return React.createElement('img', {
+        'data-slot': 'item-media',
+        src: src,
+        alt: alt || '',
+        className: ('h-16 w-16 rounded-md object-cover ' + className).trim(),
+        ...props
+      });
+    };
+    
+    const ItemActions = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'item-actions',
+        className: ('flex items-center gap-2 ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    // Sonner (Toast notifications) - simplified version
+    const Sonner = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'sonner',
+        className: ('fixed bottom-0 right-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px] ' + className).trim(),
+        ...props
+      }, children);
+    };
+    
+    // Toast function for programmatic toasts
+    const toast = (message, options = {}) => {
+      // Create toast element
+      const toastEl = document.createElement('div');
+      toastEl.className = 'fixed bottom-4 right-4 z-50 bg-background border rounded-lg shadow-lg p-4 max-w-sm animate-in slide-in-from-bottom-5';
+      toastEl.textContent = message;
+      
+      // Add to DOM
+      document.body.appendChild(toastEl);
+      
+      // Auto remove after duration
+      const duration = options.duration || 3000;
+      setTimeout(() => {
+        toastEl.remove();
+      }, duration);
+      
+      return {
+        dismiss: () => toastEl.remove()
+      };
+    };
+    
+    // Make toast available globally
+    window.toast = toast;
+    window.Sonner = Sonner;
+    
+    // Chart component (generic wrapper)
+    const Chart = ({ children, className = '', ...props }) => {
+      return React.createElement('div', {
+        'data-slot': 'chart',
+        className: ('w-full ' + className).trim(),
+        ...props
+      }, children);
     };
     
     // Chart Components for Dashboard (simplified recharts-style)
@@ -1570,9 +2328,24 @@ export async function renderReactComponent(componentCode: string): Promise<strin
     };
     
     // Export all components to window
+    // Form & Input components
     window.Input = Input;
     window.Textarea = Textarea;
     window.Label = Label;
+    window.Switch = Switch;
+    window.Checkbox = Checkbox;
+    window.RadioGroup = RadioGroup;
+    window.RadioGroupItem = RadioGroupItem;
+    window.Toggle = Toggle;
+    window.ToggleGroup = ToggleGroup;
+    window.Slider = Slider;
+    window.InputGroup = InputGroup;
+    window.InputGroupAddon = InputGroupAddon;
+    window.InputGroupButton = InputGroupButton;
+    window.InputGroupText = InputGroupText;
+    window.InputGroupTextarea = InputGroupTextarea;
+    
+    // Select & Tabs components
     window.Select = Select;
     window.SelectTrigger = SelectTrigger;
     window.SelectValue = SelectValue;
@@ -1582,18 +2355,87 @@ export async function renderReactComponent(componentCode: string): Promise<strin
     window.TabsList = TabsList;
     window.TabsTrigger = TabsTrigger;
     window.TabsContent = TabsContent;
+    
+    // Table components
     window.Table = Table;
     window.TableHeader = TableHeader;
     window.TableBody = TableBody;
     window.TableRow = TableRow;
     window.TableHead = TableHead;
     window.TableCell = TableCell;
+    
+    // Progress & Feedback components
     window.Skeleton = Skeleton;
     window.Progress = Progress;
+    
+    // Dialog & Overlay components
+    window.Dialog = Dialog;
+    window.DialogContent = DialogContent;
+    window.DialogHeader = DialogHeader;
+    window.DialogTitle = DialogTitle;
+    window.DialogDescription = DialogDescription;
+    window.DialogFooter = DialogFooter;
+    window.AlertDialog = AlertDialog;
+    window.AlertDialogContent = AlertDialogContent;
+    window.AlertDialogHeader = AlertDialogHeader;
+    window.AlertDialogTitle = AlertDialogTitle;
+    window.AlertDialogDescription = AlertDialogDescription;
+    window.AlertDialogFooter = AlertDialogFooter;
+    window.AlertDialogAction = AlertDialogAction;
+    window.AlertDialogCancel = AlertDialogCancel;
+    window.Sheet = Sheet;
+    window.SheetContent = SheetContent;
+    window.SheetHeader = SheetHeader;
+    window.SheetTitle = SheetTitle;
+    window.Drawer = Drawer;
+    window.Popover = Popover;
+    window.PopoverTrigger = PopoverTrigger;
+    window.PopoverContent = PopoverContent;
+    window.Tooltip = Tooltip;
+    
+    // Navigation components
+    window.DropdownMenu = DropdownMenu;
+    window.DropdownMenuTrigger = DropdownMenuTrigger;
+    window.DropdownMenuContent = DropdownMenuContent;
+    window.DropdownMenuItem = DropdownMenuItem;
+    window.ContextMenu = ContextMenu;
+    window.ContextMenuTrigger = ContextMenuTrigger;
+    window.ContextMenuContent = ContextMenuContent;
+    window.ContextMenuItem = ContextMenuItem;
+    window.Breadcrumb = Breadcrumb;
+    window.BreadcrumbItem = BreadcrumbItem;
+    window.BreadcrumbLink = BreadcrumbLink;
+    window.BreadcrumbSeparator = BreadcrumbSeparator;
+    window.Command = Command;
+    window.CommandInput = CommandInput;
+    window.CommandList = CommandList;
+    window.CommandItem = CommandItem;
+    window.Sidebar = Sidebar;
+    
+    // Utility components
+    window.Collapsible = Collapsible;
+    window.CollapsibleTrigger = CollapsibleTrigger;
+    window.CollapsibleContent = CollapsibleContent;
+    window.Kbd = Kbd;
+    window.ButtonGroup = ButtonGroup;
+    window.HideOnCollapse = HideOnCollapse;
+    window.AnimatedShinyText = AnimatedShinyText;
+    window.Item = Item;
+    window.ItemContent = ItemContent;
+    window.ItemTitle = ItemTitle;
+    window.ItemDescription = ItemDescription;
+    window.ItemMedia = ItemMedia;
+    window.ItemActions = ItemActions;
+    window.Sonner = Sonner;
+    
+    // Chart components
+    window.Chart = Chart;
     window.BarChart = BarChart;
     window.LineChart = LineChart;
     window.AreaChart = AreaChart;
     window.ChartCardStat = ChartCardStat;
+    
+    // Empty state components
     window.Empty = Empty;
     window.EmptyHeader = EmptyHeader;
     window.EmptyTitle = EmptyTitle;
@@ -1901,6 +2743,36 @@ export async function renderReactComponent(componentCode: string): Promise<strin
             // Use flushSync if available to ensure synchronous rendering
             root.render(element);
             console.log('[react-to-html] Component rendered successfully');
+            
+            // Force Tailwind CDN to reprocess styles by triggering MutationObserver
+            // Since __tailwindRefresh is not available in CDN, we force a DOM mutation
+            const forceTailwindRefresh = () => {
+              try {
+                // Method 1: Add and remove a dummy element to trigger Tailwind's MutationObserver
+                const dummy = document.createElement('div');
+                dummy.className = 'bg-primary text-foreground'; // Classes that need processing
+                document.body.appendChild(dummy);
+                setTimeout(() => {
+                  document.body.removeChild(dummy);
+                  console.log('[react-to-html] Triggered Tailwind CDN refresh via DOM mutation');
+                }, 10);
+                
+                // Method 2: Force reflow by accessing offsetHeight
+                const rootEl = document.getElementById('root');
+                if (rootEl) {
+                  void rootEl.offsetHeight; // Force reflow
+                }
+                
+                console.log('[react-to-html] Forced browser reflow to apply Tailwind styles');
+              } catch (e) {
+                console.warn('[react-to-html] Could not force Tailwind refresh:', e);
+              }
+            };
+            
+            // Trigger multiple times to ensure styles are applied
+            setTimeout(forceTailwindRefresh, 50);
+            setTimeout(forceTailwindRefresh, 200);
+            setTimeout(forceTailwindRefresh, 500);
             
             // Check if root element has content after render - check multiple times
             const checkRender = (attempt = 1) => {

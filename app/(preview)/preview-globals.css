@@ -1,41 +1,46 @@
-/* Minimal CSS for preview layout - no sidebar/topbar/breadcrumb styles */
-body {
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Editor specific styles */
+.preview-container {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen",
+    "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Hide any inherited sidebar/topbar elements */
-[role="navigation"],
-nav,
-[class*="breadcrumb"],
-[class*="Breadcrumb"],
-[class*="topbar"],
-[class*="TopBar"],
-[class*="top-bar"],
-header,
-header[class*="TopBar"],
-header > *,
-aside[class*="Sidebar"],
-[class*="sidebar"],
-[data-sidebar],
-[class*="SidebarInset"],
-[class*="SidebarProvider"] {
-  display: none !important;
-  visibility: hidden !important;
-  height: 0 !important;
-  width: 0 !important;
-  opacity: 0 !important;
-  position: absolute !important;
-  z-index: -1 !important;
+/* TipTap editor styles */
+.ProseMirror {
+  outline: none;
+  min-height: 1em;
 }
 
-/* Ensure iframe takes full screen */
-iframe {
-  width: 100vw !important;
-  height: 100vh !important;
-  border: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  display: block !important;
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
+
+.ProseMirror:focus {
+  outline: none;
+}
+
+/* Craft.js styles */
+.craftjs-renderer {
+  width: 100%;
+  height: 100%;
+}
+
+/* Selected element highlight */
+[data-cy="selected"] {
+  position: relative;
+}
+
+/* Smooth transitions */
+.transition-editor {
+  transition: all 0.2s ease-in-out;
 }

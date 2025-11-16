@@ -21,6 +21,23 @@ import ReactMarkdown from "react-markdown"
 import { renderReactComponent } from '@/lib/utils/react-to-html'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable"
 import { Tree, File, Folder, type TreeViewElement } from "@/components/ui/file-tree"
+import dynamic from "next/dynamic"
+
+// Lazy load editor components (client-side only)
+const EditorCanvas = dynamic(
+  () => import("@/app/(preview)/app-builder-preview/[sessionId]/components/editor-canvas").then(mod => ({ default: mod.EditorCanvas })),
+  { 
+    ssr: false, 
+    loading: () => (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          <div className="text-sm text-muted-foreground">Loading editor...</div>
+        </div>
+      </div>
+    )
+  }
+)
 
 // Browser Header Component (reusable)
 const BrowserHeader = ({ 
@@ -28,13 +45,15 @@ const BrowserHeader = ({
   isRefreshing,
   deviceSize,
   onDeviceChange,
-  sessionId
+  sessionId,
+  editMode
 }: { 
   onRefresh?: () => void
   isRefreshing?: boolean
   deviceSize?: "desktop" | "tablet" | "phone"
   onDeviceChange?: (size: "desktop" | "tablet" | "phone") => void
   sessionId?: string | null
+  editMode?: boolean
 }) => {
   // Get icon based on device size
   const getDeviceIcon = () => {
@@ -47,14 +66,6 @@ const BrowserHeader = ({
       default:
         return <Monitor className="h-3 w-3 text-muted-foreground flex-shrink-0" />
     }
-  }
-
-  // Get current URL - only show sessionId
-  const getCurrentUrl = () => {
-    if (sessionId) {
-      return sessionId
-    }
-    return ""
   }
 
   return (
@@ -109,14 +120,25 @@ const BrowserHeader = ({
         </Select>
       </div>
       
-      {/* Center: Globe icon and URL */}
-      <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-background/50 border border-border/50 flex-1 max-w-md mx-4">
-        <Globe className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-        <span className="text-xs text-muted-foreground">/</span>
-        <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
-          {getCurrentUrl()}
-        </span>
-      </div>
+      {/* Center: Session ID only when not in edit mode */}
+      {!editMode && sessionId && (
+        <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-background/50 border border-border/50 flex-1 max-w-md mx-4">
+          <Globe className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+          <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
+            {sessionId.slice(0, 16)}...
+          </span>
+        </div>
+      )}
+      {editMode && (
+        <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-primary/10 border border-primary/30 flex-1 max-w-md mx-4">
+          <svg className="h-3.5 w-3.5 text-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+          <span className="text-xs font-medium text-primary">
+            Edit Mode Active
+          </span>
+        </div>
+      )}
       
       {/* Right: Window controls */}
       <div className="flex items-center gap-1">
@@ -225,8 +247,9 @@ export function PanelCode({
   const [isCopied, setIsCopied] = React.useState(false)
   const [isExpanded, setIsExpanded] = React.useState(defaultExpanded)
   const [isHovered, setIsHovered] = React.useState(false)
-  const [activeTab, setActiveTab] = React.useState<"preview" | "code">("preview")
+  const [activeTab, setActiveTab] = React.useState<"preview" | "code" | "edit">("preview")
   const [refreshKey, setRefreshKey] = React.useState(0)
+  const [editMode, setEditMode] = React.useState(false)
   const [isRefreshing, setIsRefreshing] = React.useState(false)
   const [deviceSize, setDeviceSize] = React.useState<"desktop" | "tablet" | "phone">("desktop")
   const [isPublishConfirmOpen, setIsPublishConfirmOpen] = React.useState(false)
@@ -718,6 +741,28 @@ export function PanelCode({
                       )}
                     </>
                   )}
+                  {/* Edit Mode Toggle */}
+                  {sessionId && (reactCode || fullHtml) && (
+                    <Button
+                      variant={activeTab === "edit" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        if (activeTab === "edit") {
+                          setActiveTab("preview")
+                          setEditMode(false)
+                        } else {
+                          setActiveTab("edit")
+                          setEditMode(true)
+                        }
+                      }}
+                      className="h-7 gap-1 text-xs flex-shrink-0 px-2"
+                    >
+                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      {activeTab === "edit" ? "Exit Edit" : "Edit"}
+                    </Button>
+                  )}
                   {/* Close Button */}
                   <Button
                     variant="ghost"
@@ -737,7 +782,10 @@ export function PanelCode({
             <div className="border-b border-border px-4 pt-3 flex-shrink-0">
               <div className="flex gap-2">
                 <button
-                  onClick={() => setActiveTab("preview")}
+                  onClick={() => {
+                    setActiveTab("preview")
+                    setEditMode(false)
+                  }}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
                     activeTab === "preview" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
@@ -747,7 +795,10 @@ export function PanelCode({
                   Preview
                 </button>
                 <button
-                  onClick={() => setActiveTab("code")}
+                  onClick={() => {
+                    setActiveTab("code")
+                    setEditMode(false)
+                  }}
                   className={cn(
                     "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
                     activeTab === "code" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
@@ -756,10 +807,68 @@ export function PanelCode({
                   <Code2 className="h-3.5 w-3.5" />
                   Code
                 </button>
+                {sessionId && (reactCode || fullHtml) && (
+                  <button
+                    onClick={() => {
+                      setActiveTab("edit")
+                      setEditMode(true)
+                    }}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
+                      activeTab === "edit" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Edit
+                  </button>
+                )}
               </div>
             </div>
             {/* Tab Content */}
-            {activeTab === "preview" ? (
+            {activeTab === "edit" ? (
+              <div className="flex flex-1 min-h-0 border-t border-border overflow-hidden">
+                {/* Visual Editor Canvas with integrated Toolbar */}
+                {reactHtml || fullHtml ? (
+                  <div className="flex-1 flex flex-col">
+                    <div className="bg-muted/50 px-4 py-3 border-b border-border">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Preview Content Detected</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Switch to Preview tab to see the AI-generated content. Use Edit mode to build new components from scratch.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setActiveTab("preview")}
+                          className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                        >
+                          View Preview
+                        </button>
+                      </div>
+                    </div>
+                    <EditorCanvas 
+                      enabled={editMode} 
+                      showToolbar={true}
+                      showWelcome={true}
+                      onStateChange={(state) => {
+                        console.log('[PanelCode] Editor state changed:', state)
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <EditorCanvas 
+                    enabled={editMode} 
+                    showToolbar={true}
+                    showWelcome={true}
+                    onStateChange={(state) => {
+                      console.log('[PanelCode] Editor state changed:', state)
+                    }}
+                  />
+                )}
+              </div>
+            ) : activeTab === "preview" ? (
               <div className="flex flex-col flex-1 min-h-0 border-t border-border">
                 <BrowserHeader 
                   onRefresh={handleRefresh} 
@@ -767,6 +876,7 @@ export function PanelCode({
                   deviceSize={deviceSize}
                   onDeviceChange={setDeviceSize}
                   sessionId={sessionId}
+                  editMode={editMode}
                 />
                 <div className="flex-1 overflow-hidden bg-muted/20 flex items-center justify-center w-full transition-all duration-300">
                   {reactCode ? (
@@ -1070,25 +1180,42 @@ export function PanelCode({
                                 </>
                               )}
                             </Button>
-                          )}
-                        </>
                       )}
-                      {/* Fullscreen Button */}
-                      {fullHtml && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleFullscreen()
-                          }}
-                          className="h-7 gap-1 text-xs flex-shrink-0 px-2"
-                        >
-                          <Maximize className="h-3 w-3" />
-                          Fullscreen
-                        </Button>
-                      )}
-                    </div>
+                    </>
+                  )}
+                  {/* Edit Button - Visual Editor */}
+                  {sessionId && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        window.open(`/app-builder-preview/${sessionId}`, '_blank')
+                      }}
+                      className="h-7 gap-1 text-xs flex-shrink-0 px-2 bg-primary hover:bg-primary/90"
+                    >
+                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit
+                    </Button>
+                  )}
+                  {/* Fullscreen Button */}
+                  {fullHtml && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleFullscreen()
+                      }}
+                      className="h-7 gap-1 text-xs flex-shrink-0 px-2"
+                    >
+                      <Maximize className="h-3 w-3" />
+                      Fullscreen
+                    </Button>
+                  )}
+                </div>
                   )}
                 </div>
                 {/* Content - Tabs for Preview and Code */}
@@ -1133,6 +1260,7 @@ export function PanelCode({
                         deviceSize={deviceSize}
                         onDeviceChange={setDeviceSize}
                         sessionId={sessionId}
+                        editMode={editMode}
                       />
                       <div className="flex-1 overflow-hidden bg-muted/20 flex items-center justify-center w-full transition-all duration-300">
                         {reactCode ? (
@@ -1394,33 +1522,50 @@ export function PanelCode({
                           )}
                 </>
               )}
+              {/* Edit Button - Visual Editor */}
+              {sessionId && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    window.open(`/app-builder-preview/${sessionId}`, '_blank')
+                  }}
+                  className="h-7 gap-1 text-xs flex-shrink-0 px-2 bg-primary hover:bg-primary/90"
+                >
+                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                  Edit
+                </Button>
+              )}
               {/* Fullscreen Button */}
               {fullHtml && (
                 <Button
                   variant="outline"
                   size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleFullscreen()
-                          }}
-                          className="h-7 gap-1 text-xs flex-shrink-0 px-2"
-                        >
-                          <Maximize className="h-3 w-3" />
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleFullscreen()
+                  }}
+                  className="h-7 gap-1 text-xs flex-shrink-0 px-2"
+                >
+                  <Maximize className="h-3 w-3" />
                   Fullscreen
                 </Button>
               )}
               {/* Close Button */}
               <Button
                 variant="ghost"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onClose()
-                        }}
-                        className="h-7 w-7 p-0 flex-shrink-0"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onClose()
+                }}
+                className="h-7 w-7 p-0 flex-shrink-0"
+              >
+                <X className="h-3 w-3" />
+              </Button>
             </div>
                   )}
           </div>
@@ -1466,6 +1611,7 @@ export function PanelCode({
                         deviceSize={deviceSize}
                         onDeviceChange={setDeviceSize}
                         sessionId={sessionId}
+                        editMode={editMode}
                       />
                       <div className="flex-1 overflow-hidden bg-muted/20 flex items-center justify-center w-full transition-all duration-300">
                         {reactCode ? (

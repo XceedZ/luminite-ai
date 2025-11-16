@@ -427,25 +427,51 @@ export const useAIStore = create<AIState>()(
                 
                 if (get().isCancelled) return null;
                 
-                // Parse JSON response
+                // Parse JSON response with robust error handling
                 let inspirationText = '';
                 let previewCode = '';
                 try {
                   // Try to parse as JSON
                   const cleanedResponse = inspirationResponse.trim();
+                  
                   // Remove markdown code blocks if present
                   const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+                  
                   if (jsonMatch) {
-                    const jsonData = JSON.parse(jsonMatch[0]);
-                    inspirationText = jsonData.text || inspirationResponse;
-                    previewCode = jsonData.code || '';
+                    // SANITASI: Replace problematic escaped characters
+                    const jsonString = jsonMatch[0];
+                    
+                    // Fix common JSON issues from AI responses
+                    // Try direct parse first
+                    try {
+                      const jsonData = JSON.parse(jsonString);
+                      inspirationText = jsonData.text || inspirationResponse;
+                      previewCode = jsonData.code || '';
+                      console.log('[AI Store] ✅ JSON parsed successfully');
+                    } catch (firstError) {
+                      console.warn('[AI Store] First JSON parse failed, attempting sanitization...');
+                      
+                      // Sanitize approach: Extract fields manually with regex
+                      const textMatch = jsonString.match(/"text"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+                      const codeMatch = jsonString.match(/"code"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+                      
+                      if (textMatch || codeMatch) {
+                        inspirationText = textMatch ? textMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n') : inspirationResponse;
+                        previewCode = codeMatch ? codeMatch[1].replace(/\\"/g, '"').replace(/\\n/g, '\n') : '';
+                        console.log('[AI Store] ✅ JSON extracted using regex fallback');
+                      } else {
+                        throw firstError; // Re-throw if regex extraction also fails
+                      }
+                    }
                   } else {
                     // Fallback: treat as plain text
                     inspirationText = inspirationResponse;
+                    console.log('[AI Store] ℹ️ No JSON found, using raw response');
                   }
                 } catch (error) {
-                  // If parsing fails, use the response as text
-                  console.error('Failed to parse JSON response:', error);
+                  // If all parsing fails, use the response as text
+                  console.error('[AI Store] ❌ Failed to parse JSON response:', error);
+                  console.error('[AI Store] Raw response preview:', inspirationResponse.substring(0, 500));
                   inspirationText = inspirationResponse;
                 }
                 
