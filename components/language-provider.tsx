@@ -6,14 +6,17 @@ import id from "@/app/locales/id.json";
 
 type SupportedLang = "en" | "id";
 
+// Dictionary can have nested structure (e.g., { label: { ... }, success: { ... } })
+type Dictionary = Record<string, any>;
+
 type LanguageContextValue = {
   lang: SupportedLang;
-  dictionary: Record<string, string>;
+  dictionary: Dictionary;
   setLang: (lang: SupportedLang) => void;
   t: (key: string) => string;
 };
 
-const dictionaries: Record<SupportedLang, Record<string, string>> = {
+const dictionaries: Record<SupportedLang, Dictionary> = {
   en,
   id,
 };
