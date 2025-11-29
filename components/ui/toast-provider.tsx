@@ -2,7 +2,7 @@
 
 import { createContext, useContext, ReactNode } from "react";
 import { useToast, type Toast } from "./use-toast";
-import { ToastContainer, type ToastContainerProps } from "./toast-container";
+import { ToastContainer } from "./toast-container";
 import type { ToastPosition } from "./custom-toast";
 
 interface ToastContextValue {
@@ -52,7 +52,11 @@ export function ToastProvider({ children, position = "top-right" }: ToastProvide
       <ToastContainer
         toasts={toast.toasts}
         position={position}
-        onRemove={toast.removeToast}
+        onRemove={(id) => {
+          if (id) {
+            toast.removeToast(id);
+          }
+        }}
       />
     </ToastContext.Provider>
   );
