@@ -3,8 +3,8 @@
  * Wrapper untuk api client yang otomatis menampilkan toast pada error
  */
 
-import { api, type ApiResponse, type RequestConfig } from './client';
-import type { HttpMethod } from './types';
+import { api } from './client';
+import type { ApiResponse, RequestConfig, HttpMethod } from './types';
 
 // Dynamic import untuk toast (client-side only)
 let toastContext: any = null;
@@ -14,8 +14,8 @@ const getToastContext = async () => {
   
   if (!toastContext) {
     try {
-      const module = await import('@/components/ui/toast-provider');
-      toastContext = module.useToastContext;
+      const toastModule = await import('@/components/ui/toast-provider');
+      toastContext = toastModule.useToastContext;
     } catch (error) {
       console.warn('Toast context not available:', error);
     }
