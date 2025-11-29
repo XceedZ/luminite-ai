@@ -7,7 +7,7 @@ import { X, ChevronDown, ChevronUp, CheckCircle2, AlertCircle, AlertTriangle, In
 import { cn } from "@/lib/utils";
 
 export type ToastType = "success" | "error" | "warning" | "info";
-export type ToastTheme = "light" | "dark";
+export type ToastTheme = "light" | "dark" | "system";
 export type ToastPosition = "top-left" | "top-right" | "bottom-left" | "bottom-right" | "top-center" | "bottom-center";
 
 export interface CustomToastProps {
