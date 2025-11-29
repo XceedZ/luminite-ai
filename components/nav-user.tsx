@@ -1,9 +1,22 @@
 "use client"
 
 import * as React from "react"
-import { Globe } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { Globe, Loader2 } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { logoutUser } from "@/@auth"
+import { clearAuthData } from "@/utils/local-storage"
+
+// Helper function to generate initials from fullName
+const getInitials = (fullName: string): string => {
+  if (!fullName) return "U";
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length === 1) {
+    return parts[0].charAt(0).toUpperCase();
+  }
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+};
 
 import {
   Avatar,
@@ -160,9 +173,33 @@ export function NavUser({
   }
   t?: (key: string) => string // 't' sekarang bersifat opsional
 }) {
+  const router = useRouter()
   const { isMobile } = useSidebar()
   const { lang, setLang } = useLanguage()
   const [isChangelogOpen, setIsChangelogOpen] = React.useState(false)
+  const [isLoggingOut, setIsLoggingOut] = React.useState(false)
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true)
+      
+      // Call logout API
+      await logoutUser()
+      
+      // Clear all auth data from localStorage
+      clearAuthData()
+      
+      // Redirect to auth page
+      router.push('/auth')
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Even if API call fails, clear local data and redirect
+      clearAuthData()
+      router.push('/auth')
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
 
   return (
     <>
@@ -175,8 +212,10 @@ export function NavUser({
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Avatar className="h-8 w-8 rounded-lg grayscale">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                <AvatarImage src={user.avatar || undefined} alt={user.name} />
+                <AvatarFallback className="rounded-lg">
+                  {user.name ? getInitials(user.name) : "U"}
+                </AvatarFallback>
               </Avatar>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">{user.name}</span>
@@ -196,8 +235,10 @@ export function NavUser({
             <DropdownMenuLabel className="p-0 font-normal">
               <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
                 <Avatar className="h-8 w-8 rounded-lg">
-                  <AvatarImage src={user.avatar} alt={user.name} />
-                  <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                  <AvatarImage src={user.avatar || undefined} alt={user.name} />
+                  <AvatarFallback className="rounded-lg">
+                    {user.name ? getInitials(user.name) : "U"}
+                  </AvatarFallback>
                 </Avatar>
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-medium">{user.name}</span>
@@ -241,8 +282,15 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <IconLogout className="mr-2 h-4 w-4" />
+            <DropdownMenuItem 
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+            >
+              {isLoggingOut ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <IconLogout className="mr-2 h-4 w-4" />
+              )}
               <span>{t("logout")}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>

@@ -65,7 +65,22 @@ export function LanguageProvider({
   }, []);
 
   const dictionary = dictionaries[lang] ?? dictionaries.en;
-  const t = React.useCallback((key: string) => dictionary[key] || key, [dictionary]);
+  const t = React.useCallback((key: string) => {
+    // If key doesn't have dot notation, default to "label." prefix for backward compatibility
+    const finalKey = key.includes('.') ? key : `label.${key}`;
+    
+    // Support nested keys with dot notation (e.g., "error.internal_error", "label.dashboard")
+    const keys = finalKey.split('.');
+    let value: any = dictionary;
+    for (const k of keys) {
+      if (value && typeof value === 'object' && k in value) {
+        value = value[k];
+      } else {
+        return key; // Return original key if not found
+      }
+    }
+    return typeof value === 'string' ? value : key;
+  }, [dictionary]);
 
   const value: LanguageContextValue = React.useMemo(
     () => ({ lang, dictionary, setLang, t }),
