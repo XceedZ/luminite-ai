@@ -41,6 +41,12 @@ export interface AuthResponse {
       fullname: string;
       email: string;
     };
+    userData?: {
+      user_id: number;
+      fullName: string;
+      username: string;
+      email: string;
+    };
   };
 }
 
