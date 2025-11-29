@@ -110,10 +110,8 @@ export function CustomToast({
     }
   }
   
-  // Ensure resolvedTheme is always "light" or "dark" (not "system")
-  if (resolvedTheme === "system") {
-    resolvedTheme = systemResolvedTheme === "dark" ? "dark" : "light";
-  }
+  // resolvedTheme is already guaranteed to be "light" | "dark" at this point
+  // All "system" values have been resolved above
   
   const [isExpanded, setIsExpanded] = useState(expandable ? false : true);
   const [timeRemaining, setTimeRemaining] = useState(duration);
