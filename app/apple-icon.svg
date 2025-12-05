@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180">
+  <defs>
+    <linearGradient id="luminite-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#A855F7;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#6366F1;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="180" height="180" rx="40" fill="url(#luminite-gradient)"/>
+  <g transform="translate(30, 30) scale(5)">
+    <path fill="#FFFFFF" d="M12.973 8.228a15.2 15.2 0 0 0 1.77-3.92c1.626 3.49 5.164 5.914 9.257 5.914v3.554h-.035c-5.629 0-10.21 4.587-10.21 10.224h-3.548v-.002c0-5.148 2.834-9.645 7.022-12.01a13.9 13.9 0 0 1-4.256-3.76M9.24 19.638C7.67 16.3 4.348 13.946.469 13.77q-.234.008-.468.008v-3.572q.235 0 .469.008a10.14 10.14 0 0 0 6.75-2.984C9.15 5.3 10.208 2.73 10.208 0h3.55c0 3.68-1.432 7.139-4.031 9.742a13.8 13.8 0 0 1-2.949 2.254 13.9 13.9 0 0 1 4.242 3.745 15.3 15.3 0 0 0-1.778 3.897"/>
+  </g>
+</svg>

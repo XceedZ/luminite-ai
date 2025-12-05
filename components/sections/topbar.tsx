@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,9 +11,6 @@ export function TopBar() {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const router = useRouter();
-  
-  const mobileMenuRef = useRef<HTMLDivElement>(null);
-  const mobileMenuItemsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -33,38 +30,6 @@ export function TopBar() {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [isMobileMenuOpen]);
-
-  // GSAP Animation untuk Mobile Menu
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const animateMobileMenu = async () => {
-      const gsap = (await import('gsap')).default;
-      
-      if (isMobileMenuOpen) {
-        // Animate menu items
-        const items = mobileMenuItemsRef.current?.children;
-        if (items) {
-          gsap.fromTo(
-            Array.from(items),
-            {
-              opacity: 0,
-              y: 20,
-            },
-            {
-              opacity: 1,
-              y: 0,
-              duration: 0.4,
-              stagger: 0.1,
-              ease: "power3.out",
-            }
-          );
-        }
-      }
-    };
-
-    animateMobileMenu();
   }, [isMobileMenuOpen]);
 
   const handleNavClick = (sectionId: string) => {
@@ -87,9 +52,9 @@ export function TopBar() {
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
             <div className="flex items-center space-x-2">
-              <img 
-                src="/logo.svg" 
-                alt="Luminite AI Logo" 
+              <img
+                src="/logo.svg"
+                alt="Luminite AI Logo"
                 className="w-6 h-6 sm:w-8 sm:h-8 brightness-0 dark:invert"
               />
               <span className="text-lg sm:text-xl font-bold text-foreground">
@@ -146,9 +111,9 @@ export function TopBar() {
 
             {/* CTA Buttons - Desktop */}
             <div className="hidden md:flex items-center space-x-3">
-              <Button 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="sm"
                 className="text-foreground hover:text-foreground/70"
                 onClick={() => router.push('/auth')}
               >
@@ -170,22 +135,22 @@ export function TopBar() {
               className="md:hidden text-foreground hover:text-foreground/80"
               onClick={() => setIsMobileMenuOpen(true)}
             >
-              <svg 
-                viewBox="0 0 28 28" 
-                fill="none" 
+              <svg
+                viewBox="0 0 28 28"
+                fill="none"
                 xmlns="http://www.w3.org/2000/svg"
                 className="h-5 w-5"
               >
-                <path 
-                  d="M4 7C4 6.44771 4.44772 6 5 6H24C24.5523 6 25 6.44771 25 7C25 7.55229 24.5523 8 24 8H5C4.44772 8 4 7.55229 4 7Z" 
+                <path
+                  d="M4 7C4 6.44771 4.44772 6 5 6H24C24.5523 6 25 6.44771 25 7C25 7.55229 24.5523 8 24 8H5C4.44772 8 4 7.55229 4 7Z"
                   fill="currentColor"
                 />
-                <path 
-                  d="M4 13.9998C4 13.4475 4.44772 12.9997 5 12.9997L16 13C16.5523 13 17 13.4477 17 14C17 14.5523 16.5523 15 16 15L5 14.9998C4.44772 14.9998 4 14.552 4 13.9998Z" 
+                <path
+                  d="M4 13.9998C4 13.4475 4.44772 12.9997 5 12.9997L16 13C16.5523 13 17 13.4477 17 14C17 14.5523 16.5523 15 16 15L5 14.9998C4.44772 14.9998 4 14.552 4 13.9998Z"
                   fill="currentColor"
                 />
-                <path 
-                  d="M5 19.9998C4.44772 19.9998 4 20.4475 4 20.9998C4 21.552 4.44772 21.9997 5 21.9997H22C22.5523 21.9997 23 21.552 23 20.9998C23 20.4475 22.5523 19.9998 22 19.9998H5Z" 
+                <path
+                  d="M5 19.9998C4.44772 19.9998 4 20.4475 4 20.9998C4 21.552 4.44772 21.9997 5 21.9997H22C22.5523 21.9997 23 21.552 23 20.9998C23 20.4475 22.5523 19.9998 22 19.9998H5Z"
                   fill="currentColor"
                 />
               </svg>
@@ -197,7 +162,6 @@ export function TopBar() {
 
       {/* Mobile Menu - Fullscreen */}
       <div
-        ref={mobileMenuRef}
         className={cn(
           "fixed inset-0 z-[60] bg-background/95 backdrop-blur-xl",
           "transition-transform duration-300 ease-in-out",
@@ -218,11 +182,14 @@ export function TopBar() {
             </Button>
           </div>
 
-          {/* Mobile Menu Content */}
-          <nav ref={mobileMenuItemsRef} className="flex-1 flex flex-col justify-center px-8 py-12 space-y-8">
+          {/* Mobile Menu Content - CSS Animations */}
+          <nav className="flex-1 flex flex-col justify-center px-8 py-12 space-y-8">
             <a
               href="#features"
-              className="text-2xl font-semibold text-foreground/70 hover:text-foreground transition-colors"
+              className={cn(
+                "menu-animate menu-delay-1 text-2xl font-semibold text-foreground/70 hover:text-foreground transition-colors",
+                isMobileMenuOpen && "menu-open"
+              )}
               onClick={(e) => {
                 e.preventDefault();
                 handleNavClick('features');
@@ -232,7 +199,10 @@ export function TopBar() {
             </a>
             <a
               href="#qna"
-              className="text-2xl font-semibold text-foreground/70 hover:text-foreground transition-colors"
+              className={cn(
+                "menu-animate menu-delay-2 text-2xl font-semibold text-foreground/70 hover:text-foreground transition-colors",
+                isMobileMenuOpen && "menu-open"
+              )}
               onClick={(e) => {
                 e.preventDefault();
                 handleNavClick('qna');
@@ -242,7 +212,10 @@ export function TopBar() {
             </a>
             <a
               href="#testimonials"
-              className="text-2xl font-semibold text-foreground/70 hover:text-foreground transition-colors"
+              className={cn(
+                "menu-animate menu-delay-3 text-2xl font-semibold text-foreground/70 hover:text-foreground transition-colors",
+                isMobileMenuOpen && "menu-open"
+              )}
               onClick={(e) => {
                 e.preventDefault();
                 handleNavClick('testimonials');
@@ -252,7 +225,10 @@ export function TopBar() {
             </a>
             <a
               href="#pricing"
-              className="text-2xl font-semibold text-foreground/70 hover:text-foreground transition-colors"
+              className={cn(
+                "menu-animate menu-delay-4 text-2xl font-semibold text-foreground/70 hover:text-foreground transition-colors",
+                isMobileMenuOpen && "menu-open"
+              )}
               onClick={(e) => {
                 e.preventDefault();
                 handleNavClick('pricing');
@@ -262,7 +238,12 @@ export function TopBar() {
             </a>
 
             {/* Mobile CTA Buttons */}
-            <div className="pt-8 space-y-4 border-t border-border/50 mt-8">
+            <div
+              className={cn(
+                "menu-animate menu-delay-5 pt-8 space-y-4 border-t border-border/50 mt-8",
+                isMobileMenuOpen && "menu-open"
+              )}
+            >
               <Button
                 variant="outline"
                 className="w-full justify-center h-12 text-base"

@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import {
-  Layers,
-} from "lucide-react";
+import { Layers } from "lucide-react";
 import { BentoCard, BentoGrid } from "@/components/ui/bento-grid";
 import { AnimatedList } from "@/components/ui/animated-list";
 import { Globe } from "@/components/ui/globe";
@@ -14,6 +11,7 @@ import {
 } from "@/components/ui/terminal";
 import { OrbitingCircles } from "@/components/ui/orbiting-circles";
 import { cn } from "@/lib/utils";
+import { useInView } from "@/hooks/use-in-view";
 import type { FC, ReactNode } from "react";
 
 // --- Definisi Tipe Data & Ikon ---
@@ -61,8 +59,8 @@ const TaskListBackground: FC = () => {
     { name: "Update user docs", description: "Product Team", time: "Due in 1 week", icon: "📝", color: "#FF3D71" },
   ];
   tasks = Array.from({ length: 4 }, () => tasks).flat();
-  const TaskNotification = ({ name, description, icon, color, time }: Task) => ( <figure className={cn("relative w-full cursor-pointer overflow-hidden rounded-lg p-2", "bg-white/5 [box-shadow:0_0_0_1px_rgba(0,0,0,.03),0_2px_4px_rgba(0,0,0,.05)]", "transform-gpu dark:bg-transparent dark:[border:1px_solid_rgba(255,255,255,.1)]")}> <div className="flex items-center gap-2"> <div className="flex size-8 items-center justify-center rounded-lg" style={{ backgroundColor: color }}><span className="text-base">{icon}</span></div> <div className="flex flex-col overflow-hidden"> <figcaption className="flex items-center whitespace-pre text-xs font-medium dark:text-white"><span className="truncate">{name}</span><span className="mx-1">·</span><span className="text-xs text-gray-500">{time}</span></figcaption> <p className="text-xs font-normal dark:text-white/60">{description}</p> </div> </div> </figure> );
-  return ( <div className="absolute inset-x-0 top-6 h-full w-full px-4 [mask-image:linear-gradient(to_top,transparent_30%,#000_100%)]"> <AnimatedList> {tasks.map((item, idx) => ( <TaskNotification {...item} key={idx} /> ))} </AnimatedList> </div> );
+  const TaskNotification = ({ name, description, icon, color, time }: Task) => (<figure className={cn("relative w-full cursor-pointer overflow-hidden rounded-lg p-2", "bg-white/5 [box-shadow:0_0_0_1px_rgba(0,0,0,.03),0_2px_4px_rgba(0,0,0,.05)]", "transform-gpu dark:bg-transparent dark:[border:1px_solid_rgba(255,255,255,.1)]")}> <div className="flex items-center gap-2"> <div className="flex size-8 items-center justify-center rounded-lg" style={{ backgroundColor: color }}><span className="text-base">{icon}</span></div> <div className="flex flex-col overflow-hidden"> <figcaption className="flex items-center whitespace-pre text-xs font-medium dark:text-white"><span className="truncate">{name}</span><span className="mx-1">·</span><span className="text-xs text-gray-500">{time}</span></figcaption> <p className="text-xs font-normal dark:text-white/60">{description}</p> </div> </div> </figure>);
+  return (<div className="absolute inset-x-0 top-6 h-full w-full px-4 [mask-image:linear-gradient(to_top,transparent_30%,#000_100%)]"> <AnimatedList> {tasks.map((item, idx) => (<TaskNotification {...item} key={idx} />))} </AnimatedList> </div>);
 };
 
 const AIGlobeBackground = () => (
@@ -73,19 +71,19 @@ const AIGlobeBackground = () => (
 );
 
 const TerminalBackground = () => (
-    <div className="absolute inset-x-0 top-4 h-full w-full origin-top scale-90 p-4 [mask-image:linear-gradient(to_top,transparent_30%,#000_100%)] transition-all duration-300 ease-out group-hover:scale-95">
-        <Terminal>
-            <TypingAnimation>{`> SHOW DATABASES;`}</TypingAnimation>
-            <AnimatedSpan className="text-green-500">✔ knowledge_base</AnimatedSpan>
-            <AnimatedSpan className="text-green-500">✔ user_data</AnimatedSpan>
-            <TypingAnimation>{`> USE knowledge_base;`}</TypingAnimation>
-            <AnimatedSpan className="text-muted-foreground">Database changed</AnimatedSpan>
-            <TypingAnimation>{`> SELECT title FROM articles LIMIT 3;`}</TypingAnimation>
-            <AnimatedSpan className="text-cyan-500">- &quot;Intro to AI&quot;</AnimatedSpan>
-            <AnimatedSpan className="text-cyan-500">- &quot;Advanced Task Management&quot;</AnimatedSpan>
-            <AnimatedSpan className="text-cyan-500">- &quot;Team Collaboration Guide&quot;</AnimatedSpan>
-        </Terminal>
-    </div>
+  <div className="absolute inset-x-0 top-4 h-full w-full origin-top scale-90 p-4 [mask-image:linear-gradient(to_top,transparent_30%,#000_100%)] transition-all duration-300 ease-out group-hover:scale-95">
+    <Terminal>
+      <TypingAnimation>{`> SHOW DATABASES;`}</TypingAnimation>
+      <AnimatedSpan className="text-green-500">✔ knowledge_base</AnimatedSpan>
+      <AnimatedSpan className="text-green-500">✔ user_data</AnimatedSpan>
+      <TypingAnimation>{`> USE knowledge_base;`}</TypingAnimation>
+      <AnimatedSpan className="text-muted-foreground">Database changed</AnimatedSpan>
+      <TypingAnimation>{`> SELECT title FROM articles LIMIT 3;`}</TypingAnimation>
+      <AnimatedSpan className="text-cyan-500">- &quot;Intro to AI&quot;</AnimatedSpan>
+      <AnimatedSpan className="text-cyan-500">- &quot;Advanced Task Management&quot;</AnimatedSpan>
+      <AnimatedSpan className="text-cyan-500">- &quot;Team Collaboration Guide&quot;</AnimatedSpan>
+    </Terminal>
+  </div>
 );
 
 // Latar belakang untuk "Analytics & Insights" (diperbarui dengan OrbitingCircles)
@@ -113,231 +111,94 @@ const AnalyticsBackground = () => (
 
 // --- Komponen Utama ---
 export function FeaturesSection() {
-    const features: Feature[] = [
-      {
-        Icon: "div",
-        name: "Smart Task Management",
-        description:
-          "Organize, prioritize, and track tasks with intelligent automation.",
-        href: "#",
-        cta: "Learn more",
-        className: "col-span-3 lg:col-span-1",
-        background: <TaskListBackground />,
-      },
-      {
-        Icon: "div",
-        name: "AI-Powered Intelligence",
-        description:
-          "Leverage AI to automate tasks, suggest priorities, and provide insights.",
-        href: "#",
-        cta: "Learn more",
-        className: "col-span-3 lg:col-span-2",
-        background: <AIGlobeBackground />,
-      },
-      {
-        Icon: "div",
-        name: "Knowledge Database",
-        description:
-          "Build and access your organization's knowledge base seamlessly.",
-        href: "#",
-        cta: "Learn more",
-        className: "col-span-3 lg:col-span-2",
-        background: <TerminalBackground />,
-      },
-      {
-        Icon: "div",
-        name: "Analytics & Insights",
-        description:
-          "Gain actionable insights with comprehensive analytics and tracking.",
-        href: "#",
-        cta: "Learn more",
-        className: "col-span-3 lg:col-span-1",
-        background: <AnalyticsBackground />, // <-- Diperbarui di sini
-      },
-    ];
+  const features: Feature[] = [
+    {
+      Icon: "div",
+      name: "Smart Task Management",
+      description:
+        "Organize, prioritize, and track tasks with intelligent automation.",
+      href: "#",
+      cta: "Learn more",
+      className: "col-span-3 lg:col-span-1",
+      background: <TaskListBackground />,
+    },
+    {
+      Icon: "div",
+      name: "AI-Powered Intelligence",
+      description:
+        "Leverage AI to automate tasks, suggest priorities, and provide insights.",
+      href: "#",
+      cta: "Learn more",
+      className: "col-span-3 lg:col-span-2",
+      background: <AIGlobeBackground />,
+    },
+    {
+      Icon: "div",
+      name: "Knowledge Database",
+      description:
+        "Build and access your organization's knowledge base seamlessly.",
+      href: "#",
+      cta: "Learn more",
+      className: "col-span-3 lg:col-span-2",
+      background: <TerminalBackground />,
+    },
+    {
+      Icon: "div",
+      name: "Analytics & Insights",
+      description:
+        "Gain actionable insights with comprehensive analytics and tracking.",
+      href: "#",
+      cta: "Learn more",
+      className: "col-span-3 lg:col-span-1",
+      background: <AnalyticsBackground />, // <-- Diperbarui di sini
+    },
+  ];
 
-  const sectionRef = useRef<HTMLElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const descriptionRef = useRef<HTMLParagraphElement>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
-  const backgroundRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!sectionRef.current || !headerRef.current || !titleRef.current || !descriptionRef.current || !gridRef.current) return;
-
-    // Dynamic import GSAP untuk code splitting
-    Promise.all([
-      import("gsap"),
-      import("gsap/ScrollTrigger"),
-    ]).then(([gsapModule, scrollTriggerModule]) => {
-      const gsap = gsapModule.default;
-      const ScrollTrigger = scrollTriggerModule.default;
-      
-      if (typeof window !== "undefined") {
-        gsap.registerPlugin(ScrollTrigger);
-        gsap.config({ nullTargetWarn: false });
-      }
-
-      const ctx = gsap.context(() => {
-      // Animate header badge dengan optimasi
-      const badgeElement = headerRef.current?.querySelector(".badge");
-      if (badgeElement) {
-        gsap.fromTo(
-          badgeElement,
-          {
-            opacity: 0,
-            scale: 0.8,
-            y: -20,
-            force3D: true,
-          },
-          {
-            opacity: 1,
-            scale: 1,
-            y: 0,
-            duration: 0.6,
-            ease: "back.out(1.7)",
-            force3D: true,
-            scrollTrigger: {
-              trigger: sectionRef.current,
-              start: "top 85%",
-              toggleActions: "play none none reverse",
-              markers: false,
-              invalidateOnRefresh: false,
-            },
-          }
-        );
-      }
-
-      // Animate title dengan optimasi
-      gsap.fromTo(
-        titleRef.current,
-        {
-          opacity: 0,
-          y: 50,
-          force3D: true,
-        },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 1,
-          ease: "power3.out",
-          force3D: true,
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 80%",
-            toggleActions: "play none none reverse",
-            markers: false,
-            invalidateOnRefresh: false,
-          },
-        }
-      );
-
-      // Animate description dengan optimasi
-      gsap.fromTo(
-        descriptionRef.current,
-        {
-          opacity: 0,
-          y: 30,
-          force3D: true,
-        },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.8,
-          ease: "power2.out",
-          delay: 0.2,
-          force3D: true,
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 75%",
-            toggleActions: "play none none reverse",
-            markers: false,
-            invalidateOnRefresh: false,
-          },
-        }
-      );
-
-      // Animate bento cards dengan optimasi
-      const bentoCards = gridRef.current?.querySelectorAll(".bento-card");
-      if (bentoCards && bentoCards.length > 0) {
-        gsap.fromTo(
-          bentoCards,
-          {
-            opacity: 0,
-            scale: 0.9,
-            y: 50,
-            force3D: true,
-          },
-          {
-            opacity: 1,
-            scale: 1,
-            y: 0,
-            duration: 0.8,
-            ease: "power3.out",
-            stagger: 0.15,
-            force3D: true,
-            scrollTrigger: {
-              trigger: sectionRef.current,
-              start: "top 70%",
-              toggleActions: "play none none reverse",
-              markers: false,
-              invalidateOnRefresh: false,
-            },
-          }
-        );
-      }
-
-      // Parallax background dengan optimasi scrub
-      if (backgroundRef.current) {
-        gsap.to(backgroundRef.current, {
-          y: -80,
-          force3D: true,
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top bottom",
-            end: "bottom top",
-            scrub: true,
-            markers: false,
-            invalidateOnRefresh: false,
-          },
-        });
-      }
-      }, sectionRef);
-
-      return () => ctx.revert();
-    });
-  }, []);
+  const { ref: sectionRef, isInView } = useInView<HTMLElement>({ threshold: 0.1 });
 
   return (
     <section ref={sectionRef} id="features" className="relative w-full overflow-hidden px-4 py-32 md:px-8">
-      {/* Animated Background */}
-      <div ref={backgroundRef} className="absolute inset-0 -z-10 overflow-hidden">
-      </div>
+      {/* Background */}
+      <div className="absolute inset-0 -z-10 overflow-hidden"></div>
 
       <div className="relative mx-auto max-w-7xl z-10">
         {/* Section Header */}
-        <div ref={headerRef} className="mb-16 flex flex-col items-center text-center">
-          <div className="badge mb-4 inline-flex items-center rounded-full border border-primary/30 bg-primary/10 backdrop-blur-sm px-4 py-1.5 text-sm font-medium text-primary">
+        <div className="mb-16 flex flex-col items-center text-center">
+          <div
+            className={`scroll-animate pop-in mb-4 inline-flex items-center rounded-full border border-primary/30 bg-primary/10 backdrop-blur-sm px-4 py-1.5 text-sm font-medium text-primary ${isInView ? 'in-view' : ''}`}
+          >
             <Layers className="mr-2 size-4" />
             Features
           </div>
-          <h2 ref={titleRef} className="mb-6 text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl lg:text-6xl">
+          <h2
+            className={`scroll-animate slide-fade-up anim-delay-100 mb-6 text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl lg:text-6xl ${isInView ? 'in-view' : ''}`}
+          >
             Everything you need to
             <br />
             <span className="text-primary">boost productivity</span>
           </h2>
-          <p ref={descriptionRef} className="max-w-2xl text-lg text-muted-foreground md:text-xl leading-relaxed">
+          <p
+            className={`scroll-animate slide-fade-up-small anim-delay-200 max-w-2xl text-lg text-muted-foreground md:text-xl leading-relaxed ${isInView ? 'in-view' : ''}`}
+          >
             Luminite AI combines powerful task management with cutting-edge AI
             technology to help you work smarter and achieve more.
           </p>
         </div>
 
         {/* Bento Grid */}
-        <div ref={gridRef}>
+        <div>
           <BentoGrid>
             {features.map((feature, idx) => (
-              <BentoCard key={idx} {...feature} className={cn(feature.className, "bento-card")} />
+              <BentoCard
+                key={idx}
+                {...feature}
+                className={cn(
+                  feature.className,
+                  "bento-card scroll-animate card-fade-scale",
+                  isInView ? 'in-view' : ''
+                )}
+                style={{ animationDelay: `${0.3 + idx * 0.15}s` }}
+              />
             ))}
           </BentoGrid>
         </div>
@@ -345,4 +206,3 @@ export function FeaturesSection() {
     </section>
   );
 }
-

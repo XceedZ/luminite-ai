@@ -47,6 +47,14 @@ export const metadata: Metadata = {
   authors: [{ name: "Luminite AI Team" }],
   creator: "Luminite AI",
   publisher: "Luminite AI",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+    ],
+    apple: [
+      { url: "/apple-icon.svg", type: "image/svg+xml" },
+    ],
+  },
   robots: {
     index: true,
     follow: true,

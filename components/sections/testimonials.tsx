@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
 import { Star, MessageCircle } from "lucide-react";
 import { Marquee } from "@/components/ui/marquee";
+import { useInView } from "@/hooks/use-in-view";
 
 /**
  * Testimonials Section Component
@@ -114,187 +114,44 @@ const TestimonialCard = ({
 };
 
 export function TestimonialsSection() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const descriptionRef = useRef<HTMLParagraphElement>(null);
-  const backgroundRef = useRef<HTMLDivElement>(null);
-  const marqueeRef = useRef<HTMLDivElement>(null);
+  const { ref: sectionRef, isInView } = useInView<HTMLElement>({ threshold: 0.1 });
 
   const firstRow = testimonials.slice(0, testimonials.length / 2);
   const secondRow = testimonials.slice(testimonials.length / 2);
 
-  useEffect(() => {
-    if (!sectionRef.current || !headerRef.current || !titleRef.current || !descriptionRef.current) return;
-
-    // Dynamic import GSAP untuk code splitting
-    Promise.all([
-      import("gsap"),
-      import("gsap/ScrollTrigger"),
-    ]).then(([gsapModule, scrollTriggerModule]) => {
-      const gsap = gsapModule.default;
-      const ScrollTrigger = scrollTriggerModule.default;
-      
-      if (typeof window !== "undefined") {
-        gsap.registerPlugin(ScrollTrigger);
-        gsap.config({ nullTargetWarn: false });
-      }
-
-      const ctx = gsap.context(() => {
-      // Animate header badge dengan optimasi
-      const badgeElement = headerRef.current?.querySelector(".badge");
-      if (badgeElement) {
-        gsap.fromTo(
-          badgeElement,
-          {
-            opacity: 0,
-            scale: 0.8,
-            y: -20,
-            force3D: true,
-          },
-          {
-            opacity: 1,
-            scale: 1,
-            y: 0,
-            duration: 0.6,
-            ease: "back.out(1.7)",
-            force3D: true,
-            scrollTrigger: {
-              trigger: sectionRef.current,
-              start: "top 85%",
-              toggleActions: "play none none reverse",
-              markers: false,
-              invalidateOnRefresh: false,
-            },
-          }
-        );
-      }
-
-      // Animate title dengan optimasi
-      gsap.fromTo(
-        titleRef.current,
-        {
-          opacity: 0,
-          y: 50,
-          force3D: true,
-        },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 1,
-          ease: "power3.out",
-          force3D: true,
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 80%",
-            toggleActions: "play none none reverse",
-            markers: false,
-            invalidateOnRefresh: false,
-          },
-        }
-      );
-
-      // Animate description dengan optimasi
-      gsap.fromTo(
-        descriptionRef.current,
-        {
-          opacity: 0,
-          y: 30,
-          force3D: true,
-        },
-        {
-          opacity: 1,
-          y: 0,
-          duration: 0.8,
-          ease: "power2.out",
-          delay: 0.2,
-          force3D: true,
-          scrollTrigger: {
-            trigger: sectionRef.current,
-            start: "top 75%",
-            toggleActions: "play none none reverse",
-            markers: false,
-            invalidateOnRefresh: false,
-          },
-        }
-      );
-
-      // Animate testimonial cards dengan optimasi
-      if (marqueeRef.current) {
-        gsap.fromTo(
-          marqueeRef.current.querySelectorAll(".testimonial-card"),
-          {
-            opacity: 0,
-            scale: 0.9,
-            y: 50,
-            force3D: true,
-          },
-          {
-            opacity: 1,
-            scale: 1,
-            y: 0,
-            duration: 0.8,
-            ease: "power3.out",
-            stagger: 0.1,
-            force3D: true,
-            scrollTrigger: {
-              trigger: marqueeRef.current,
-              start: "top 80%",
-              toggleActions: "play none none reverse",
-              markers: false,
-              invalidateOnRefresh: false,
-            },
-          }
-        );
-      }
-
-      // Parallax background dengan optimasi scrub
-      if (backgroundRef.current) {
-      gsap.to(backgroundRef.current, {
-        y: -80,
-          force3D: true,
-        scrollTrigger: {
-          trigger: sectionRef.current,
-          start: "top bottom",
-          end: "bottom top",
-            scrub: true,
-            markers: false,
-            invalidateOnRefresh: false,
-        },
-      });
-      }
-      }, sectionRef);
-
-      return () => ctx.revert();
-    });
-  }, []);
-
   return (
     <section ref={sectionRef} id="testimonials" className="relative w-full overflow-hidden px-4 py-32 md:px-8">
-      {/* Animated Background */}
-      <div ref={backgroundRef} className="absolute inset-0 -z-10 overflow-hidden">
-      </div>
+      {/* Background */}
+      <div className="absolute inset-0 -z-10 overflow-hidden"></div>
 
       <div className="relative mx-auto max-w-7xl z-10">
         {/* Section Header */}
-        <div ref={headerRef} className="mb-16 flex flex-col items-center text-center">
-          <div className="badge mb-4 inline-flex items-center rounded-full border border-primary/30 bg-primary/10 backdrop-blur-sm px-4 py-1.5 text-sm font-medium text-primary">
+        <div className="mb-16 flex flex-col items-center text-center">
+          <div
+            className={`scroll-animate pop-in mb-4 inline-flex items-center rounded-full border border-primary/30 bg-primary/10 backdrop-blur-sm px-4 py-1.5 text-sm font-medium text-primary ${isInView ? 'in-view' : ''}`}
+          >
             <MessageCircle className="mr-2 size-4" />
             Testimonials
           </div>
-          <h2 ref={titleRef} className="mb-6 text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl lg:text-6xl">
+          <h2
+            className={`scroll-animate slide-fade-up anim-delay-100 mb-6 text-3xl font-bold tracking-tight text-foreground sm:text-4xl md:text-5xl lg:text-6xl ${isInView ? 'in-view' : ''}`}
+          >
             Loved by teams
             <br />
             <span className="text-primary">around the world</span>
           </h2>
-          <p ref={descriptionRef} className="max-w-2xl text-lg text-muted-foreground md:text-xl leading-relaxed">
+          <p
+            className={`scroll-animate slide-fade-up-small anim-delay-200 max-w-2xl text-lg text-muted-foreground md:text-xl leading-relaxed ${isInView ? 'in-view' : ''}`}
+          >
             See what our customers have to say about their experience with
             Luminite AI.
           </p>
         </div>
 
         {/* Marquee Testimonials */}
-        <div ref={marqueeRef} className="relative flex flex-col gap-4">
+        <div
+          className={`scroll-animate card-fade-scale anim-delay-300 relative flex flex-col gap-4 ${isInView ? 'in-view' : ''}`}
+        >
           <Marquee pauseOnHover className="[--duration:40s]">
             {firstRow.map((testimonial, idx) => (
               <TestimonialCard key={idx} {...testimonial} />
@@ -312,4 +169,3 @@ export function TestimonialsSection() {
     </section>
   );
 }
-

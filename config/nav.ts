@@ -13,6 +13,7 @@ import {
   IconMessage,
   IconRobot,
   IconClipboardList,
+  IconShape, // Ikon untuk Diagram
   // Ikon yang sudah ada
   type Icon,
   IconCamera,
@@ -67,6 +68,12 @@ export const mainNav: NavItem[] = [
         icon: IconRobot, // Ikon untuk submenu
       },
     ],
+  },
+  {
+    name: "diagram",
+    title: "Diagram",
+    href: "diagram",
+    icon: IconShape,
   },
   {
     name: "tasks",
@@ -140,19 +147,19 @@ export const dataNav: NavItem[] = [
 
 export const navHistory: NavItem[] = [
   {
-      name: "history-chat",
-      title: "General Chat",
-      href: "playground/general-chat",
+    name: "history-chat",
+    title: "General Chat",
+    href: "playground/general-chat",
   },
   {
-      name: "history-analytics",
-      title: "Analytics",
-      href: "analytics",
+    name: "history-analytics",
+    title: "Analytics",
+    href: "analytics",
   },
   {
-      name: "history-proposal",
-      title: "Proposal",
-      href: "library/proposal",
+    name: "history-proposal",
+    title: "Proposal",
+    href: "library/proposal",
   }
 ]
 

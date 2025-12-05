@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState } from "react";
 import { ArrowRight, ArrowUp, Plus, Wand2, Loader2, AtSign, X, Check, Play, Zap } from "lucide-react";
 import { AnimatedShinyText } from "@/components/ui/animated-shiny-text";
 import { Particles } from "@/components/ui/particles";
@@ -11,7 +11,6 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupTextarea,
-  InputGroupText,
 } from "@/components/ui/input-group";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,7 +34,7 @@ const AIInputSection = () => {
   const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false);
   const [selectedModel, setSelectedModel] = useState("auto");
   const [selectedContext, setSelectedContext] = useState<{ id: string; title: string }[]>([]);
-  
+
   // Placeholder chat sessions untuk demo (di production ini akan dari API/store)
   const chatSessions: { id: string; title: string }[] = [];
 
@@ -68,11 +67,11 @@ const AIInputSection = () => {
 
   return (
     <div className="relative mt-8 flex w-full max-w-4xl mx-auto justify-center items-center">
-    {/* --- KUMPULAN DIV UNTUK EFEK GLOW HALUS --- */}
+      {/* --- KUMPULAN DIV UNTUK EFEK GLOW HALUS --- */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-2/3 h-2/3 bg-white/8 blur-3xl rounded-full pointer-events-none animate-float-1" />
       <div className="absolute top-1/2 left-0 -translate-y-1/2 w-1/2 h-full bg-white/6 blur-3xl rounded-full pointer-events-none animate-float-2" />
       <div className="absolute top-1/2 right-0 -translate-y-1/2 w-1/2 h-full bg-white/6 blur-3xl rounded-full pointer-events-none animate-float-3" />
-    {/* ------------------------------------------- */}
+      {/* ------------------------------------------- */}
 
       {/* Kontainer untuk Input dengan BorderBeam */}
       <div className="relative w-full rounded-2xl shadow-2xl overflow-hidden border border-border/50 bg-background/40 backdrop-blur-xl">
@@ -198,82 +197,34 @@ const AIInputSection = () => {
           </InputGroup>
         </form>
         {/* BorderBeam untuk efek visual */}
-      <BorderBeam size={250} duration={12} delay={9} />
+        <BorderBeam size={250} duration={12} delay={9} />
+      </div>
     </div>
-  </div>
-);
+  );
 };
 
 
 export function HeroSection() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const badgeRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLHeadingElement>(null);
-  const descriptionRef = useRef<HTMLParagraphElement>(null);
-  const buttonsRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLDivElement>(null);
-  const particlesRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    // Trigger animations immediately for hero section (always visible)
-    // Add visible class to all animated elements
-    const elements = [
-      badgeRef.current,
-      titleRef.current,
-      descriptionRef.current,
-      buttonsRef.current?.children[0],
-      buttonsRef.current?.children[1],
-      inputRef.current,
-    ].filter(Boolean);
-
-    elements.forEach((el) => {
-      if (el) {
-        (el as HTMLElement).classList.add("visible");
-      }
-    });
-
-    // Parallax effect for particles using CSS transform on scroll
-    const handleScroll = () => {
-      if (particlesRef.current && sectionRef.current) {
-        const rect = sectionRef.current.getBoundingClientRect();
-        const scrollProgress = Math.max(0, Math.min(1, -rect.top / window.innerHeight));
-        particlesRef.current.style.transform = `translateY(${scrollProgress * -100}px)`;
-      }
-    };
-
-    window.addEventListener("scroll", handleScroll, { passive: true });
-    handleScroll(); // Initial call
-
-    return () => {
-      window.removeEventListener("scroll", handleScroll);
-    };
-  }, []);
-
   return (
-    <section ref={sectionRef} className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden px-4 py-20 md:px-8">
+    <section className="relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden px-4 py-20 md:px-8">
       {/* Background Particles */}
-      <div ref={particlesRef}>
-        <Particles
-          className="absolute inset-0"
-          quantity={50}
-          ease={80}
-          color="#ffffff"
-          staticity={50}
-          refresh
-        />
-      </div>
+      <Particles
+        className="absolute inset-0"
+        quantity={50}
+        ease={80}
+        color="#ffffff"
+        staticity={50}
+        refresh
+      />
 
       {/* Kontainer Konten Utama */}
       <div className="relative z-10 flex w-full max-w-5xl flex-col items-center gap-8 text-center">
-        {/* Badge dengan AnimatedShinyText */}
+        {/* Badge dengan AnimatedShinyText - langsung visible tanpa animasi delay */}
         <div
-          ref={badgeRef}
-          className={cn(
-            "group rounded-full border border-primary/30 bg-primary/10 backdrop-blur-sm px-4 py-1.5 text-sm font-medium transition-all duration-300 ease-in-out hover:cursor-pointer hover:bg-primary/20 hover:border-primary/40 hover:scale-105 fade-in-scale visible"
-          )}
-          style={{ animationDelay: "0.2s" }}
+          className="group rounded-full border border-primary/30 bg-primary/10 backdrop-blur-sm px-4 py-1.5 text-sm font-medium transition-all duration-300 ease-in-out hover:cursor-pointer hover:bg-primary/20 hover:border-primary/40 hover:scale-105 animate-fade-in"
+          style={{ animationDelay: "0.1s", animationFillMode: "both" }}
         >
-          <AnimatedShinyText 
+          <AnimatedShinyText
             shimmerWidth={150}
             className="inline-flex items-center justify-center gap-2 text-primary"
           >
@@ -285,7 +236,10 @@ export function HeroSection() {
 
         {/* Headline Utama */}
         <div className="space-y-4">
-          <h1 ref={titleRef} className="text-5xl font-bold tracking-tight text-foreground sm:text-6xl md:text-7xl lg:text-8xl leading-tight fade-in-up visible" style={{ animationDelay: "0.4s" }}>
+          <h1
+            className="text-5xl font-bold tracking-tight text-foreground sm:text-6xl md:text-7xl lg:text-8xl leading-tight animate-fade-in"
+            style={{ animationDelay: "0.2s", animationFillMode: "both" }}
+          >
             Build the future
             <br />
             <span className="text-primary">with a prompt</span>
@@ -293,15 +247,18 @@ export function HeroSection() {
         </div>
 
         {/* Deskripsi */}
-        <p ref={descriptionRef} className="max-w-2xl text-lg text-muted-foreground md:text-xl leading-relaxed fade-in-up visible" style={{ animationDelay: "0.8s" }}>
+        <p
+          className="max-w-2xl text-lg text-muted-foreground md:text-xl leading-relaxed animate-fade-in"
+          style={{ animationDelay: "0.3s", animationFillMode: "both" }}
+        >
           All your AI productivity tools unified in one powerful application.
         </p>
 
         {/* Tombol CTA */}
-        <div ref={buttonsRef} className="flex flex-col sm:flex-row items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-center gap-4">
           <Button
-            className="shadow-2xl hover:scale-105 transition-transform fade-in-up visible"
-            style={{ animationDelay: "1.2s" }}
+            className="shadow-2xl hover:scale-105 transition-transform animate-fade-in"
+            style={{ animationDelay: "0.4s", animationFillMode: "both" }}
             onClick={() => window.open('https://luminite-ai.vercel.app', '_blank')}
           >
             <span className="whitespace-pre-wrap text-center text-sm font-medium leading-none tracking-tight lg:text-base flex items-center gap-2">
@@ -311,8 +268,8 @@ export function HeroSection() {
           </Button>
           <Button
             variant="ghost"
-            className="text-muted-foreground hover:text-foreground flex items-center gap-2 fade-in-up visible"
-            style={{ animationDelay: "1.35s" }}
+            className="text-muted-foreground hover:text-foreground flex items-center gap-2 animate-fade-in"
+            style={{ animationDelay: "0.5s", animationFillMode: "both" }}
             onClick={() => {
               // TODO: Add video link or modal
               window.open('#', '_blank');
@@ -325,7 +282,10 @@ export function HeroSection() {
       </div>
 
       {/* Showcase Komponen UI - AI Input Section */}
-      <div ref={inputRef} className="relative z-10 w-full mt-12 fade-in-up visible" style={{ animationDelay: "1.6s" }}>
+      <div
+        className="relative z-10 w-full mt-12 animate-fade-in"
+        style={{ animationDelay: "0.6s", animationFillMode: "both" }}
+      >
         <AIInputSection />
       </div>
     </section>
