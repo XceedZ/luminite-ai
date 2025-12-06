@@ -228,6 +228,7 @@ export function DiagramAIPanel({
     const [input, setInput] = useState("");
     const [attachedImage, setAttachedImage] = useState<string | null>(null);
     const [isEnhancing, setIsEnhancing] = useState(false);
+    const [isFocused, setIsFocused] = useState(false);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { t } = useLanguage();
@@ -241,6 +242,8 @@ export function DiagramAIPanel({
         generate,
         clearMessages
     } = useDiagramAIStore();
+
+    const isExpanded = isFocused || input.length > 0 || isLoading;
 
     useEffect(() => {
         if (scrollContainerRef.current) {
@@ -474,66 +477,96 @@ export function DiagramAIPanel({
                 />
 
                 <form onSubmit={handleSubmit}>
-                    <InputGroup className="rounded-xl">
-                        <InputGroupTextarea
-                            placeholder={t("diagramAIPlaceholder")}
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            disabled={isLoading}
-                            className="max-h-[8rem] resize-none rounded-xl"
-                        />
-                        <InputGroupAddon align="block-end">
-                            <InputGroupButton
-                                type="button"
-                                variant="outline"
-                                className="rounded-full"
-                                size="icon-xs"
-                                onClick={handlePlusClick}
-                            >
-                                <IconPlus />
-                            </InputGroupButton>
-                            <InputGroupButton
-                                type="button"
-                                variant="ghost"
-                                className="rounded-full"
-                                size="icon-xs"
-                                onClick={handleEnhancePrompt}
-                                disabled={!input.trim() || isEnhancing}
-                                title={t("enhancePrompt")}
-                            >
-                                {isEnhancing ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Wand2 className="h-4 w-4" />
-                                )}
-                            </InputGroupButton>
-                            <div className="flex-1" />
+                    <div
+                        className={cn(
+                            "border border-input dark:bg-input/30 rounded-xl transition-all duration-200 ease-in-out",
+                            isExpanded ? "shadow-md ring-1 ring-primary/20" : "shadow-xs"
+                        )}
+                        style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            width: '100%',
+                        }}
+                    >
+                        <div className="px-3 pt-3">
+                            <textarea
+                                placeholder={t("diagramAIPlaceholder")}
+                                value={input}
+                                onChange={(e) => {
+                                    setInput(e.target.value);
+                                    e.target.style.height = 'auto';
+                                    e.target.style.height = `${e.target.scrollHeight}px`;
+                                }}
+                                onFocus={() => setIsFocused(true)}
+                                onBlur={() => setIsFocused(false)}
+                                onKeyDown={handleKeyDown}
+                                disabled={isLoading}
+                                rows={1}
+                                className="w-full bg-transparent border-none outline-none text-sm text-foreground placeholder:text-muted-foreground resize-none max-h-[200px]"
+                                style={{
+                                    padding: '0',
+                                    minHeight: isExpanded ? '60px' : '24px',
+                                    transition: 'min-height 0.2s ease'
+                                }}
+                            />
+                        </div>
+
+                        {/* Footer Buttons - Always visible */}
+                        <div className="flex items-center justify-between px-3 pb-3">
+                            <div className="flex items-center gap-2 text-muted-foreground">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-full"
+                                    onClick={handlePlusClick}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                >
+                                    <IconPlus className="h-3.5 w-3.5" />
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-full"
+                                    onClick={handleEnhancePrompt}
+                                    disabled={!input.trim() || isEnhancing}
+                                    title={t("enhancePrompt")}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                >
+                                    {isEnhancing ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                        <Wand2 className="h-3.5 w-3.5" />
+                                    )}
+                                </Button>
+                            </div>
+
                             {isLoading ? (
-                                <InputGroupButton
+                                <Button
                                     type="button"
                                     variant="secondary"
-                                    className="rounded-full"
-                                    size="icon-xs"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-full bg-secondary text-secondary-foreground"
                                     onClick={stopGeneration}
-                                    aria-label="Stop"
+                                    onMouseDown={(e) => e.preventDefault()}
                                 >
-                                    <Square className="h-4 w-4" />
-                                </InputGroupButton>
+                                    <Square className="h-3 w-3" />
+                                </Button>
                             ) : (
-                                <InputGroupButton
+                                <Button
                                     type="submit"
                                     variant="default"
-                                    className="rounded-full"
-                                    size="icon-xs"
+                                    size="icon"
+                                    className="h-6 w-6 rounded-full"
                                     disabled={!input.trim()}
-                                    aria-label="Send"
+                                    onMouseDown={(e) => e.preventDefault()}
                                 >
-                                    <ArrowUp className="h-4 w-4" />
-                                </InputGroupButton>
+                                    <ArrowUp className="h-3.5 w-3.5" />
+                                </Button>
                             )}
-                        </InputGroupAddon>
-                    </InputGroup>
+                        </div>
+                    </div>
                 </form>
             </div>
         </div>

@@ -1,12 +1,14 @@
 "use client";
 
-import { Undo, Redo, Trash2, Download, Save, Code, Image, FileText, RotateCcw, Sparkles, ArrowLeft } from "lucide-react";
+import { Undo, Redo, Trash2, Download, Upload, Save, Code, Image, FileText, RotateCcw, Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RainbowButton } from "@/components/ui/rainbow-button";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Separator } from "@/components/ui/separator";
@@ -19,6 +21,7 @@ interface DiagramToolbarProps {
     onExportMermaid: () => void;
     onExportPNG: () => void;
     onExportSVG: () => void;
+    onImportMermaid: () => void;
     onDelete: () => void;
     onClear: () => void;
     onToggleAI: () => void;
@@ -30,6 +33,7 @@ export function DiagramToolbar({
     onExportMermaid,
     onExportPNG,
     onExportSVG,
+    onImportMermaid,
     onDelete,
     onClear,
     onToggleAI,
@@ -69,15 +73,23 @@ export function DiagramToolbar({
 
             <Separator orientation="vertical" className="h-6" />
 
-            {/* Export Menu */}
+            {/* File Menu - Import/Export */}
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="sm">
-                        <Download className="h-4 w-4 mr-2" />
-                        Export
+                        <FileText className="h-4 w-4 mr-2" />
+                        File
                     </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
+                <DropdownMenuContent align="start" className="w-48">
+                    {/* Import */}
+                    <DropdownMenuItem onClick={onImportMermaid}>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Import Mermaid
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {/* Export */}
+                    <DropdownMenuLabel className="text-xs text-muted-foreground">Export As</DropdownMenuLabel>
                     <DropdownMenuItem onClick={onExportMermaid}>
                         <Code className="h-4 w-4 mr-2" />
                         Mermaid Code
@@ -87,7 +99,7 @@ export function DiagramToolbar({
                         PNG Image
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={onExportSVG}>
-                        <FileText className="h-4 w-4 mr-2" />
+                        <Download className="h-4 w-4 mr-2" />
                         SVG Vector
                     </DropdownMenuItem>
                 </DropdownMenuContent>

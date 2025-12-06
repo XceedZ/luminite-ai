@@ -2916,3 +2916,292 @@ export async function clearDiagramChatHistory(diagramId: string) {
   }
 }
 
+/**
+ * Analyze document AI request to determine intent and action
+ * Note: Document editor only supports write/edit - no chat responses
+ */
+export type DocumentAnalysisResult = {
+  intent: 'write' | 'edit';
+  recommendation: 'replace_all' | 'replace_selection';
+  suggestOptions: boolean;
+  response: string;
+};
+
+export async function analyzeDocumentRequest(
+  prompt: string,
+  selectedText: string = '',
+  language: string = 'id'
+): Promise<DocumentAnalysisResult> {
+  'use server';
+
+  const hasSelection = selectedText.length > 0;
+
+  const systemPrompt = `You are a document assistant analyzer. Analyze the user's request and determine:
+1. **intent**: 
+   - "write" = user wants new content created (articles, paragraphs, lists, etc.)
+   - "edit" = user wants to modify/improve existing content
+
+2. **recommendation**:
+   - "replace_selection" = if user has selected text and wants to modify/improve it
+   - "replace_all" = if user wants new content or the change affects the whole document
+
+3. **suggestOptions**: true if ambiguous and user should choose, false if obvious
+
+4. **response**: Brief ${language === 'id' ? 'Indonesian' : 'English'} response acknowledging the request (max 10 words)
+
+Return JSON only:
+{"intent": "write|edit", "recommendation": "replace_all|replace_selection", "suggestOptions": true|false, "response": "..."}`;
+
+  const userMessage = `User request: "${prompt}"
+${hasSelection ? `Selected text: "${selectedText.substring(0, 200)}${selectedText.length > 200 ? '...' : ''}"` : 'No text selected'}
+
+Analyze and return JSON:`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemma-3-4b-it",
+      contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userMessage }] }]
+    });
+
+    const responseText = response.text || '';
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]) as DocumentAnalysisResult;
+
+      // Ensure intent is valid (no chat)
+      if (parsed.intent !== 'write' && parsed.intent !== 'edit') {
+        parsed.intent = hasSelection ? 'edit' : 'write';
+      }
+
+      // If no selection, always suggest replace_all
+      if (!hasSelection) {
+        parsed.recommendation = 'replace_all';
+        parsed.suggestOptions = false;
+      }
+
+      return parsed;
+    }
+  } catch (error) {
+    console.error('[Document AI] Analysis error:', error);
+  }
+
+  // Default response
+  return {
+    intent: hasSelection ? 'edit' : 'write',
+    recommendation: hasSelection ? 'replace_selection' : 'replace_all',
+    suggestOptions: hasSelection,
+    response: language === 'id'
+      ? 'Siap membantu!'
+      : 'Ready to help!'
+  };
+}
+
+/**
+ * Enhance a document-related prompt
+ */
+export async function enhancePromptDocument(
+  originalPrompt: string,
+  language: string = 'id'
+): Promise<string> {
+  'use server';
+
+  if (!originalPrompt || originalPrompt.trim().length === 0) {
+    return originalPrompt;
+  }
+
+  const systemPrompt = `You are a prompt enhancer for document writing. Your task is to improve user prompts to be more specific and detailed for better AI writing assistance.
+
+Rules:
+1. Keep the original intent
+2. Add helpful details like tone, format, length if not specified
+3. Use ${language === 'id' ? 'Bahasa Indonesia' : 'English'}
+4. Return ONLY the enhanced prompt, no explanations
+5. Keep it concise (max 2-3 sentences)
+
+Examples:
+- "tulis intro" → "Tulis paragraf pembuka yang menarik dan profesional untuk artikel ini, dengan hook yang engaging dan preview isi utama"
+- "improve this" → "Improve this text to be more concise, professional, and engaging while keeping the core message intact"`;
+
+  const userPrompt = `Original prompt: "${originalPrompt}"
+
+Enhanced prompt:`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemma-3-4b-it",
+      contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }]
+    });
+
+    const enhanced = response.text?.trim() || originalPrompt;
+
+    // Clean up
+    const cleaned = enhanced
+      .replace(/^(Enhanced prompt|Improved prompt|Here's|Berikut)[:\s]*/i, '')
+      .replace(/^["']|["']$/g, '')
+      .trim();
+
+    return cleaned.length > 10 ? cleaned : originalPrompt;
+  } catch (error) {
+    console.error('[Document AI] Enhance error:', error);
+    return originalPrompt;
+  }
+}
+
+/**
+ * Generate AI response for document editor
+ * Returns Tiptap-compatible HTML with optional Pexels images
+ */
+export async function generateDocumentAIResponse(
+  prompt: string,
+  selectedText: string = '',
+  mode: 'replace_all' | 'replace_selection' = 'replace_all',
+  language: string = 'id',
+  providedImages: string[] = []
+): Promise<string> {
+  'use server';
+
+  if (!prompt || prompt.trim().length === 0) {
+    return '';
+  }
+
+  // Fetch Pexels images for content that might need visuals
+  let pexelsImages: string[] = providedImages;
+  try {
+    // Only fetch images for write mode (new content) if not provided
+    if (mode === 'replace_all' && pexelsImages.length === 0) {
+      pexelsImages = await fetchPexelsImages(prompt, 3);
+      console.log(`[Document AI] Fetched ${pexelsImages.length} Pexels images`);
+    }
+  } catch (error) {
+    console.warn('[Document AI] Failed to fetch Pexels images:', error);
+  }
+
+  const contextInfo = selectedText
+    ? `\n\n**Selected Text to ${mode === 'replace_selection' ? 'modify' : 'reference'}:**\n"${selectedText}"`
+    : '';
+
+  const pexelsInfo = pexelsImages.length > 0 ? `
+
+**Available Images from Pexels (use if relevant):**
+${pexelsImages.map((url, idx) => `${idx + 1}. ${url}`).join('\n')}
+
+You may include these images using: <img src="URL" alt="description" />
+Only include images if they enhance the content.` : '';
+
+  const systemPrompt = `You are an intelligent writing assistant embedded in a Tiptap rich text editor. Generate content in clean HTML format.
+
+**Output Format Rules:**
+1. Use semantic HTML tags that Tiptap supports:
+   - Headings: <h1>, <h2>, <h3>
+   - Paragraphs: <p>
+   - Lists: <ul><li>...</li></ul> or <ol><li>...</li></ol>
+   - Bold: <strong>
+   - Italic: <em>
+   - Code: <code> for inline, <pre><code>...</code></pre> for blocks
+   - Blockquotes: <blockquote><p>...</p></blockquote>
+   - Images: <img src="URL" alt="description" />
+   - Task lists: <ul data-type="taskList"><li data-type="taskItem" data-checked="false">...</li></ul>
+
+2. Content Rules:
+   - Use ${language === 'id' ? 'Bahasa Indonesia' : 'English'}
+   - Be professional and well-structured
+   - ${mode === 'replace_selection'
+      ? 'CRITICAL: You are strictly replacing the selected text based on the instruction. Do NOT repeat the instruction. Do NOT add conversational filler like "Here is the text". DIRECTLY output the modified text only.'
+      : 'Generate new content as requested'}
+   - Return ONLY the HTML content, no explanations or markdown`;
+
+  const userPrompt = `**User Request:** ${prompt}${contextInfo}${pexelsInfo}
+
+Generate the HTML content:`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemma-3-12b-it",
+      contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }]
+    });
+
+    let result = response.text?.trim() || '';
+
+    // Clean up markdown code blocks if AI wrapped it
+    result = result
+      .replace(/^```html?\s*\n?/i, '')
+      .replace(/\n?```\s*$/i, '')
+      .replace(/^(Here's|Here is|Berikut|Ini adalah)[:\s]*/i, '')
+      .trim();
+
+    // If result is not HTML (no tags), wrap in paragraph
+    if (!result.includes('<') && result.length > 0) {
+      result = `<p>${result}</p>`;
+    }
+
+    return result;
+  } catch (error) {
+    console.error('[Document AI] Error generating response:', error);
+    return language === 'id'
+      ? '<p>Maaf, terjadi kesalahan saat memproses permintaan.</p>'
+      : '<p>Sorry, an error occurred while processing your request.</p>';
+  }
+}
+
+/**
+ * Search Pexels images for document editor
+ */
+export async function searchPexelsImages(
+  query: string,
+  count: number = 8
+): Promise<{ url: string; alt: string; photographer: string }[]> {
+  'use server';
+
+  try {
+    const apiKey = process.env.PEXELS_API_KEY;
+    if (!apiKey) {
+      console.warn('[Pexels] API key not found');
+      return [];
+    }
+
+    // Use AI to extract/translate keywords to English for better search results
+    let searchQuery = query;
+    try {
+      const keywordResponse = await ai.models.generateContent({
+        model: "gemma-3-4b-it",
+        contents: [{
+          role: 'user',
+          parts: [{
+            text: `Extract 1-3 best English search keywords for finding stock photos based on this user prompt: "${query}". 
+            Return ONLY the keywords separated by spaces. Do not return any other text.`
+          }]
+        }]
+      });
+      const keywords = keywordResponse.text?.trim();
+      if (keywords) {
+        searchQuery = keywords;
+        console.log(`[Pexels] Translated/Refined query: "${query}" -> "${searchQuery}"`);
+      }
+    } catch (e) {
+      console.warn('[Pexels] AI keyword extraction failed, using original query');
+    }
+
+    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(searchQuery)}&per_page=${count}&orientation=landscape`;
+
+    const response = await fetch(url, {
+      headers: { Authorization: apiKey },
+    });
+
+    if (!response.ok) {
+      console.error('[Pexels] API error:', response.status);
+      return [];
+    }
+
+    const data = await response.json();
+
+    return data.photos?.map((photo: { src: { large: string }; alt: string; photographer: string }) => ({
+      url: photo.src.large,
+      alt: photo.alt || query,
+      photographer: photo.photographer
+    })) || [];
+  } catch (error) {
+    console.error('[Pexels] Search error:', error);
+    return [];
+  }
+}

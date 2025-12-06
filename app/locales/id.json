@@ -244,7 +244,17 @@
     "pdfDocument": "Dokumen PDF",
     "rightClickToAddField": "Klik kanan untuk tambah field",
     "cut": "Potong",
-    "paste": "Tempel"
+    "paste": "Tempel",
+    "share": "Bagikan",
+    "save": "Simpan",
+    "saving": "Menyimpan...",
+    "document": "Dokumen",
+    "aiInputPlaceholder": "Jelaskan apa yang ingin ditulis",
+    "add": "Tambah",
+    "replaceSelection": "Ganti Seleksi",
+    "analyzing": "Menganalisis...",
+    "generating": "Membuat...",
+    "searchImages": "Cari gambar"
   },
   "success": {
     "login_title": "Selamat datang kembali!",

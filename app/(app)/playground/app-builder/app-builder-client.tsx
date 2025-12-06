@@ -131,38 +131,38 @@ const AIMessage = ({ msg, compact = false }: { msg: ChatMessage; compact?: boole
     <div className={cn("prose prose-zinc max-w-none dark:prose-invert", compact && "[&>p:first-child]:!mt-0 [&>p:last-child]:!mb-0")}>
       <ReactMarkdown
         components={{
-          h1: ({ ...props }) => (
+          h1: ({ node, ref, ...props }) => (
             <h1
               {...props}
               className="mt-5 mb-3 text-3xl font-bold text-foreground"
             />
           ),
-          h2: ({ ...props }) => (
+          h2: ({ node, ref, ...props }) => (
             <h2
               {...props}
               className="mt-4 mb-2 border-b pb-1 text-2xl font-bold text-foreground"
             />
           ),
-          h3: ({ ...props }) => (
+          h3: ({ node, ref, ...props }) => (
             <h3
               {...props}
               className="mt-3 mb-1 text-xl font-semibold text-foreground"
             />
           ),
-          ul: ({ ...props }) => (
+          ul: ({ node, ref, ...props }) => (
             <ul
               {...props}
               className="my-3 list-inside list-disc space-y-1"
             />
           ),
-          ol: ({ ...props }) => (
+          ol: ({ node, ref, ...props }) => (
             <ol
               {...props}
               className="my-3 list-inside list-decimal space-y-1"
             />
           ),
-          li: ({ ...props }) => <li {...props} className="pl-2" />,
-          a: ({ ...props }) => (
+          li: ({ node, ref, ...props }) => <li {...props} className="pl-2" />,
+          a: ({ node, ref, ...props }) => (
             <a
               {...props}
               className="text-primary underline hover:opacity-80"
@@ -170,20 +170,20 @@ const AIMessage = ({ msg, compact = false }: { msg: ChatMessage; compact?: boole
               rel="noopener noreferrer"
             />
           ),
-          strong: ({ ...props }) => (
+          strong: ({ node, ref, ...props }) => (
             <strong
               {...props}
               className="font-semibold text-foreground"
             />
           ),
-          code: ({ ...props }) => (
+          code: ({ node, ref, ...props }) => (
             <code
               {...props}
               className="rounded-md bg-muted px-1.5 py-1 font-mono text-sm text-muted-foreground"
             />
           ),
-          pre: ({ ...props }) => <CodeBlock {...props} />,
-          p: ({ ...props }) => (
+          pre: ({ node, ref, ...props }) => <CodeBlock {...props} />,
+          p: ({ node, ref, ...props }) => (
             <p {...props} className={cn("mb-3 leading-relaxed", compact && "first:!mt-0 last:!mb-0")} />
           ),
         }}
@@ -333,7 +333,7 @@ const InputSection = ({
   const handleKeyDown = (e: any) => {
     // Check if device is mobile
     const isMobile = typeof window !== "undefined" && window.innerWidth < 768
-    
+
     if (e.key === "Enter") {
       // On mobile, Enter always creates new line
       if (isMobile) {
@@ -425,18 +425,18 @@ const InputSection = ({
           </InputGroup>
         </form>
 
-{/* ⭐ SECTION UPGRADE — sekarang menyatu */}
-         <div className="flex items-center justify-between px-4 py-3 bg-muted">
-           <p className="text-sm text-muted-foreground">
-             {t("upgradeToTeam").split("{plan}")[0]}
-             <span className="font-semibold text-foreground">{t("pro")}</span>
-             {t("upgradeToTeam").split("{plan}")[1]}
-           </p>
+        {/* ⭐ SECTION UPGRADE — sekarang menyatu */}
+        <div className="flex items-center justify-between px-4 py-3 bg-muted">
+          <p className="text-sm text-muted-foreground">
+            {t("upgradeToTeam").split("{plan}")[0]}
+            <span className="font-semibold text-foreground">{t("pro")}</span>
+            {t("upgradeToTeam").split("{plan}")[1]}
+          </p>
 
-           <Button size="sm" className="flex items-center gap-1">
-             {t("upgradePlan")}
-           </Button>
-         </div>
+          <Button size="sm" className="flex items-center gap-1">
+            {t("upgradePlan")}
+          </Button>
+        </div>
       </div>
 
       {/* ⭐ SUGGESTIONS Tetap sama */}
@@ -504,13 +504,13 @@ const FileAttachment = ({ files }: { files: string[] }) => {
 }
 
 // Individual AI Step Item - appears one by one like attachment (for app_builder only)
-const AIStepItem = ({ step, t }: { 
+const AIStepItem = ({ step, t }: {
   step: { text: string; status: "pending" | "loading" | "done"; response?: string }
   t: (key: string) => string
 }) => {
   const [isExpanded, setIsExpanded] = React.useState(false)
   const [isHovered, setIsHovered] = React.useState(false)
-  
+
   // Get icon based on step text
   const getStepIcon = (stepText: string) => {
     const iconBaseClasses = "h-4 w-4 flex-shrink-0 text-muted-foreground"
@@ -557,13 +557,13 @@ const AIStepItem = ({ step, t }: {
   }
 
   return (
-    <div 
+    <div
       className="w-full max-w-prose self-start animate-in fade-in-0 slide-in-from-bottom-1 duration-200 mb-3 group relative"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
       {/* Clickable row - toggle expansion when clicking (not for Coding final files) */}
-      <div 
+      <div
         className={cn(
           "flex items-center gap-2.5 text-sm transition-colors group",
           // Only make clickable if not Coding final files and has response
@@ -583,7 +583,7 @@ const AIStepItem = ({ step, t }: {
           ) : step.status === "loading" ? (
             <div className="relative">
               {getStepIcon(step.text)}
-              <div 
+              <div
                 className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent opacity-60"
                 style={{
                   backgroundSize: '200% 100%',
@@ -593,18 +593,18 @@ const AIStepItem = ({ step, t }: {
                 }}
               />
             </div>
-        ) : (
-          getStepIcon(step.text)
-        )}
+          ) : (
+            getStepIcon(step.text)
+          )}
         </div>
-        <span 
+        <span
           className={cn(
-          "transition-colors text-sm flex-1",
-          step.status === "done"
+            "transition-colors text-sm flex-1",
+            step.status === "done"
               ? isHovered && stepResponse && !isCodingFinalFiles ? "text-foreground" : "text-muted-foreground"
               : step.status === "loading"
-              ? "text-foreground"
-            : "text-foreground",
+                ? "text-foreground"
+                : "text-foreground",
           )}
         >
           {step.status === "loading" ? (
@@ -637,33 +637,33 @@ const AIStepItem = ({ step, t }: {
               <div className="text-muted-foreground prose prose-zinc max-w-none dark:prose-invert prose-p:text-muted-foreground prose-headings:text-muted-foreground prose-strong:text-muted-foreground prose-code:text-muted-foreground">
                 <ReactMarkdown
                   components={{
-                    h1: ({ ...props }) => (
+                    h1: ({ node, ref, ...props }) => (
                       <h1 {...props} className="mt-5 mb-3 text-3xl font-bold text-muted-foreground" />
                     ),
-                    h2: ({ ...props }) => (
+                    h2: ({ node, ref, ...props }) => (
                       <h2 {...props} className="mt-4 mb-2 border-b border-border pb-1 text-2xl font-bold text-muted-foreground" />
                     ),
-                    h3: ({ ...props }) => (
+                    h3: ({ node, ref, ...props }) => (
                       <h3 {...props} className="mt-3 mb-1 text-xl font-semibold text-muted-foreground" />
                     ),
-                    p: ({ ...props }) => (
+                    p: ({ node, ref, ...props }) => (
                       <p {...props} className="mb-3 leading-relaxed text-muted-foreground" />
                     ),
-                    strong: ({ ...props }) => (
+                    strong: ({ node, ref, ...props }) => (
                       <strong {...props} className="font-semibold text-muted-foreground" />
                     ),
-                    code: ({ ...props }) => (
+                    code: ({ node, ref, ...props }) => (
                       <code {...props} className="rounded-md bg-muted px-1.5 py-1 font-mono text-sm text-muted-foreground" />
                     ),
-                    pre: ({ ...props }) => <CodeBlock {...props} />,
-                    ul: ({ ...props }) => (
+                    pre: ({ node, ref, ...props }) => <CodeBlock {...props} />,
+                    ul: ({ node, ref, ...props }) => (
                       <ul {...props} className="my-3 list-inside list-disc space-y-1 text-muted-foreground" />
                     ),
-                    ol: ({ ...props }) => (
+                    ol: ({ node, ref, ...props }) => (
                       <ol {...props} className="my-3 list-inside list-decimal space-y-1 text-muted-foreground" />
                     ),
-                    li: ({ ...props }) => <li {...props} className="pl-2 text-muted-foreground" />,
-                    a: ({ ...props }) => (
+                    li: ({ node, ref, ...props }) => <li {...props} className="pl-2 text-muted-foreground" />,
+                    a: ({ node, ref, ...props }) => (
                       <a
                         {...props}
                         className="text-muted-foreground underline hover:opacity-80"
@@ -685,13 +685,13 @@ const AIStepItem = ({ step, t }: {
 }
 
 // App Builder AI Steps - displays steps one by one like attachments
-const AppBuilderAISteps = ({ 
-  onCodeCardClick, 
+const AppBuilderAISteps = ({
+  onCodeCardClick,
   projectName,
   t,
   showOnlyFirstTwo = false,
   showFinalStep = false
-}: { 
+}: {
   onCodeCardClick: () => void
   projectName?: string | null
   t: (key: string) => string
@@ -702,37 +702,37 @@ const AppBuilderAISteps = ({
   if (!aiSteps || aiSteps.length === 0) return null
 
   // Check if coding step exists
-  const codingStep = aiSteps.find(step => 
+  const codingStep = aiSteps.find(step =>
     step.text.includes("Coding") || step.text.includes("final files")
   )
   const isCodingStepDone = codingStep?.status === "done"
-  
+
   // Check if finishing touches step exists
-  const finishingStep = aiSteps.find(step => 
+  const finishingStep = aiSteps.find(step =>
     step.text.includes("Adding finishing touches") || step.text.includes("finishing touches")
   )
   const isFinishingStepDone = finishingStep?.status === "done"
 
   // Show steps based on mode
-  const stepsToShow = showOnlyFirstTwo 
+  const stepsToShow = showOnlyFirstTwo
     ? aiSteps.slice(0, 2) // Only Thought and Exploring codebase
     : showFinalStep && codingStep && !isCodingStepDone
-    ? [codingStep] // Only coding step (if not done yet)
-    : showFinalStep && isCodingStepDone && finishingStep && !isFinishingStepDone
-    ? [codingStep, finishingStep] // Show both coding (done) and finishing (loading)
-    : isFinishingStepDone
-    ? aiSteps.filter(step => !step.text.includes("Coding") && !step.text.includes("final files") && !step.text.includes("finishing touches")) // Hide coding and finishing steps if all done
-    : aiSteps // All steps
+      ? [codingStep] // Only coding step (if not done yet)
+      : showFinalStep && isCodingStepDone && finishingStep && !isFinishingStepDone
+        ? [codingStep, finishingStep] // Show both coding (done) and finishing (loading)
+        : isFinishingStepDone
+          ? aiSteps.filter(step => !step.text.includes("Coding") && !step.text.includes("final files") && !step.text.includes("finishing touches")) // Hide coding and finishing steps if all done
+          : aiSteps // All steps
 
   return (
     <div className="w-full max-w-prose self-start">
       {stepsToShow.map((step, index) => (
         step && (
-        <AIStepItem 
-          key={index} 
-          step={step}
+          <AIStepItem
+            key={index}
+            step={step}
             t={t}
-        />
+          />
         )
       ))}
     </div>
@@ -745,7 +745,7 @@ const AIStepsDisplay = ({ t }: { t: (key: string) => string }) => {
   if (!aiSteps || aiSteps.length === 0) return null
 
   // Check if this is app_builder mode (4 specific steps - no classification)
-  const isAppBuilder = aiSteps.length >= 3 && 
+  const isAppBuilder = aiSteps.length >= 3 &&
     (aiSteps[0]?.text === 'Thinking...' || aiSteps[0]?.text?.includes('Thought for')) &&
     aiSteps[1]?.text === 'Exploring codebase structure' &&
     aiSteps[2]?.text === 'Coding the final files'
@@ -1136,10 +1136,10 @@ export default function AppBuilderClientUI() {
 
   // Load existing code and steps when session is initialized or final step is done
   React.useEffect(() => {
-    const finalStep = aiSteps.find(step => 
-      step.text.includes("Coding") || step.text.includes("final files")  || step.text.includes("Membuat kode final")
+    const finalStep = aiSteps.find(step =>
+      step.text.includes("Coding") || step.text.includes("final files") || step.text.includes("Membuat kode final")
     )
-    
+
     // Debug logging
     console.log('[App Builder Debug] useEffect triggered:', {
       hasFinalCode: !!finalCode,
@@ -1152,11 +1152,11 @@ export default function AppBuilderClientUI() {
       isLoading,
       currentSessionId
     })
-    
+
     if (finalStep?.status === "done" && finalStep?.response) {
       // Step is done, check if we need to update finalCode
       const needsUpdate = !finalCode || finalCode !== finalStep.response
-      
+
       if (needsUpdate) {
         console.log('[App Builder] ✅ Setting final code from AI step', {
           from: finalCode ? 'updating' : 'initial',
@@ -1174,7 +1174,7 @@ export default function AppBuilderClientUI() {
       const loadExistingData = async () => {
         console.log('[App Builder] 📥 Loading existing session from Upstash...')
         const { getCodeFromUpstash, getAIStepsFromUpstash } = await import("@/lib/actions/ai")
-        
+
         // Load code
         const existingCode = await getCodeFromUpstash(currentSessionId)
         if (existingCode) {
@@ -1183,7 +1183,7 @@ export default function AppBuilderClientUI() {
         } else {
           console.log('[App Builder] ℹ️ No existing code in Upstash')
         }
-        
+
         // Load steps
         const existingSteps = await getAIStepsFromUpstash(currentSessionId)
         if (existingSteps && existingSteps.length > 0) {
@@ -1216,16 +1216,16 @@ export default function AppBuilderClientUI() {
   React.useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return
-      
+
       const handle = resizeHandleRef.current
       if (!handle) return
-      
+
       const container = handle.parentElement
       if (!container) return
-      
+
       const containerRect = container.getBoundingClientRect()
       const newWidth = ((containerRect.right - e.clientX) / containerRect.width) * 100
-      
+
       // Limit width between 30% and 80%
       const clampedWidth = Math.max(30, Math.min(80, newWidth))
       setPreviewWidth(clampedWidth)
@@ -1445,8 +1445,8 @@ export default function AppBuilderClientUI() {
         />
 
         {messages.length === 0 &&
-        !isLoading &&
-        !isHistoryLoading ? (
+          !isLoading &&
+          !isHistoryLoading ? (
           // EMPTY STATE – hero seperti v0.app
           <div className="flex flex-col flex-grow w-full h-0 items-center overflow-y-auto">
             <main className="flex w-full flex-col items-center justify-center px-4 pb-16 pt-20">
@@ -1462,28 +1462,28 @@ export default function AppBuilderClientUI() {
 
                 <div className="w-full max-w-2xl">
                   <FilePreview />
-                <InputSection
-                  {...{
-                    inputValue,
-                    setInputValue,
-                    handleSubmit,
-                    handlePlusClick,
-                    handleEnhancePrompt,
-                    isLoading,
-                    isEnhancingPrompt,
-                    stopGeneration: () =>
-                      stopGeneration(
-                        t("generationStopped"),
-                      ),
-                    suggestions,
-                    isLoadingSuggestions,
-                    t,
-                    isSubmitDisabled,
-                  }}
-                  usageText={usageText}
-                  usagePercentage={usagePercentage}
-                  isLimitReached={hasReachedLimit}
-                />
+                  <InputSection
+                    {...{
+                      inputValue,
+                      setInputValue,
+                      handleSubmit,
+                      handlePlusClick,
+                      handleEnhancePrompt,
+                      isLoading,
+                      isEnhancingPrompt,
+                      stopGeneration: () =>
+                        stopGeneration(
+                          t("generationStopped"),
+                        ),
+                      suggestions,
+                      isLoadingSuggestions,
+                      t,
+                      isSubmitDisabled,
+                    }}
+                    usageText={usageText}
+                    usagePercentage={usagePercentage}
+                    isLimitReached={hasReachedLimit}
+                  />
                 </div>
               </div>
             </main>
@@ -1510,7 +1510,7 @@ export default function AppBuilderClientUI() {
             isCodePanelOpen ? "flex-row" : "flex-col items-center"
           )}>
             {/* Chat container - hidden on mobile when preview is open */}
-            <div 
+            <div
               className={cn(
                 "flex flex-col flex-grow h-full relative",
                 isCodePanelOpen ? "border-r border-border md:block hidden" : "w-full max-w-4xl"
@@ -1521,221 +1521,221 @@ export default function AppBuilderClientUI() {
               <div className="flex-1 overflow-y-auto space-y-4 pt-4 pb-4 overflow-x-hidden px-6">
                 {/* Show messages */}
                 {messages.map((msg, index) => {
-                const isAppBuilderMode = aiSteps && aiSteps.length >= 3 && 
-                  (aiSteps[0]?.text === 'Thinking...' || aiSteps[0]?.text?.includes('Thought for')) &&
-                  aiSteps[1]?.text === 'Exploring codebase structure' &&
-                  aiSteps[2]?.text === 'Coding the final files'
-                
-                // Check if this is the implementation plan message (first model message after user message)
-                // Implementation plan is the first model message that appears after user message and before coding step
-                const isImplementationPlan = msg.role === 'model' && 
-                  index > 0 && 
-                  messages[index - 1]?.role === 'user' &&
-                  isAppBuilderMode &&
-                  // Check if this message is not from coding step (coding step response is saved separately)
-                  !msg.content?.includes('```html') &&
-                  !msg.content?.includes('```css') &&
-                  !msg.content?.includes('```javascript') &&
-                  !msg.content?.includes('```js')
-                
-                return (
-                <React.Fragment key={index}>
-                  {msg.role === "user" ? (
-                    <>
-                      <div
-                  className={cn(
-                    "relative flex w-full flex-col gap-2 text-left group",
-                          "items-end"
-                  )}
-                >
-                    <div className="relative">
-                      {msg.images &&
-                        msg.images.length > 0 && (
-                          <div className="mb-2 flex max-w-prose flex-wrap justify-end gap-2">
-                            {msg.images.map(
-                              (imgSrc, imgIndex) => (
-                                <button
-                                  key={imgIndex}
-                                  onClick={() =>
-                                    setSelectedImageUrl(
-                                      imgSrc,
-                                    )
-                                  }
-                                  className="overflow-hidden rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                                >
-                                  <img
-                                    src={imgSrc}
-                                    alt={`Uploaded ${
-                                      imgIndex + 1
-                                    }`}
-                                    width={120}
-                                    height={120}
-                                    className="rounded-md object-cover transition-transform hover:scale-105"
-                                  />
-                                </button>
-                              ),
+                  const isAppBuilderMode = aiSteps && aiSteps.length >= 3 &&
+                    (aiSteps[0]?.text === 'Thinking...' || aiSteps[0]?.text?.includes('Thought for')) &&
+                    aiSteps[1]?.text === 'Exploring codebase structure' &&
+                    aiSteps[2]?.text === 'Coding the final files'
+
+                  // Check if this is the implementation plan message (first model message after user message)
+                  // Implementation plan is the first model message that appears after user message and before coding step
+                  const isImplementationPlan = msg.role === 'model' &&
+                    index > 0 &&
+                    messages[index - 1]?.role === 'user' &&
+                    isAppBuilderMode &&
+                    // Check if this message is not from coding step (coding step response is saved separately)
+                    !msg.content?.includes('```html') &&
+                    !msg.content?.includes('```css') &&
+                    !msg.content?.includes('```javascript') &&
+                    !msg.content?.includes('```js')
+
+                  return (
+                    <React.Fragment key={index}>
+                      {msg.role === "user" ? (
+                        <>
+                          <div
+                            className={cn(
+                              "relative flex w-full flex-col gap-2 text-left group",
+                              "items-end"
                             )}
-                          </div>
-                        )}
-                      {msg.content && (
-                        <div className="max-w-prose rounded-lg bg-zinc-200 px-4 py-3 text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
-                          <p className="whitespace-pre-wrap">
-                            {msg.content}
-                          </p>
-                        </div>
-                      )}
-                      {msg.content && (
-                        <UserMessageActions
-                          content={msg.content}
-                          t={t}
-                        />
-                      )}
-                    </div>
-                      </div>
-                      
-                      {/* Show AI Steps (Thought and Exploring codebase) AFTER user message */}
-                      {isAppBuilderMode && (isLoading || (aiSteps && aiSteps.length > 0)) && (
-                        <div className="flex w-full flex-col items-start gap-0 text-left group relative mt-6">
-                          <AppBuilderAISteps 
-                            onCodeCardClick={() => setIsCodePanelOpen(true)}
-                            projectName={sessionTitle}
-                            t={t}
-                            showOnlyFirstTwo={true}
-                          />
-                        </div>
-                      )}
-                    </>
-                  ) : msg.content ===
-                    t("generationStopped") ? (
-                    <p className="text-sm italic text-muted-foreground">
-                      {t("generationStopped")}
-                    </p>
-                  ) : (
-                    <>
-                      {/* Always show model messages (including implementation plan) */}
-                      <div
-                        className={cn(
-                          "relative flex w-full flex-col gap-2 text-left group",
-                          "items-start",
-                          // Reduce spacing if this is implementation plan (comes right after Exploring codebase step)
-                          isImplementationPlan && "-mt-1"
-                        )}
-                      >
-                      {msg.content && (
-                          <AIMessage msg={msg} compact={isImplementationPlan} />
-                      )}
-                      {msg.content &&
-                        (msg.table || msg.chart) && (
-                          <div className="my-4 w-full max-w-prose border-t border-border" />
-                        )}
-                      {msg.table && (
-                        <div className="w-full max-w-prose self-start">
-                          <TableDisplay table={msg.table} />
-                        </div>
-                      )}
-                      {msg.chart && (
-                        <div className="w-full max-w-prose self-start">
-                          <ChartDisplay
-                            chart={
-                              msg.chart as AIGeneratedChart
-                            }
-                          />
-                        </div>
-                      )}
-                        
-                        {/* Show final steps (Coding & Finishing touches) if still loading, or card if done (card opens Sheet from right) INSIDE implementation plan container, before MessageActions */}
-                        {isImplementationPlan && isAppBuilderMode && (() => {
-                          const codingStep = aiSteps?.find(step => 
-                            step.text.includes("Coding") || step.text.includes("final files")
-                          )
-                          const finishingStep = aiSteps?.find(step => 
-                            step.text.includes("Adding finishing touches") || step.text.includes("finishing touches")
-                          )
-                          const isCodingStepDone = codingStep?.status === "done"
-                          const isCodingStepLoading = codingStep?.status === "loading"
-                          const isFinishingStepLoading = finishingStep?.status === "loading"
-                          const isFinishingStepDone = finishingStep?.status === "done"
-                          
-                          // Show steps if any is still loading
-                          if (isCodingStepLoading || (isCodingStepDone && isFinishingStepLoading)) {
-                            return (
-                              <div className="flex w-full flex-col items-start gap-2 text-left group relative mt-4">
-                                <AppBuilderAISteps 
-                                  onCodeCardClick={() => setIsCodePanelOpen(true)}
-                                  projectName={sessionTitle}
+                          >
+                            <div className="relative">
+                              {msg.images &&
+                                msg.images.length > 0 && (
+                                  <div className="mb-2 flex max-w-prose flex-wrap justify-end gap-2">
+                                    {msg.images.map(
+                                      (imgSrc, imgIndex) => (
+                                        <button
+                                          key={imgIndex}
+                                          onClick={() =>
+                                            setSelectedImageUrl(
+                                              imgSrc,
+                                            )
+                                          }
+                                          className="overflow-hidden rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                                        >
+                                          <img
+                                            src={imgSrc}
+                                            alt={`Uploaded ${imgIndex + 1
+                                              }`}
+                                            width={120}
+                                            height={120}
+                                            className="rounded-md object-cover transition-transform hover:scale-105"
+                                          />
+                                        </button>
+                                      ),
+                                    )}
+                                  </div>
+                                )}
+                              {msg.content && (
+                                <div className="max-w-prose rounded-lg bg-zinc-200 px-4 py-3 text-zinc-900 dark:bg-zinc-900 dark:text-zinc-100">
+                                  <p className="whitespace-pre-wrap">
+                                    {msg.content}
+                                  </p>
+                                </div>
+                              )}
+                              {msg.content && (
+                                <UserMessageActions
+                                  content={msg.content}
                                   t={t}
-                                  showFinalStep={true}
+                                />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Show AI Steps (Thought and Exploring codebase) AFTER user message */}
+                          {isAppBuilderMode && (isLoading || (aiSteps && aiSteps.length > 0)) && (
+                            <div className="flex w-full flex-col items-start gap-0 text-left group relative mt-6">
+                              <AppBuilderAISteps
+                                onCodeCardClick={() => setIsCodePanelOpen(true)}
+                                projectName={sessionTitle}
+                                t={t}
+                                showOnlyFirstTwo={true}
+                              />
+                            </div>
+                          )}
+                        </>
+                      ) : msg.content ===
+                        t("generationStopped") ? (
+                        <p className="text-sm italic text-muted-foreground">
+                          {t("generationStopped")}
+                        </p>
+                      ) : (
+                        <>
+                          {/* Always show model messages (including implementation plan) */}
+                          <div
+                            className={cn(
+                              "relative flex w-full flex-col gap-2 text-left group",
+                              "items-start",
+                              // Reduce spacing if this is implementation plan (comes right after Exploring codebase step)
+                              isImplementationPlan && "-mt-1"
+                            )}
+                          >
+                            {msg.content && (
+                              <AIMessage msg={msg} compact={isImplementationPlan} />
+                            )}
+                            {msg.content &&
+                              (msg.table || msg.chart) && (
+                                <div className="my-4 w-full max-w-prose border-t border-border" />
+                              )}
+                            {msg.table && (
+                              <div className="w-full max-w-prose self-start">
+                                <TableDisplay table={msg.table} />
+                              </div>
+                            )}
+                            {msg.chart && (
+                              <div className="w-full max-w-prose self-start">
+                                <ChartDisplay
+                                  chart={
+                                    msg.chart as AIGeneratedChart
+                                  }
                                 />
                               </div>
-                            )
-                          }
-                          
-                          // If all done, show button that opens Sheet from right (hide steps)
-                          if (isCodingStepDone && isFinishingStepDone && finalCode) {
-                            // Show button without container, hover effect only
-                            return (
-                              <div className="flex w-full flex-col items-start gap-2 text-left group relative mt-4">
-                                <button
-                                  onClick={() => setIsCodePanelOpen(prev => !prev)}
-                                  className="w-full max-w-prose self-start text-left p-2 -mx-2 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group/button"
-                                >
-                                  <div className="flex items-center gap-3">
-                                    <div className="flex-shrink-0">
-                                      <Code2 className="h-5 w-5 text-muted-foreground group-hover/button:text-primary transition-colors" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="font-semibold text-foreground group-hover/button:text-primary transition-colors">
-                                        {sessionTitle || "Created Luminite AI landing page v1"}
-                                      </div>
-                                      <div className="text-sm text-muted-foreground mt-1">
-                                        {isCodePanelOpen ? (t("clickToCloseCode") || "Click to close preview") : t("clickToViewCode")}
-                                      </div>
-                                    </div>
-                                    <ChevronDown className={cn("h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform", isCodePanelOpen ? "rotate-90deg" : "rotate-[-90deg]")} />
-                                  </div>
-                                </button>
-                              </div>
-                            )
-                          }
-                          
-                          return null
-                        })()}
-                        
-                      {/* Hide MessageActions if final steps are still loading */}
-                      {(() => {
-                        const codingStep = aiSteps?.find(step => 
-                          step.text.includes("Coding") || step.text.includes("final files")
-                        )
-                        const finishingStep = aiSteps?.find(step => 
-                          step.text.includes("Adding finishing touches") || step.text.includes("finishing touches")
-                        )
-                        const isCodingStepLoading = codingStep?.status === "loading"
-                        const isFinishingStepLoading = finishingStep?.status === "loading"
-                        
-                        // Hide actions if this is implementation plan and any step is still loading
-                        if (isImplementationPlan && isAppBuilderMode && (isCodingStepLoading || isFinishingStepLoading)) {
-                          return null
-                        }
-                        
-                        return (
-                          <MessageActions
-                            msg={msg}
-                            onRegenerate={() =>
-                              handleRegenerate(index)
-                            }
-                            t={t}
-                          />
-                        )
-                      })()}
-                      </div>
-                    </>
-                  )}
-                </React.Fragment>
-              )})}
+                            )}
 
-              <div ref={bottomRef} />
+                            {/* Show final steps (Coding & Finishing touches) if still loading, or card if done (card opens Sheet from right) INSIDE implementation plan container, before MessageActions */}
+                            {isImplementationPlan && isAppBuilderMode && (() => {
+                              const codingStep = aiSteps?.find(step =>
+                                step.text.includes("Coding") || step.text.includes("final files")
+                              )
+                              const finishingStep = aiSteps?.find(step =>
+                                step.text.includes("Adding finishing touches") || step.text.includes("finishing touches")
+                              )
+                              const isCodingStepDone = codingStep?.status === "done"
+                              const isCodingStepLoading = codingStep?.status === "loading"
+                              const isFinishingStepLoading = finishingStep?.status === "loading"
+                              const isFinishingStepDone = finishingStep?.status === "done"
+
+                              // Show steps if any is still loading
+                              if (isCodingStepLoading || (isCodingStepDone && isFinishingStepLoading)) {
+                                return (
+                                  <div className="flex w-full flex-col items-start gap-2 text-left group relative mt-4">
+                                    <AppBuilderAISteps
+                                      onCodeCardClick={() => setIsCodePanelOpen(true)}
+                                      projectName={sessionTitle}
+                                      t={t}
+                                      showFinalStep={true}
+                                    />
+                                  </div>
+                                )
+                              }
+
+                              // If all done, show button that opens Sheet from right (hide steps)
+                              if (isCodingStepDone && isFinishingStepDone && finalCode) {
+                                // Show button without container, hover effect only
+                                return (
+                                  <div className="flex w-full flex-col items-start gap-2 text-left group relative mt-4">
+                                    <button
+                                      onClick={() => setIsCodePanelOpen(prev => !prev)}
+                                      className="w-full max-w-prose self-start text-left p-2 -mx-2 rounded-lg hover:bg-accent/50 transition-colors cursor-pointer group/button"
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex-shrink-0">
+                                          <Code2 className="h-5 w-5 text-muted-foreground group-hover/button:text-primary transition-colors" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="font-semibold text-foreground group-hover/button:text-primary transition-colors">
+                                            {sessionTitle || "Created Luminite AI landing page v1"}
+                                          </div>
+                                          <div className="text-sm text-muted-foreground mt-1">
+                                            {isCodePanelOpen ? (t("clickToCloseCode") || "Click to close preview") : t("clickToViewCode")}
+                                          </div>
+                                        </div>
+                                        <ChevronDown className={cn("h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform", isCodePanelOpen ? "rotate-90deg" : "rotate-[-90deg]")} />
+                                      </div>
+                                    </button>
+                                  </div>
+                                )
+                              }
+
+                              return null
+                            })()}
+
+                            {/* Hide MessageActions if final steps are still loading */}
+                            {(() => {
+                              const codingStep = aiSteps?.find(step =>
+                                step.text.includes("Coding") || step.text.includes("final files")
+                              )
+                              const finishingStep = aiSteps?.find(step =>
+                                step.text.includes("Adding finishing touches") || step.text.includes("finishing touches")
+                              )
+                              const isCodingStepLoading = codingStep?.status === "loading"
+                              const isFinishingStepLoading = finishingStep?.status === "loading"
+
+                              // Hide actions if this is implementation plan and any step is still loading
+                              if (isImplementationPlan && isAppBuilderMode && (isCodingStepLoading || isFinishingStepLoading)) {
+                                return null
+                              }
+
+                              return (
+                                <MessageActions
+                                  msg={msg}
+                                  onRegenerate={() =>
+                                    handleRegenerate(index)
+                                  }
+                                  t={t}
+                                />
+                              )
+                            })()}
+                          </div>
+                        </>
+                      )}
+                    </React.Fragment>
+                  )
+                })}
+
+                <div ref={bottomRef} />
               </div>
-              
+
               {/* Input Section - sticky at bottom */}
               <div className="w-full flex-shrink-0 bg-background sticky bottom-0 z-10 px-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
                 {apiError === "QUOTA_EXCEEDED" && (
@@ -1810,18 +1810,18 @@ export default function AppBuilderClientUI() {
 
             {/* Code Preview Panel - part of main layout (not overlay) */}
             {isCodePanelOpen && finalCode && (
-              <div 
+              <div
                 className={cn(
                   "flex-shrink-0 h-full w-full md:w-auto",
                   !isMobile && "border-l border-border"
                 )}
-                style={{ 
-                  width: isMobile ? '100%' : `${previewWidth}%`, 
-                  minWidth: isMobile ? '100%' : '300px', 
-                  maxWidth: '100%' 
+                style={{
+                  width: isMobile ? '100%' : `${previewWidth}%`,
+                  minWidth: isMobile ? '100%' : '300px',
+                  maxWidth: '100%'
                 }}
               >
-                <PanelCode 
+                <PanelCode
                   code={finalCode}
                   isOpen={isCodePanelOpen}
                   onClose={() => setIsCodePanelOpen(false)}

@@ -76,6 +76,12 @@ export const mainNav: NavItem[] = [
     icon: IconShape,
   },
   {
+    name: "document",
+    title: "Document",
+    href: "document",
+    icon: IconFileDescription,
+  },
+  {
     name: "tasks",
     title: "Tasks",
     href: "tasks",

@@ -3,7 +3,7 @@
 import { useCallback, useRef, useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
-import { Trash2 } from "lucide-react";
+import { Trash2, X } from "lucide-react";
 import { toPng, toSvg } from "html-to-image";
 import {
     ReactFlow,
@@ -37,6 +37,16 @@ import { ParallelogramNode } from "@/components/diagram/node-types/parallelogram
 import { TextNode } from "@/components/diagram/node-types/text-node";
 import { NoteNode } from "@/components/diagram/node-types/note-node";
 import type { DiagramGenerationResult, DiagramNode, DiagramEdge } from "@/app/store/diagram-ai-store";
+import { parseMermaidCode } from "@/lib/mermaid-parser";
+import { Button } from "@/components/ui/button";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 
 // Register custom node types
 const nodeTypes = {
@@ -56,133 +66,167 @@ const nodeTypes = {
 
 // Initial demo nodes for flowchart - User Registration Flow
 const flowchartNodes: Node[] = [
+    // Start node - centered at top
     {
         id: "start",
         type: "circle",
-        position: { x: 250, y: 50 },
+        position: { x: 350, y: 50 },
         data: { label: "Start" },
     },
+    // Input step - parallelogram for I/O
     {
         id: "input",
         type: "parallelogram",
-        position: { x: 200, y: 150 },
+        position: { x: 300, y: 170 },
         data: { label: "Input User Details" },
     },
+    // Validation process
     {
         id: "validate",
         type: "basic",
-        position: { x: 200, y: 250 },
+        position: { x: 300, y: 290 },
         data: { label: "Validate Data" },
     },
+    // Decision point - diamond shape
     {
         id: "check",
         type: "diamond",
-        position: { x: 250, y: 350 },
+        position: { x: 350, y: 410 },
         data: { label: "Is Valid?" },
     },
+    // Success path - left side
     {
         id: "create_account",
         type: "basic",
-        position: { x: 200, y: 500 },
+        position: { x: 300, y: 560 },
         data: { label: "Create Account" },
     },
     {
         id: "send_email",
         type: "basic",
-        position: { x: 200, y: 600 },
-        data: { label: "Send Email" },
+        position: { x: 300, y: 680 },
+        data: { label: "Send Confirmation Email" },
     },
+    // Error path - right side
     {
         id: "show_error",
         type: "basic",
-        position: { x: 500, y: 380 },
+        position: { x: 600, y: 440 },
         data: { label: "Show Error Message" },
     },
+    // End node - centered at bottom
     {
         id: "end",
         type: "circle",
-        position: { x: 250, y: 700 },
+        position: { x: 350, y: 800 },
         data: { label: "End" },
     },
-    // Annotations
+    // Annotations - sticky notes for context
     {
         id: "note1",
         type: "note",
-        position: { x: 50, y: 150 },
-        data: { label: "User enters email & password", color: "#fef9c3" }, // light yellow
+        position: { x: 80, y: 160 },
+        data: {
+            label: "User enters:\n• Email\n• Password\n• Name",
+            color: "yellow"
+        },
+    },
+    {
+        id: "note2",
+        type: "note",
+        position: { x: 80, y: 280 },
+        data: {
+            label: "Check:\n• Email format\n• Password strength\n• Required fields",
+            color: "blue"
+        },
+    },
+    {
+        id: "note3",
+        type: "note",
+        position: { x: 600, y: 560 },
+        data: {
+            label: "Common errors:\n• Invalid email\n• Weak password\n• Missing fields",
+            color: "pink"
+        },
     },
 ];
 
+
 const flowchartEdges: Edge[] = [
+    // Main flow - gray/neutral color
     {
         id: "e-start-input",
         source: "start",
         target: "input",
-        type: "straight",
+        type: "smoothstep",
         markerEnd: { type: MarkerType.ArrowClosed },
-        style: { stroke: "#a1a1aa", strokeWidth: 2 },
-        label: "Visit Signup"
+        style: { stroke: "#71717a", strokeWidth: 2 },
     },
     {
         id: "e-input-validate",
         source: "input",
         target: "validate",
-        type: "step",
+        type: "smoothstep",
         markerEnd: { type: MarkerType.ArrowClosed },
-        style: { stroke: "#a1a1aa", strokeWidth: 2 }
+        style: { stroke: "#71717a", strokeWidth: 2 }
     },
     {
         id: "e-validate-check",
         source: "validate",
         target: "check",
-        type: "step",
+        type: "smoothstep",
         markerEnd: { type: MarkerType.ArrowClosed },
-        style: { stroke: "#a1a1aa", strokeWidth: 2 }
+        style: { stroke: "#71717a", strokeWidth: 2 }
     },
+    // Success path - green
     {
         id: "e-check-create",
         source: "check",
         target: "create_account",
         sourceHandle: "bottom",
         type: "smoothstep",
-        label: "Yes",
+        label: "✓ Valid",
         markerEnd: { type: MarkerType.ArrowClosed, color: "#10b981" },
-        style: { stroke: "#10b981", strokeWidth: 2 } // green for success
+        style: { stroke: "#10b981", strokeWidth: 2.5 }
     },
+    {
+        id: "e-create-email",
+        source: "create_account",
+        target: "send_email",
+        type: "smoothstep",
+        markerEnd: { type: MarkerType.ArrowClosed, color: "#10b981" },
+        style: { stroke: "#10b981", strokeWidth: 2.5 }
+    },
+    {
+        id: "e-email-end",
+        source: "send_email",
+        target: "end",
+        type: "smoothstep",
+        label: "Success",
+        markerEnd: { type: MarkerType.ArrowClosed, color: "#10b981" },
+        style: { stroke: "#10b981", strokeWidth: 2.5 }
+    },
+    // Error path - red
     {
         id: "e-check-error",
         source: "check",
         target: "show_error",
         sourceHandle: "right",
         type: "smoothstep",
-        label: "No",
+        label: "✗ Invalid",
         markerEnd: { type: MarkerType.ArrowClosed, color: "#ef4444" },
-        style: { stroke: "#ef4444", strokeWidth: 2 } // red for error
+        style: { stroke: "#ef4444", strokeWidth: 2.5 }
     },
+    // Retry loop - animated dashed red
     {
         id: "e-error-input",
         source: "show_error",
         target: "input",
-        type: "default", // bezier
-        markerEnd: { type: MarkerType.ArrowClosed },
-        style: { stroke: "#a1a1aa", strokeWidth: 2, strokeDasharray: "5,5" }, // dashed line for feedback loop
+        type: "default",
+        animated: true,
+        markerEnd: { type: MarkerType.ArrowClosed, color: "#ef4444" },
+        style: { stroke: "#ef4444", strokeWidth: 2 },
         label: "Retry"
-    },
-    {
-        id: "e-create-email",
-        source: "create_account",
-        target: "send_email",
-        type: "straight",
-        markerEnd: { type: MarkerType.ArrowClosed },
-        style: { stroke: "#a1a1aa", strokeWidth: 2 }
-    },
-    {
-        id: "e-email-end",
-        source: "send_email",
-        target: "end",
-        type: "straight",
-        markerEnd: { type: MarkerType.ArrowClosed },
-        style: { stroke: "#a1a1aa", strokeWidth: 2 }
     },
 ];
 
@@ -380,6 +424,8 @@ export default function DiagramNewPage() {
     const reactFlowWrapper = useRef<HTMLDivElement>(null);
     const [showAIPanel, setShowAIPanel] = useState(false);
     const [edgeMenu, setEdgeMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+    const [showImportModal, setShowImportModal] = useState(false);
+    const [mermaidInput, setMermaidInput] = useState("");
 
     // Initialize with template-specific nodes
     const initialNodes = template === "erd" ? erdNodes : flowchartNodes;
@@ -558,6 +604,22 @@ export default function DiagramNewPage() {
         });
     }, [colorMode, diagramName]);
 
+    // Import Mermaid code
+    const handleImportMermaid = useCallback(() => {
+        if (!mermaidInput.trim()) return;
+
+        const result = parseMermaidCode(mermaidInput);
+        if (result.nodes.length === 0) {
+            alert("Could not parse Mermaid code. Please check the syntax.");
+            return;
+        }
+
+        setNodes(result.nodes);
+        setEdges(result.edges);
+        setShowImportModal(false);
+        setMermaidInput("");
+    }, [mermaidInput, setNodes, setEdges]);
+
     return (
         <div className="h-[calc(100vh-4rem)] w-full flex">
             {/* Sidebar with node palette */}
@@ -571,6 +633,7 @@ export default function DiagramNewPage() {
                     onExportMermaid={handleExportMermaid}
                     onExportPNG={handleExportPNG}
                     onExportSVG={handleExportSVG}
+                    onImportMermaid={() => setShowImportModal(true)}
                     onDelete={handleDeleteSelected}
                     onClear={handleClear}
                     onToggleAI={() => setShowAIPanel(!showAIPanel)}
@@ -711,6 +774,38 @@ export default function DiagramNewPage() {
                     )}
                 </div>
             </div>
+
+            {/* Import Mermaid Modal */}
+            <Dialog open={showImportModal} onOpenChange={setShowImportModal}>
+                <DialogContent className="sm:max-w-[600px]">
+                    <DialogHeader>
+                        <DialogTitle>Import Mermaid Code</DialogTitle>
+                        <DialogDescription>
+                            Paste your Mermaid flowchart or ERD code below. Supported formats: flowchart, graph, erDiagram
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <textarea
+                            value={mermaidInput}
+                            onChange={(e) => setMermaidInput(e.target.value)}
+                            placeholder={`flowchart TD
+    A[Start] --> B{Is Valid?}
+    B -->|Yes| C[Process]
+    B -->|No| D[Error]
+    C --> E((End))`}
+                            className="w-full h-64 p-3 font-mono text-sm rounded-md border bg-muted resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowImportModal(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleImportMermaid} disabled={!mermaidInput.trim()}>
+                            Import
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
