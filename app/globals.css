@@ -218,6 +218,22 @@
   --animate-fade-in-up: fade-in-up 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   --animate-fade-in-scale: fade-in-scale 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   --animate-fade-in: fade-in 1s ease-out forwards;
+  --animate-rainbow: rainbow var(--speed, 2s) infinite linear;
+  --color-color-5: var(--color-5);
+  --color-color-4: var(--color-4);
+  --color-color-3: var(--color-3);
+  --color-color-2: var(--color-2);
+  --color-color-1: var(--color-1);
+
+  @keyframes rainbow {
+    0% {
+      background-position: 0%;
+    }
+
+    100% {
+      background-position: 200%;
+    }
+  }
 }
 
 @keyframes shiny-text {
@@ -482,29 +498,35 @@
 
 /* Orb classes - menggabungkan float dan color animation */
 .orb-1 {
+  will-change: transform;
   animation: float-1 20s ease-in-out infinite, orb-color 8s ease-in-out infinite;
 }
 
 .orb-2 {
+  will-change: transform;
   animation: float-2 25s ease-in-out infinite,
     orb-color 10s ease-in-out infinite;
 }
 
 .orb-3 {
+  will-change: transform;
   animation: float-3 22s ease-in-out infinite,
     orb-color 12s ease-in-out infinite;
 }
 
 .orb-4 {
+  will-change: transform;
   animation: float-4 18s ease-in-out infinite, orb-color 9s ease-in-out infinite;
 }
 
 .orb-5 {
+  will-change: transform;
   animation: float-5 30s ease-in-out infinite,
     orb-color 14s ease-in-out infinite;
 }
 
 .orb-6 {
+  will-change: transform;
   animation: float-6 15s ease-in-out infinite, orb-color 7s ease-in-out infinite;
 }
 
@@ -765,6 +787,11 @@
   /* Coklat */
   --chart-35: oklch(0.55 0.18 130);
   /* Hijau Hutan */
+  --color-1: oklch(66.2% 0.225 25.9);
+  --color-2: oklch(60.4% 0.26 302);
+  --color-3: oklch(69.6% 0.165 251);
+  --color-4: oklch(80.2% 0.134 225);
+  --color-5: oklch(90.7% 0.231 133);
 }
 
 .dark {
@@ -868,6 +895,11 @@
   /* Coklat Terang */
   --chart-35: oklch(0.6 0.22 130);
   /* Hijau Hutan Terang */
+  --color-1: oklch(66.2% 0.225 25.9);
+  --color-2: oklch(60.4% 0.26 302);
+  --color-3: oklch(69.6% 0.165 251);
+  --color-4: oklch(80.2% 0.134 225);
+  --color-5: oklch(90.7% 0.231 133);
 }
 
 /* Scroll-triggered animations */

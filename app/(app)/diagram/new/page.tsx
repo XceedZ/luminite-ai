@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useRef, useState, useEffect } from "react";
+import { useCallback, useRef, useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTheme } from "next-themes";
+import { Trash2 } from "lucide-react";
 import { toPng, toSvg } from "html-to-image";
 import {
     ReactFlow,
@@ -27,6 +28,7 @@ import "@xyflow/react/dist/style.css";
 import { DiagramSidebar } from "@/components/diagram/diagram-sidebar";
 import { DiagramToolbar } from "@/components/diagram/diagram-toolbar";
 import { DiagramAIPanel } from "@/components/diagram/diagram-ai-panel";
+import { useLanguage } from "@/components/language-provider";
 import { BasicNode } from "@/components/diagram/node-types/basic-node";
 import { DiamondNode } from "@/components/diagram/node-types/diamond-node";
 import { CircleNode } from "@/components/diagram/node-types/circle-node";
@@ -34,6 +36,7 @@ import { EntityNode } from "@/components/diagram/node-types/entity-node";
 import { ParallelogramNode } from "@/components/diagram/node-types/parallelogram-node";
 import { TextNode } from "@/components/diagram/node-types/text-node";
 import { NoteNode } from "@/components/diagram/node-types/note-node";
+import type { DiagramGenerationResult, DiagramNode, DiagramEdge } from "@/app/store/diagram-ai-store";
 
 // Register custom node types
 const nodeTypes = {
@@ -117,6 +120,7 @@ const flowchartEdges: Edge[] = [
         target: "input",
         type: "straight",
         markerEnd: { type: MarkerType.ArrowClosed },
+        style: { stroke: "#a1a1aa", strokeWidth: 2 },
         label: "Visit Signup"
     },
     {
@@ -124,14 +128,16 @@ const flowchartEdges: Edge[] = [
         source: "input",
         target: "validate",
         type: "step",
-        markerEnd: { type: MarkerType.ArrowClosed }
+        markerEnd: { type: MarkerType.ArrowClosed },
+        style: { stroke: "#a1a1aa", strokeWidth: 2 }
     },
     {
         id: "e-validate-check",
         source: "validate",
         target: "check",
         type: "step",
-        markerEnd: { type: MarkerType.ArrowClosed }
+        markerEnd: { type: MarkerType.ArrowClosed },
+        style: { stroke: "#a1a1aa", strokeWidth: 2 }
     },
     {
         id: "e-check-create",
@@ -140,7 +146,7 @@ const flowchartEdges: Edge[] = [
         sourceHandle: "bottom",
         type: "smoothstep",
         label: "Yes",
-        markerEnd: { type: MarkerType.ArrowClosed },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "#10b981" },
         style: { stroke: "#10b981", strokeWidth: 2 } // green for success
     },
     {
@@ -150,7 +156,7 @@ const flowchartEdges: Edge[] = [
         sourceHandle: "right",
         type: "smoothstep",
         label: "No",
-        markerEnd: { type: MarkerType.ArrowClosed },
+        markerEnd: { type: MarkerType.ArrowClosed, color: "#ef4444" },
         style: { stroke: "#ef4444", strokeWidth: 2 } // red for error
     },
     {
@@ -159,7 +165,7 @@ const flowchartEdges: Edge[] = [
         target: "input",
         type: "default", // bezier
         markerEnd: { type: MarkerType.ArrowClosed },
-        style: { strokeDasharray: "5,5" }, // dashed line for feedback loop
+        style: { stroke: "#a1a1aa", strokeWidth: 2, strokeDasharray: "5,5" }, // dashed line for feedback loop
         label: "Retry"
     },
     {
@@ -167,14 +173,16 @@ const flowchartEdges: Edge[] = [
         source: "create_account",
         target: "send_email",
         type: "straight",
-        markerEnd: { type: MarkerType.ArrowClosed }
+        markerEnd: { type: MarkerType.ArrowClosed },
+        style: { stroke: "#a1a1aa", strokeWidth: 2 }
     },
     {
         id: "e-email-end",
         source: "send_email",
         target: "end",
         type: "straight",
-        markerEnd: { type: MarkerType.ArrowClosed }
+        markerEnd: { type: MarkerType.ArrowClosed },
+        style: { stroke: "#a1a1aa", strokeWidth: 2 }
     },
 ];
 
@@ -323,7 +331,7 @@ const erdEdges: Edge[] = [
         target: "orders",
         targetHandle: "left",
         type: "smoothstep",
-        style: { strokeWidth: 2 }
+        style: { strokeWidth: 2, stroke: "#a1a1aa" }
     },
     // Order -> Order Items (1:N)
     {
@@ -331,7 +339,7 @@ const erdEdges: Edge[] = [
         source: "orders",
         target: "order_items",
         type: "smoothstep",
-        style: { strokeWidth: 2 }
+        style: { strokeWidth: 2, stroke: "#a1a1aa" }
     },
     // Product -> Order Items (1:N)
     {
@@ -340,7 +348,7 @@ const erdEdges: Edge[] = [
         target: "order_items",
         targetHandle: "right",
         type: "smoothstep",
-        style: { strokeWidth: 2 }
+        style: { strokeWidth: 2, stroke: "#a1a1aa" }
     },
     // Category -> Products (1:N)
     {
@@ -348,7 +356,7 @@ const erdEdges: Edge[] = [
         source: "categories",
         target: "products",
         type: "smoothstep",
-        style: { strokeWidth: 2 }
+        style: { strokeWidth: 2, stroke: "#a1a1aa" }
     },
     // Order -> Payments (1:N)
     {
@@ -358,13 +366,14 @@ const erdEdges: Edge[] = [
         target: "payments",
         targetHandle: "right",
         type: "smoothstep",
-        style: { strokeWidth: 2 }
+        style: { strokeWidth: 2, stroke: "#a1a1aa" }
     },
 ];
 
 export default function DiagramNewPage() {
     const searchParams = useSearchParams();
     const { resolvedTheme } = useTheme();
+    const { t } = useLanguage();
     const template = (searchParams.get("template") as "flowchart" | "erd") || "flowchart";
     const diagramName = searchParams.get("name") || "Untitled Diagram";
 
@@ -568,7 +577,7 @@ export default function DiagramNewPage() {
                     showAI={showAIPanel}
                 />
 
-                <div className="flex-1 flex relative">
+                <div className="flex-1 flex relative overflow-hidden">
                     {/* ReactFlow Canvas */}
                     <div ref={reactFlowWrapper} className="flex-1">
                         <ReactFlow
@@ -593,7 +602,9 @@ export default function DiagramNewPage() {
                             defaultEdgeOptions={{
                                 type: "smoothstep",
                                 markerEnd: { type: MarkerType.ArrowClosed },
+                                style: { stroke: colorMode === "dark" ? "#a1a1aa" : "#71717a" },
                             }}
+                            proOptions={{ hideAttribution: true }}
                         >
                             <Controls />
                             <MiniMap
@@ -626,14 +637,59 @@ export default function DiagramNewPage() {
                         {/* Edge Context Menu */}
                         {edgeMenu && (
                             <div
-                                className="fixed z-50 min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
+                                className="fixed z-50 min-w-[180px] rounded-md border bg-popover p-1 shadow-md"
                                 style={{ left: edgeMenu.x, top: edgeMenu.y }}
                             >
+                                {/* Color Options */}
+                                <div className="px-2 py-1.5 text-xs text-muted-foreground">{t("changeColor")}</div>
+                                <div className="flex gap-1 px-2 pb-2">
+                                    {[
+                                        { name: "default", color: colorMode === "dark" ? "#a1a1aa" : "#71717a" },
+                                        { name: "emerald", color: "#10b981" },
+                                        { name: "blue", color: "#3b82f6" },
+                                        { name: "purple", color: "#8b5cf6" },
+                                        { name: "pink", color: "#ec4899" },
+                                        { name: "orange", color: "#f97316" },
+                                        { name: "red", color: "#ef4444" },
+                                    ].map((c) => (
+                                        <button
+                                            key={c.name}
+                                            onClick={() => {
+                                                setEdges((eds) =>
+                                                    eds.map((e) =>
+                                                        e.id === edgeMenu.id
+                                                            ? {
+                                                                ...e,
+                                                                style: {
+                                                                    ...e.style,
+                                                                    stroke: c.color,
+                                                                    strokeWidth: e.style?.strokeWidth || 2,
+                                                                },
+                                                                markerEnd: {
+                                                                    type: MarkerType.ArrowClosed,
+                                                                    color: c.color,
+                                                                    width: 20,
+                                                                    height: 20,
+                                                                },
+                                                            }
+                                                            : e
+                                                    )
+                                                );
+                                                setEdgeMenu(null);
+                                            }}
+                                            className="w-5 h-5 rounded-full border border-border hover:scale-110 transition-transform"
+                                            style={{ backgroundColor: c.color }}
+                                            title={c.name}
+                                        />
+                                    ))}
+                                </div>
+                                <div className="h-px bg-border my-1" />
                                 <button
                                     className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded-sm hover:bg-accent text-destructive"
                                     onClick={deleteEdge}
                                 >
-                                    Delete Connection
+                                    <Trash2 className="h-4 w-4" />
+                                    {t("deleteConnection")}
                                 </button>
                             </div>
                         )}
@@ -644,6 +700,13 @@ export default function DiagramNewPage() {
                         <DiagramAIPanel
                             onClose={() => setShowAIPanel(false)}
                             template={template}
+                            currentNodes={nodes as unknown as DiagramNode[]}
+                            currentEdges={edges as unknown as DiagramEdge[]}
+                            onDiagramGenerated={(result: DiagramGenerationResult) => {
+                                // Apply the AI-generated diagram
+                                setNodes(result.nodes as unknown as Node[]);
+                                setEdges(result.edges as unknown as Edge[]);
+                            }}
                         />
                     )}
                 </div>

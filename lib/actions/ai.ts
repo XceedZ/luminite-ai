@@ -6,102 +6,69 @@ import { Redis } from '@upstash/redis'
 import { nanoid } from 'nanoid'
 
 const ai = new GoogleGenAI({
-    apiKey: process.env.GOOGLE_API_KEY || ""
-  });
+  apiKey: process.env.GOOGLE_API_KEY || ""
+});
 
-  const redis = new Redis({
-    url: process.env.UPSTASH_REDIS_REST_URL!,
-    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
-  })
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL!,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+})
 
-  // Helper function to fetch images from Pexels API with retry logic
-  async function fetchPexelsImages(query: string, perPage: number = 1, retries: number = 2): Promise<string[]> {
-    try {
-      const apiKey = process.env.PEXELS_API_KEY;
-      if (!apiKey) {
-        console.warn('[Pexels] API key not found, skipping image fetch');
-        return [];
-      }
+// Helper function to fetch images from Pexels API with retry logic
+async function fetchPexelsImages(query: string, perPage: number = 1, retries: number = 2): Promise<string[]> {
+  try {
+    const apiKey = process.env.PEXELS_API_KEY;
+    if (!apiKey) {
+      console.warn('[Pexels] API key not found, skipping image fetch');
+      return [];
+    }
 
-      // Validate and clean query
-      const cleanQuery = query.trim().slice(0, 100); // Limit query length
-      if (!cleanQuery || cleanQuery.length === 0) {
-        console.warn('[Pexels] Empty query, skipping image fetch');
-        return [];
-      }
+    // Validate and clean query
+    const cleanQuery = query.trim().slice(0, 100); // Limit query length
+    if (!cleanQuery || cleanQuery.length === 0) {
+      console.warn('[Pexels] Empty query, skipping image fetch');
+      return [];
+    }
 
-      const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(cleanQuery)}&per_page=${Math.min(perPage, 80)}&orientation=landscape`;
-      
-      // Retry logic with exponential backoff
-      for (let attempt = 0; attempt <= retries; attempt++) {
-        try {
-          const response = await fetch(url, {
-            headers: {
-              'Authorization': apiKey,
-              'User-Agent': 'Luminite-AI/1.0'
-            },
-            // Add timeout
-            signal: AbortSignal.timeout(10000) // 10 second timeout
+    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(cleanQuery)}&per_page=${Math.min(perPage, 80)}&orientation=landscape`;
+
+    // Retry logic with exponential backoff
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': apiKey,
+            'User-Agent': 'Luminite-AI/1.0'
+          },
+          // Add timeout
+          signal: AbortSignal.timeout(10000) // 10 second timeout
+        });
+
+        if (!response.ok) {
+          // Try to get error details
+          let errorDetails = '';
+          try {
+            const errorData = await response.json();
+            errorDetails = JSON.stringify(errorData);
+          } catch {
+            errorDetails = await response.text().catch(() => 'Unable to read error response');
+          }
+
+          console.error(`[Pexels] API error (attempt ${attempt + 1}/${retries + 1}):`, {
+            status: response.status,
+            statusText: response.statusText,
+            query: cleanQuery,
+            errorDetails: errorDetails.substring(0, 200)
           });
 
-          if (!response.ok) {
-            // Try to get error details
-            let errorDetails = '';
-            try {
-              const errorData = await response.json();
-              errorDetails = JSON.stringify(errorData);
-            } catch {
-              errorDetails = await response.text().catch(() => 'Unable to read error response');
-            }
-
-            console.error(`[Pexels] API error (attempt ${attempt + 1}/${retries + 1}):`, {
-              status: response.status,
-              statusText: response.statusText,
-              query: cleanQuery,
-              errorDetails: errorDetails.substring(0, 200)
-            });
-
-            // If it's a client error (4xx), don't retry
-            if (response.status >= 400 && response.status < 500) {
-              return [];
-            }
-
-            // If it's a server error (5xx) and we have retries left, wait and retry
-            if (response.status >= 500 && attempt < retries) {
-              const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
-              console.log(`[Pexels] Retrying in ${delay}ms...`);
-              await new Promise(resolve => setTimeout(resolve, delay));
-              continue;
-            }
-
+          // If it's a client error (4xx), don't retry
+          if (response.status >= 400 && response.status < 500) {
             return [];
           }
 
-          const data = await response.json() as { photos?: Array<{ src?: { large2x?: string; large?: string; original?: string } }> };
-          if (data.photos && Array.isArray(data.photos)) {
-            // Return large image URLs (original or large2x)
-            const imageUrls = data.photos
-              .map((photo) => photo.src?.large2x || photo.src?.large || photo.src?.original || '')
-              .filter((url): url is string => Boolean(url));
-            console.log(`[Pexels] Successfully fetched ${imageUrls.length} images for query: "${cleanQuery}"`);
-            return imageUrls;
-          }
-
-          return [];
-        } catch (fetchError: unknown) {
-          // Handle timeout or network errors
-          const error = fetchError as { name?: string; message?: string };
-          if (error.name === 'AbortError' || error.name === 'TimeoutError') {
-            console.error(`[Pexels] Request timeout (attempt ${attempt + 1}/${retries + 1}) for query: "${cleanQuery}"`);
-          } else if (error.name === 'TypeError' && error.message?.includes('fetch')) {
-            console.error(`[Pexels] Network error (attempt ${attempt + 1}/${retries + 1}):`, error.message);
-          } else {
-            console.error(`[Pexels] Unexpected error (attempt ${attempt + 1}/${retries + 1}):`, fetchError);
-          }
-
-          // Retry on network errors if we have retries left
-          if (attempt < retries) {
-            const delay = Math.pow(2, attempt) * 1000;
+          // If it's a server error (5xx) and we have retries left, wait and retry
+          if (response.status >= 500 && attempt < retries) {
+            const delay = Math.pow(2, attempt) * 1000; // Exponential backoff: 1s, 2s, 4s
             console.log(`[Pexels] Retrying in ${delay}ms...`);
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
@@ -109,19 +76,52 @@ const ai = new GoogleGenAI({
 
           return [];
         }
+
+        const data = await response.json() as { photos?: Array<{ src?: { large2x?: string; large?: string; original?: string } }> };
+        if (data.photos && Array.isArray(data.photos)) {
+          // Return large image URLs (original or large2x)
+          const imageUrls = data.photos
+            .map((photo) => photo.src?.large2x || photo.src?.large || photo.src?.original || '')
+            .filter((url): url is string => Boolean(url));
+          console.log(`[Pexels] Successfully fetched ${imageUrls.length} images for query: "${cleanQuery}"`);
+          return imageUrls;
+        }
+
+        return [];
+      } catch (fetchError: unknown) {
+        // Handle timeout or network errors
+        const error = fetchError as { name?: string; message?: string };
+        if (error.name === 'AbortError' || error.name === 'TimeoutError') {
+          console.error(`[Pexels] Request timeout (attempt ${attempt + 1}/${retries + 1}) for query: "${cleanQuery}"`);
+        } else if (error.name === 'TypeError' && error.message?.includes('fetch')) {
+          console.error(`[Pexels] Network error (attempt ${attempt + 1}/${retries + 1}):`, error.message);
+        } else {
+          console.error(`[Pexels] Unexpected error (attempt ${attempt + 1}/${retries + 1}):`, fetchError);
+        }
+
+        // Retry on network errors if we have retries left
+        if (attempt < retries) {
+          const delay = Math.pow(2, attempt) * 1000;
+          console.log(`[Pexels] Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+
+        return [];
       }
-
-      return [];
-    } catch (error) {
-      console.error('[Pexels] Fatal error fetching images:', error);
-      return [];
     }
-  }
 
-  // New function: Analyze code and determine image queries for each section
-  async function analyzeCodeForImageQueries(code: string, originalPrompt: string): Promise<Array<{ section: string; query: string; placeholder: string }>> {
-    try {
-      const systemInstruction = `You are an expert web developer analyzing React component code to determine which sections need images and what search queries should be used to fetch appropriate images from Pexels.
+    return [];
+  } catch (error) {
+    console.error('[Pexels] Fatal error fetching images:', error);
+    return [];
+  }
+}
+
+// New function: Analyze code and determine image queries for each section
+async function analyzeCodeForImageQueries(code: string, originalPrompt: string): Promise<Array<{ section: string; query: string; placeholder: string }>> {
+  try {
+    const systemInstruction = `You are an expert web developer analyzing React component code to determine which sections need images and what search queries should be used to fetch appropriate images from Pexels.
 
 Your task:
 1. Analyze the provided React component code
@@ -151,7 +151,7 @@ Rules:
 - Maximum 10 sections
 - If no images are needed, return empty array: []`;
 
-      const userPrompt = `Analyze this React component code and determine image requirements:
+    const userPrompt = `Analyze this React component code and determine image requirements:
 
 **Original User Request:** ${originalPrompt}
 
@@ -162,105 +162,105 @@ ${code}
 
 Return a JSON array of sections that need images with their search queries.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemma-3-4b-it",
-        contents: [
-          { role: 'user', parts: [{ text: systemInstruction }] },
-          { role: 'user', parts: [{ text: userPrompt }] }
-        ]
-      });
+    const response = await ai.models.generateContent({
+      model: "gemma-3-4b-it",
+      contents: [
+        { role: 'user', parts: [{ text: systemInstruction }] },
+        { role: 'user', parts: [{ text: userPrompt }] }
+      ]
+    });
 
-      const responseText = response.text || "";
-      console.log('[Image Analysis] AI Response:', responseText);
+    const responseText = response.text || "";
+    console.log('[Image Analysis] AI Response:', responseText);
 
-      // Extract JSON from response
-      const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-      if (jsonMatch && jsonMatch[0]) {
-        const imageQueries = JSON.parse(jsonMatch[0]) as Array<{ section: string; query: string; placeholder: string }>;
-        console.log('[Image Analysis] Parsed image queries:', imageQueries);
-        return imageQueries;
-      }
-
-      return [];
-    } catch (error) {
-      console.error('[Image Analysis] Error:', error);
-      return [];
+    // Extract JSON from response
+    const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+    if (jsonMatch && jsonMatch[0]) {
+      const imageQueries = JSON.parse(jsonMatch[0]) as Array<{ section: string; query: string; placeholder: string }>;
+      console.log('[Image Analysis] Parsed image queries:', imageQueries);
+      return imageQueries;
     }
+
+    return [];
+  } catch (error) {
+    console.error('[Image Analysis] Error:', error);
+    return [];
   }
+}
 
-  // New function: Inject Pexels images into code
-  export async function injectPexelsImagesIntoCode(code: string, originalPrompt: string, language: string): Promise<string> {
-    'use server';
-    try {
-      console.log('[Image Injection] Starting image analysis and injection...');
-      
-      // Step 1: Analyze code to determine image queries
-      const imageQueries = await analyzeCodeForImageQueries(code, originalPrompt);
-      
-      if (imageQueries.length === 0) {
-        console.log('[Image Injection] No images needed, returning original code');
-        return code;
-      }
+// New function: Inject Pexels images into code
+export async function injectPexelsImagesIntoCode(code: string, originalPrompt: string, language: string): Promise<string> {
+  'use server';
+  try {
+    console.log('[Image Injection] Starting image analysis and injection...');
 
-      console.log(`[Image Injection] Found ${imageQueries.length} sections that need images`);
+    // Step 1: Analyze code to determine image queries
+    const imageQueries = await analyzeCodeForImageQueries(code, originalPrompt);
 
-      // Step 2: Fetch images for each query
-      const imageMap: Record<string, string> = {};
-      for (const { section, query, placeholder } of imageQueries) {
-        const images = await fetchPexelsImages(query, 1);
-        if (images.length > 0) {
-          imageMap[placeholder] = images[0];
-          console.log(`[Image Injection] Fetched image for section "${section}": ${images[0].substring(0, 50)}...`);
+    if (imageQueries.length === 0) {
+      console.log('[Image Injection] No images needed, returning original code');
+      return code;
+    }
+
+    console.log(`[Image Injection] Found ${imageQueries.length} sections that need images`);
+
+    // Step 2: Fetch images for each query
+    const imageMap: Record<string, string> = {};
+    for (const { section, query, placeholder } of imageQueries) {
+      const images = await fetchPexelsImages(query, 1);
+      if (images.length > 0) {
+        imageMap[placeholder] = images[0];
+        console.log(`[Image Injection] Fetched image for section "${section}": ${images[0].substring(0, 50)}...`);
       } else {
-          console.warn(`[Image Injection] No image found for query: "${query}"`);
+        console.warn(`[Image Injection] No image found for query: "${query}"`);
+      }
+    }
+
+    // Step 3: Inject images into code
+    let updatedCode = code;
+
+    // Replace placeholders with actual image URLs
+    for (const [placeholder, imageUrl] of Object.entries(imageMap)) {
+      // Look for common patterns where images might be used
+      const patterns = [
+        // Pattern 1: Placeholder in src attribute
+        new RegExp(`src=["']${placeholder}["']`, 'gi'),
+        // Pattern 2: Placeholder as variable
+        new RegExp(`\\b${placeholder}\\b`, 'g'),
+        // Pattern 3: Placeholder in className or comment
+        new RegExp(`(?:src=|imageUrl=|url=)["']?${placeholder}["']?`, 'gi'),
+      ];
+
+      for (const pattern of patterns) {
+        if (pattern.test(updatedCode)) {
+          updatedCode = updatedCode.replace(pattern, `src="${imageUrl}"`);
+          console.log(`[Image Injection] Replaced placeholder "${placeholder}" with image URL`);
+          break;
         }
       }
 
-      // Step 3: Inject images into code
-      let updatedCode = code;
-      
-      // Replace placeholders with actual image URLs
-      for (const [placeholder, imageUrl] of Object.entries(imageMap)) {
-        // Look for common patterns where images might be used
-        const patterns = [
-          // Pattern 1: Placeholder in src attribute
-          new RegExp(`src=["']${placeholder}["']`, 'gi'),
-          // Pattern 2: Placeholder as variable
-          new RegExp(`\\b${placeholder}\\b`, 'g'),
-          // Pattern 3: Placeholder in className or comment
-          new RegExp(`(?:src=|imageUrl=|url=)["']?${placeholder}["']?`, 'gi'),
-        ];
-
-        for (const pattern of patterns) {
-          if (pattern.test(updatedCode)) {
-            updatedCode = updatedCode.replace(pattern, `src="${imageUrl}"`);
-            console.log(`[Image Injection] Replaced placeholder "${placeholder}" with image URL`);
-            break;
-          }
-        }
-
-        // Also try to find and replace common image placeholder patterns
-        // Look for comments or strings that mention the section
-        const sectionPattern = new RegExp(`(?://|/\\*|['"])\\s*${placeholder}\\s*(?:\\*/|['"])?`, 'gi');
-        if (sectionPattern.test(updatedCode)) {
-          // Find the nearest img tag or Image component and replace
-          updatedCode = updatedCode.replace(
-            /(<img[^>]*src=["'])([^"']*)(["'][^>]*>)/gi,
-            (match, prefix, currentSrc, suffix) => {
-              if (currentSrc.includes(placeholder) || currentSrc === '' || currentSrc === '#' || currentSrc.includes('placeholder')) {
-                return `${prefix}${imageUrl}${suffix}`;
-              }
-              return match;
+      // Also try to find and replace common image placeholder patterns
+      // Look for comments or strings that mention the section
+      const sectionPattern = new RegExp(`(?://|/\\*|['"])\\s*${placeholder}\\s*(?:\\*/|['"])?`, 'gi');
+      if (sectionPattern.test(updatedCode)) {
+        // Find the nearest img tag or Image component and replace
+        updatedCode = updatedCode.replace(
+          /(<img[^>]*src=["'])([^"']*)(["'][^>]*>)/gi,
+          (match, prefix, currentSrc, suffix) => {
+            if (currentSrc.includes(placeholder) || currentSrc === '' || currentSrc === '#' || currentSrc.includes('placeholder')) {
+              return `${prefix}${imageUrl}${suffix}`;
             }
-          );
-        }
+            return match;
+          }
+        );
       }
-      
-      // Step 4: If no placeholders found, use AI to intelligently inject images
-      if (updatedCode === code && Object.keys(imageMap).length > 0) {
-        console.log('[Image Injection] No placeholders found, using AI to inject images...');
-        
-        const injectionPrompt = `You are an expert React developer. Inject the following Pexels image URLs into the provided React component code at appropriate locations.
+    }
+
+    // Step 4: If no placeholders found, use AI to intelligently inject images
+    if (updatedCode === code && Object.keys(imageMap).length > 0) {
+      console.log('[Image Injection] No placeholders found, using AI to inject images...');
+
+      const injectionPrompt = `You are an expert React developer. Inject the following Pexels image URLs into the provided React component code at appropriate locations.
 
 **Image URLs by section:**
 ${imageQueries.map(({ section, placeholder }) => `- ${section}: ${imageMap[placeholder] || 'NOT_AVAILABLE'}`).join('\n')}
@@ -279,38 +279,38 @@ ${code}
 
 Return ONLY the updated code without markdown code blocks, just the pure TSX code.`;
 
-        const injectionResponse = await ai.models.generateContent({
-          model: "gemma-3-4b-it",
-          contents: [
-            { role: 'user', parts: [{ text: injectionPrompt }] }
-          ]
-        });
+      const injectionResponse = await ai.models.generateContent({
+        model: "gemma-3-4b-it",
+        contents: [
+          { role: 'user', parts: [{ text: injectionPrompt }] }
+        ]
+      });
 
-        const injectedCode = injectionResponse.text || code;
-        // Extract code from markdown if present
-        const codeMatch = injectedCode.match(/```tsx\s*\n?([\s\S]*?)```/) || 
-                          injectedCode.match(/```ts\s*\n?([\s\S]*?)```/) ||
-                          injectedCode.match(/```jsx\s*\n?([\s\S]*?)```/);
-        
-        if (codeMatch && codeMatch[1]) {
-          updatedCode = codeMatch[1].trim();
-          console.log('[Image Injection] Successfully injected images using AI');
-        } else {
-          updatedCode = injectedCode.trim();
-        }
+      const injectedCode = injectionResponse.text || code;
+      // Extract code from markdown if present
+      const codeMatch = injectedCode.match(/```tsx\s*\n?([\s\S]*?)```/) ||
+        injectedCode.match(/```ts\s*\n?([\s\S]*?)```/) ||
+        injectedCode.match(/```jsx\s*\n?([\s\S]*?)```/);
+
+      if (codeMatch && codeMatch[1]) {
+        updatedCode = codeMatch[1].trim();
+        console.log('[Image Injection] Successfully injected images using AI');
+      } else {
+        updatedCode = injectedCode.trim();
       }
-
-      console.log('[Image Injection] Image injection completed');
-      return updatedCode;
-    } catch (error) {
-      console.error('[Image Injection] Error:', error);
-      return code; // Return original code if injection fails
     }
-  }
 
-  // Helper function to get available Shadcn UI components list
-  function getAvailableComponents(): string {
-    return `
+    console.log('[Image Injection] Image injection completed');
+    return updatedCode;
+  } catch (error) {
+    console.error('[Image Injection] Error:', error);
+    return code; // Return original code if injection fails
+  }
+}
+
+// Helper function to get available Shadcn UI components list
+function getAvailableComponents(): string {
+  return `
 **AVAILABLE REUSABLE COMPONENTS:**
 
 **Navbar Component (from @/components/navbar):**
@@ -467,84 +467,84 @@ These icons are pre-defined and can be used directly in your components WITHOUT 
 - Use Tailwind CSS utility classes for all styling
 - Components automatically use theme colors (bg-background, text-foreground, etc.)
 `;
-  }
+}
 
-  export type ImagePart = {
-    mimeType: string;
-    data: string; // base64 string
-  };
+export type ImagePart = {
+  mimeType: string;
+  data: string; // base64 string
+};
 
-  export type StoredMessage = {
-    role: 'user' | 'model';
-    content: string;
-    // [DIPERBARUI] Tipe chart disederhanakan kembali. 
-    // Objek konfirmasi tidak akan disimpan di sini lagi.
-    chart?: AIGeneratedChart | null; 
-    thinkingResult?: ThinkingResult | null;
-    table?: AIGeneratedTable | null;
-    actionResult?: {
-      title: string;
-      description?: string;
-    } | null;
-  }
-
-  export type ThinkingResult = {
-    classification: {
-      intent: string;
-      summary: string;
-      rawResponse: string;
-      language: string;
-      mood: string;
-      stepByAi: string[]; // <-- LANGKAH BARU
-    };
-    duration: number;
-  };
-
-  export type AIGeneratedTable = {
+export type StoredMessage = {
+  role: 'user' | 'model';
+  content: string;
+  // [DIPERBARUI] Tipe chart disederhanakan kembali. 
+  // Objek konfirmasi tidak akan disimpan di sini lagi.
+  chart?: AIGeneratedChart | null;
+  thinkingResult?: ThinkingResult | null;
+  table?: AIGeneratedTable | null;
+  actionResult?: {
     title: string;
     description?: string;
-    headers: string[];
-    rows: (string | number)[][];
+  } | null;
+}
+
+export type ThinkingResult = {
+  classification: {
+    intent: string;
+    summary: string;
+    rawResponse: string;
+    language: string;
+    mood: string;
+    stepByAi: string[]; // <-- LANGKAH BARU
   };
+  duration: number;
+};
 
-  export type ChatHistoryItem = {
-    id: string;
-    title: string;
-    href: string; // ✅ tambahkan ini biar sama
-  };
+export type AIGeneratedTable = {
+  title: string;
+  description?: string;
+  headers: string[];
+  rows: (string | number)[][];
+};
 
-  export type ChartConfig = Record<string, {
-    label: string;
-    color: string;
-  }>;
+export type ChatHistoryItem = {
+  id: string;
+  title: string;
+  href: string; // ✅ tambahkan ini biar sama
+};
 
-  export type AIGeneratedChart = {
-    type: 'line' | 'bar' | 'area' | 'pie';
-    title: string;
-    description?: string;
-    data: any[];
-    config: ChartConfig;
-  };
+export type ChartConfig = Record<string, {
+  label: string;
+  color: string;
+}>;
 
-  export type AIGeneratedContent = {
-    text?: string;
-    chartConfig?: ChartConfig;
-  };
+export type AIGeneratedChart = {
+  type: 'line' | 'bar' | 'area' | 'pie';
+  title: string;
+  description?: string;
+  data: any[];
+  config: ChartConfig;
+};
 
-  async function summarizeDataForChartOrTable(
-    history: StoredMessage[],
-    language: string,
-    intent: string,
-    images?: ImagePart[] 
-  ): Promise<{ data?: any[]; needsMoreData?: boolean; followUpQuestion?: string }> {
-    const relevantData = history.map(msg => {
-      const content = msg.content;
-      const tableData = msg.table ? `\n[Previously Generated Table Data]:\n${JSON.stringify(msg.table.rows)}` : '';
-      return `${msg.role}: ${content}${tableData}`;
-    }).join('\n');
-  
-    // [MODIFIKASI] Prompt diperbarui dengan instruksi tipe data yang sangat tegas
-    const summarizationPrompt = `
+export type AIGeneratedContent = {
+  text?: string;
+  chartConfig?: ChartConfig;
+};
+
+async function summarizeDataForChartOrTable(
+  history: StoredMessage[],
+  language: string,
+  intent: string,
+  images?: ImagePart[]
+): Promise<{ data?: any[]; needsMoreData?: boolean; followUpQuestion?: string }> {
+  const relevantData = history.map(msg => {
+    const content = msg.content;
+    const tableData = msg.table ? `\n[Previously Generated Table Data]:\n${JSON.stringify(msg.table.rows)}` : '';
+    return `${msg.role}: ${content}${tableData}`;
+  }).join('\n');
+
+  // [MODIFIKASI] Prompt diperbarui dengan instruksi tipe data yang sangat tegas
+  const summarizationPrompt = `
       Your task is to extract structured data points from the conversation history into a JSON array of objects.
 
       **Response Format (JSON ONLY):**
@@ -568,44 +568,44 @@ These icons are pre-defined and can be used directly in your components WITHOUT 
   
       **JSON Output (following all rules):**
     `;
-  
-    try {
-      const promptParts: Part[] = [{ text: summarizationPrompt }];
-      if (images && images.length > 0) {
-        images.forEach(image => {
-          promptParts.push({ inlineData: image });
-        });
-      }
-  
-      const response = await ai.models.generateContent({
-        model: "models/gemma-3-12b-it", 
-        contents: [{ role: 'user', parts: promptParts }]
-      });
-  
-      const responseText = response.text || "";
-      
-      // Menggunakan metode ekstraksi JSON yang lebih andal
-      let jsonString = "{}";
-      const firstBrace = responseText.indexOf('{');
-      const lastBrace = responseText.lastIndexOf('}');
-      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        jsonString = responseText.substring(firstBrace, lastBrace + 1);
-      }
 
-      const parsed = JSON.parse(jsonString);
-      if (parsed.data) {
-        return parsed;
-      }
-      
-      return {
-        needsMoreData: true,
-        followUpQuestion: "Sepertinya informasi yang tersedia belum cukup. Bisakah Anda memberikan data tambahan atau lebih spesifik?"
-      };
-          } catch (error) {
-      console.error("Gagal melakukan summarisasi data:", error);
-      return { needsMoreData: true, followUpQuestion: "Maaf, terjadi kesalahan server saat menganalisis data." };
+  try {
+    const promptParts: Part[] = [{ text: summarizationPrompt }];
+    if (images && images.length > 0) {
+      images.forEach(image => {
+        promptParts.push({ inlineData: image });
+      });
     }
+
+    const response = await ai.models.generateContent({
+      model: "models/gemma-3-12b-it",
+      contents: [{ role: 'user', parts: promptParts }]
+    });
+
+    const responseText = response.text || "";
+
+    // Menggunakan metode ekstraksi JSON yang lebih andal
+    let jsonString = "{}";
+    const firstBrace = responseText.indexOf('{');
+    const lastBrace = responseText.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      jsonString = responseText.substring(firstBrace, lastBrace + 1);
+    }
+
+    const parsed = JSON.parse(jsonString);
+    if (parsed.data) {
+      return parsed;
+    }
+
+    return {
+      needsMoreData: true,
+      followUpQuestion: "Sepertinya informasi yang tersedia belum cukup. Bisakah Anda memberikan data tambahan atau lebih spesifik?"
+    };
+  } catch (error) {
+    console.error("Gagal melakukan summarisasi data:", error);
+    return { needsMoreData: true, followUpQuestion: "Maaf, terjadi kesalahan server saat menganalisis data." };
   }
+}
 
 // [NEW] Define a richer return type to handle both successful chart generation
 // and cases where user confirmation is required.
@@ -614,16 +614,16 @@ type ChartGenerationResult =
   | { type: 'confirmation_needed'; message: string };
 
 
-  async function generateChart(
-    summarizedData: any[],
-    language: string, 
-    history: StoredMessage[],
-    summary: string
+async function generateChart(
+  summarizedData: any[],
+  language: string,
+  history: StoredMessage[],
+  summary: string
 ): Promise<ChartGenerationResult | null> {
-    const historyText = history.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-    
-    // Prompt ini sudah bekerja dengan sempurna. JANGAN DIUBAH.
-    const chartPrompt = `
+  const historyText = history.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+
+  // Prompt ini sudah bekerja dengan sempurna. JANGAN DIUBAH.
+  const chartPrompt = `
       You are a JSON generation engine. Your ONLY task is to create a complete and valid JSON object for a Shadcn chart, or ask for confirmation if necessary.
 
       ## 1. Context & Data Provided
@@ -684,53 +684,53 @@ type ChartGenerationResult =
       - Start with \`{\` and end with \`}\`.
     `;
 
-    try {
-      const response = await ai.models.generateContent({
-        model: "models/gemma-3-12b-it",
-        contents: [{ role: "user", parts: [{ text: chartPrompt }] }],
-      });
-      
-      const responseText = response.text || "{}";
-      console.log("[RAW CHART RESPONSE] Raw text from AI:", responseText);
+  try {
+    const response = await ai.models.generateContent({
+      model: "models/gemma-3-12b-it",
+      contents: [{ role: "user", parts: [{ text: chartPrompt }] }],
+    });
 
-      let jsonString = "{}";
-      const firstBrace = responseText.indexOf('{');
-      const lastBrace = responseText.lastIndexOf('}');
+    const responseText = response.text || "{}";
+    console.log("[RAW CHART RESPONSE] Raw text from AI:", responseText);
 
-      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        jsonString = responseText.substring(firstBrace, lastBrace + 1);
-      }
-      
-      const parsed = JSON.parse(jsonString);
+    let jsonString = "{}";
+    const firstBrace = responseText.indexOf('{');
+    const lastBrace = responseText.lastIndexOf('}');
 
-      // [FINAL FIX] Ganti kondisi pengecekan agar sesuai dengan output AI yang sudah benar.
-      // Hapus logika transformasi yang tidak diperlukan lagi.
-      if (parsed.type && parsed.title && parsed.data && parsed.config) {
-        // AI sudah menghasilkan format yang benar, langsung kembalikan.
-        return {
-          type: 'chart',
-          chart: parsed as AIGeneratedChart,
-        };
-      } else if (parsed.confirmation_needed && typeof parsed.confirmation_needed === 'string') {
-        return {
-          type: 'confirmation_needed',
-          message: parsed.confirmation_needed,
-        };
-      }
-  
-    } catch (error) {
-      console.error("Chart AI Error:", error);
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      jsonString = responseText.substring(firstBrace, lastBrace + 1);
     }
-    
-    return null;
+
+    const parsed = JSON.parse(jsonString);
+
+    // [FINAL FIX] Ganti kondisi pengecekan agar sesuai dengan output AI yang sudah benar.
+    // Hapus logika transformasi yang tidak diperlukan lagi.
+    if (parsed.type && parsed.title && parsed.data && parsed.config) {
+      // AI sudah menghasilkan format yang benar, langsung kembalikan.
+      return {
+        type: 'chart',
+        chart: parsed as AIGeneratedChart,
+      };
+    } else if (parsed.confirmation_needed && typeof parsed.confirmation_needed === 'string') {
+      return {
+        type: 'confirmation_needed',
+        message: parsed.confirmation_needed,
+      };
+    }
+
+  } catch (error) {
+    console.error("Chart AI Error:", error);
+  }
+
+  return null;
 }
 
-  async function generateTable(
-    summarizedData: any[],
-    language: string,
-    summary: string
-  ): Promise<AIGeneratedTable | null> {
-    const tablePrompt = `
+async function generateTable(
+  summarizedData: any[],
+  language: string,
+  summary: string
+): Promise<AIGeneratedTable | null> {
+  const tablePrompt = `
       Analyze the user's goal and the provided structured data to generate a complete JSON object for a Shadcn table.
 
       **User's Goal (from conversation summary):** "${summary}"
@@ -760,48 +760,48 @@ type ChartGenerationResult =
       JSON Output:
     `;
 
-    try {
-      const response = await ai.models.generateContent({
-        model: "models/gemma-3-12b-it",
-        contents: tablePrompt
-      });
-      
-      const responseText = response.text || "";
-      const jsonMatch = responseText.match(/{[\s\S]*}/);
-      
-      if (jsonMatch && jsonMatch[0]) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        if (parsed.title && parsed.headers && parsed.rows) {
-          return parsed as AIGeneratedTable;
-        }
+  try {
+    const response = await ai.models.generateContent({
+      model: "models/gemma-3-12b-it",
+      contents: tablePrompt
+    });
+
+    const responseText = response.text || "";
+    const jsonMatch = responseText.match(/{[\s\S]*}/);
+
+    if (jsonMatch && jsonMatch[0]) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.title && parsed.headers && parsed.rows) {
+        return parsed as AIGeneratedTable;
       }
-    } catch (error) {
-      console.error("Table AI Error:", error);
     }
-    return null;
+  } catch (error) {
+    console.error("Table AI Error:", error);
   }
+  return null;
+}
 
 // [BARU] Fungsi untuk mengambil data sesi obrolan tunggal berdasarkan ID
 export async function getChatSession(sessionId: string): Promise<ChatHistoryItem | null> {
   try {
     // Mengambil judul dari kunci 'session:*'
     const title = await redis.get<string>(`session:${sessionId}`);
-    
+
     // Jika judul ditemukan, kembalikan data sesi
     if (title) {
-      return { 
-        id: sessionId, 
-        title, 
+      return {
+        id: sessionId,
+        title,
         href: `/quick-create/${sessionId}`  // ✅ tambahkan href
       };
     }
-    
+
     // Fallback untuk obrolan lama
     const chatExists = await redis.exists(`chat:${sessionId}`);
     if (chatExists) {
-      return { 
-        id: sessionId, 
-        title: 'Obrolan Tanpa Judul', 
+      return {
+        id: sessionId,
+        title: 'Obrolan Tanpa Judul',
         href: `/quick-create/${sessionId}`  // ✅ tambahkan href
       };
     }
@@ -815,7 +815,7 @@ export async function getChatSession(sessionId: string): Promise<ChatHistoryItem
 }
 
 
-  export async function getChatSessions(): Promise<ChatHistoryItem[]> {
+export async function getChatSessions(): Promise<ChatHistoryItem[]> {
   try {
     // 1. Ambil semua kunci pesan obrolan, karena ini adalah sumber kebenaran utama
     const chatKeys = await redis.keys('chat:*');
@@ -850,8 +850,8 @@ export async function getChatSession(sessionId: string): Promise<ChatHistoryItem
 }
 
 async function generateTitleForChat(
-  prompt: string, 
-  language: string, 
+  prompt: string,
+  language: string,
   images?: ImagePart[]
 ): Promise<string> {
   const titlePrompt = `
@@ -894,8 +894,8 @@ async function generateTitleForChat(
     if (images && images.length > 0) {
       images.forEach(image => {
         // Buat objek Part TERPISAH hanya untuk gambar
-        promptParts.push({ 
-          inlineData: image 
+        promptParts.push({
+          inlineData: image
         });
       });
     }
@@ -927,7 +927,7 @@ export async function renameChatSession(sessionId: string, newTitle: string) {
     if (!chatExists && !sessionExists) {
       return { success: false, error: "Session not found." };
     }
-    
+
     await redis.set(`session:${sessionId}`, newTitle.trim());
     return { success: true };
   } catch (error) {
@@ -964,7 +964,7 @@ export async function getChatHistory(sessionId: string): Promise<StoredMessage[]
   try {
     // Ambil data dari Redis. Tipe <any> digunakan untuk menangani format yang tidak konsisten.
     const historyItems = await redis.lrange<any>(`chat:${sessionId}`, 0, -1);
-    
+
     const validHistory: StoredMessage[] = [];
     historyItems.forEach(item => {
       if (typeof item === 'string') {
@@ -983,7 +983,7 @@ export async function getChatHistory(sessionId: string): Promise<StoredMessage[]
         console.warn("Melewatkan item riwayat obrolan dengan tipe tidak diketahui:", item);
       }
     });
-    
+
     return validHistory;
 
   } catch (error) {
@@ -994,35 +994,35 @@ export async function getChatHistory(sessionId: string): Promise<StoredMessage[]
 
 // [PERBAIKAN] saveMessageToHistory sekarang menyimpan objek secara langsung
 async function saveMessageToHistory(sessionId: string, message: StoredMessage) {
-    try {
-      // Biarkan library @upstash/redis menangani serialisasi secara otomatis
-      await redis.rpush(`chat:${sessionId}`, message);
-      await redis.ltrim(`chat:${sessionId}`, -50, -1);
-    } catch (error) {
-      console.error("Gagal menyimpan pesan ke riwayat:", error);
-    }
+  try {
+    // Biarkan library @upstash/redis menangani serialisasi secara otomatis
+    await redis.rpush(`chat:${sessionId}`, message);
+    await redis.ltrim(`chat:${sessionId}`, -50, -1);
+  } catch (error) {
+    console.error("Gagal menyimpan pesan ke riwayat:", error);
   }
+}
 
 // Save/Get code for app_builder
 export async function saveCodeToUpstash(sessionId: string, code: string) {
   "use server"
   try {
     console.log('[saveCodeToUpstash] Saving code for session:', sessionId, 'Length:', code?.length || 0)
-    
+
     // Check if code already exists - if yes, update it (not create new)
     const existingCode = await redis.get<string>(`code:${sessionId}`);
     console.log('[saveCodeToUpstash] Existing code found:', !!existingCode)
-    
+
     await redis.set(`code:${sessionId}`, code);
     console.log('[saveCodeToUpstash] Code saved successfully')
-    
+
     // Also save publish status (default unpublished) - preserve existing status
     const publishStatus = await redis.get(`publish:${sessionId}`);
     if (publishStatus === null || publishStatus === undefined) {
       await redis.set(`publish:${sessionId}`, false);
       console.log('[saveCodeToUpstash] Initialized publish status to false')
     }
-    
+
     return { success: true, isUpdate: !!existingCode };
   } catch (error) {
     console.error("[saveCodeToUpstash] Error:", error);
@@ -1102,24 +1102,24 @@ export async function getAIStepsFromUpstash(sessionId: string) {
 // [FINAL] Fungsi untuk menghasilkan 3 sugesti singkat
 export async function generateSuggestions() {
   const headersList = await headers();
-    
+
   // [MODIFIKASI] Kembali menggunakan 'referer' karena lebih andal untuk Server Actions.
   const referer = headersList.get('referer');
-  
+
   // Ekstrak path dari URL 'referer'. Jika tidak ada, gunakan '/' sebagai fallback.
-  const path = referer ? new URL(referer).pathname : '/'; 
+  const path = referer ? new URL(referer).pathname : '/';
 
   const language = path.startsWith('/en') ? 'English' : 'Indonesian';
   console.log(`AI: Auto-detected language '${language}' from path '${path}'. Generating suggestions...`);
   const exampleJson = language === 'English'
-  ? `{
+    ? `{
       "suggestions": [
         { "text": "Log daily expenses", "icon": "IconReceipt2" },
         { "text": "Summarize cash flow", "icon": "IconChartBar" },
         { "text": "Analyze sales data", "icon": "IconTrendingUp" }
       ]
     }`
-  : `{
+    : `{
       "suggestions": [
         { "text": "Catat pengeluaran harian", "icon": "IconReceipt2" },
         { "text": "Ringkas arus kas", "icon": "IconChartBar" },
@@ -1140,33 +1140,33 @@ export async function generateSuggestions() {
   `;
 
   try {
-      const response = await ai.models.generateContent({
-        model: "models/gemma-3-4b-it",
-        contents: suggestionPrompt,
-      });
-      const responseText = response.text || "";
-      const jsonMatch = responseText.match(/{[\s\S]*}/);
-    
-      if (jsonMatch && jsonMatch[0]) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        return parsed.suggestions || [];
-      } else {
-        throw new Error("Failed to extract valid JSON for suggestions.");
-      }
+    const response = await ai.models.generateContent({
+      model: "models/gemma-3-4b-it",
+      contents: suggestionPrompt,
+    });
+    const responseText = response.text || "";
+    const jsonMatch = responseText.match(/{[\s\S]*}/);
+
+    if (jsonMatch && jsonMatch[0]) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return parsed.suggestions || [];
+    } else {
+      throw new Error("Failed to extract valid JSON for suggestions.");
+    }
   } catch (error) {
-      console.error("Suggestion AI Error:", error);
-      const fallbackSuggestions = language === 'English'
-        ? [
-            { "text": "Record an expense", "icon": "IconReportMoney" },
-            { "text": "Summarize cash flow", "icon": "IconCashMove" },
-            { "text": "Get financial tips", "icon": "IconBulb" },
-          ]
-        : [
-            { "text": "Catat pengeluaran", "icon": "IconReportMoney" },
-            { "text": "Ringkas cash flow", "icon": "IconCashMove" },
-            { "text": "Tips keuangan", "icon": "IconBulb" },
-          ];
-      return fallbackSuggestions;
+    console.error("Suggestion AI Error:", error);
+    const fallbackSuggestions = language === 'English'
+      ? [
+        { "text": "Record an expense", "icon": "IconReportMoney" },
+        { "text": "Summarize cash flow", "icon": "IconCashMove" },
+        { "text": "Get financial tips", "icon": "IconBulb" },
+      ]
+      : [
+        { "text": "Catat pengeluaran", "icon": "IconReportMoney" },
+        { "text": "Ringkas cash flow", "icon": "IconCashMove" },
+        { "text": "Tips keuangan", "icon": "IconBulb" },
+      ];
+    return fallbackSuggestions;
   }
 }
 
@@ -1204,11 +1204,11 @@ export async function generateAppBuilderSuggestions() {
   const currentTime = Date.now();
   const randomSeed = Math.floor(currentTime / 1000) % 1000; // Use seconds for more variation
   const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
-  
+
   // Create a diverse list of categories and business types for inspiration
   const categories = [
-    'landing page', 'dashboard', 'portfolio', 'e-commerce', 'blog', 'saas product', 
-    'restaurant', 'cafe', 'fitness studio', 'yoga center', 'photography studio', 
+    'landing page', 'dashboard', 'portfolio', 'e-commerce', 'blog', 'saas product',
+    'restaurant', 'cafe', 'fitness studio', 'yoga center', 'photography studio',
     'music school', 'art gallery', 'co-working space', 'real estate', 'travel agency',
     'event planning', 'wedding planner', 'interior design', 'architecture firm',
     'law firm', 'consulting', 'education platform', 'online course', 'newsletter',
@@ -1231,7 +1231,7 @@ export async function generateAppBuilderSuggestions() {
     'hiking', 'adventure travel', 'safari', 'cruise', 'hotel',
     'resort', 'airbnb', 'vacation rental', 'tour guide', 'local experiences'
   ];
-  
+
   const suggestionPrompt = `
     You are a highly creative AI App Builder Assistant. Your task is to generate EXACTLY 3 unique, creative, and diverse suggestions for building different types of web applications and websites.
     
@@ -1260,7 +1260,7 @@ export async function generateAppBuilderSuggestions() {
     ${categories.slice(0, 20).join(', ')}, and many more...
     
     **CORRECT SHORT EXAMPLES (${language === 'English' ? 'English' : 'Indonesian'}):**
-    ${language === 'English' 
+    ${language === 'English'
       ? `- "Create a landing page for sustainable fashion brand"
 - "Build a crypto portfolio tracking dashboard"
 - "Design a drone photography portfolio for real estate"
@@ -1310,38 +1310,38 @@ export async function generateAppBuilderSuggestions() {
   `;
 
   try {
-      const response = await ai.models.generateContent({
-        model: "models/gemma-3-4b-it",
-        contents: suggestionPrompt,
-      });
-      const responseText = response.text || "";
-      console.log(`[APP BUILDER SUGGESTIONS] AI Response: ${responseText}`);
-      const jsonMatch = responseText.match(/{[\s\S]*}/);
+    const response = await ai.models.generateContent({
+      model: "models/gemma-3-4b-it",
+      contents: suggestionPrompt,
+    });
+    const responseText = response.text || "";
+    console.log(`[APP BUILDER SUGGESTIONS] AI Response: ${responseText}`);
+    const jsonMatch = responseText.match(/{[\s\S]*}/);
 
-      if (jsonMatch && jsonMatch[0]) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        console.log(`[APP BUILDER SUGGESTIONS] Parsed suggestions:`, parsed.suggestions);
-        return parsed.suggestions || [];
-      } else {
-        console.error(`[APP BUILDER SUGGESTIONS] Failed to extract JSON from: ${responseText}`);
-        throw new Error("Failed to extract valid JSON for app builder suggestions.");
-      }
+    if (jsonMatch && jsonMatch[0]) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      console.log(`[APP BUILDER SUGGESTIONS] Parsed suggestions:`, parsed.suggestions);
+      return parsed.suggestions || [];
+    } else {
+      console.error(`[APP BUILDER SUGGESTIONS] Failed to extract JSON from: ${responseText}`);
+      throw new Error("Failed to extract valid JSON for app builder suggestions.");
+    }
   } catch (error) {
-      console.error("App Builder Suggestion AI Error:", error);
-      const fallbackSuggestions = language === 'English'
-        ? [
-            { "text": "Create a restaurant landing page", "icon": "IconDeviceLaptop" },
-            { "text": "Build a tech startup blog", "icon": "IconFileText" },
-            { "text": "Design fashion e-commerce site", "icon": "IconShoppingCart" },
-            { "text": "Make photographer portfolio", "icon": "IconBriefcase" },
-          ]
-        : [
-            { "text": "Buat landing page restoran vegan", "icon": "IconDeviceLaptop" },
-            { "text": "Buat dashboard manajemen inventaris", "icon": "IconChartBar" },
-            { "text": "Buat blog fotografi perjalanan", "icon": "IconCamera" },
-            { "text": "Buat toko online kerajinan tangan", "icon": "IconShoppingCart" },
-          ];
-      return fallbackSuggestions;
+    console.error("App Builder Suggestion AI Error:", error);
+    const fallbackSuggestions = language === 'English'
+      ? [
+        { "text": "Create a restaurant landing page", "icon": "IconDeviceLaptop" },
+        { "text": "Build a tech startup blog", "icon": "IconFileText" },
+        { "text": "Design fashion e-commerce site", "icon": "IconShoppingCart" },
+        { "text": "Make photographer portfolio", "icon": "IconBriefcase" },
+      ]
+      : [
+        { "text": "Buat landing page restoran vegan", "icon": "IconDeviceLaptop" },
+        { "text": "Buat dashboard manajemen inventaris", "icon": "IconChartBar" },
+        { "text": "Buat blog fotografi perjalanan", "icon": "IconCamera" },
+        { "text": "Buat toko online kerajinan tangan", "icon": "IconShoppingCart" },
+      ];
+    return fallbackSuggestions;
   }
 }
 
@@ -1375,7 +1375,7 @@ export async function classifyRequestType(
         contentParts.push({ inlineData: image });
       });
     }
-    
+
     const response = await ai.models.generateContent({
       model: "models/gemma-3-4b-it",
       contents: [{ role: 'user', parts: contentParts }]
@@ -1399,7 +1399,7 @@ export async function classifyAndSummarize(
   images?: ImagePart[]
 ): Promise<ThinkingResult['classification']> { // <-- Tipe return disesuaikan
   const historyText = history.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-  
+
   const classificationPromptText = `
   Analyze the user's latest text prompt, any provided images, AND the preceding conversation history to understand the full context. Perform the following tasks:
 
@@ -1488,7 +1488,7 @@ export async function classifyAndSummarize(
         contentParts.push({ inlineData: image });
       });
     }
-    
+
     const response = await ai.models.generateContent({
       model: "gemma-3-4b-it",
       contents: [{ role: 'user', parts: contentParts }]
@@ -1506,15 +1506,15 @@ export async function classifyAndSummarize(
     throw new Error("Failed to extract valid JSON from classification response.");
   } catch (error) {
     console.error("Classification AI Error:", error);
-        return { 
-          language: "Indonesian", 
-          intent: "general_question", 
-          summary: `Pengguna bertanya: "${prompt}"`, 
-          mood: "neutral", 
-          rawResponse: "AI classification failed.",
-          stepByAi: ["Gagal merencanakan langkah."] 
-      };
-    }
+    return {
+      language: "Indonesian",
+      intent: "general_question",
+      summary: `Pengguna bertanya: "${prompt}"`,
+      mood: "neutral",
+      rawResponse: "AI classification failed.",
+      stepByAi: ["Gagal merencanakan langkah."]
+    };
+  }
 }
 
 export async function enhancePrompt(
@@ -1526,7 +1526,7 @@ export async function enhancePrompt(
   }
 
   const systemInstruction = getSystemInstruction('prompt_enhancer', language);
-  
+
   const promptText = `
     **Original User Prompt:**
     "${originalPrompt}"
@@ -1542,22 +1542,88 @@ export async function enhancePrompt(
     });
 
     const enhancedPrompt = response.text?.trim() || originalPrompt;
-    
+
     // Clean up any prefixes or meta-commentary that AI might add
     let cleanedPrompt = enhancedPrompt
       .replace(/^(Enhanced prompt|Improved prompt|Here's the enhanced version|Berikut prompt yang diperbaiki):\s*/i, '')
       .replace(/^["']|["']$/g, '') // Remove surrounding quotes
       .trim();
-    
+
     // If cleaned prompt is empty or too short, return original
     if (!cleanedPrompt || cleanedPrompt.length < originalPrompt.length * 0.5) {
       return originalPrompt;
     }
-    
+
     return cleanedPrompt;
   } catch (error) {
     console.error("Prompt enhancement error:", error);
     return originalPrompt; // Return original on error
+  }
+}
+
+/**
+ * Enhance a diagram-related prompt to be more detailed and specific
+ * for better ERD or Flowchart generation
+ */
+export async function enhancePromptDiagram(
+  originalPrompt: string,
+  diagramType: 'flowchart' | 'erd',
+  language: string = 'id'
+): Promise<string> {
+  if (!originalPrompt || originalPrompt.trim().length === 0) {
+    return originalPrompt;
+  }
+
+  const diagramContext = diagramType === 'erd'
+    ? `Untuk ERD (Entity Relationship Diagram), tambahkan detail:
+       - Nama tabel/entity yang spesifik
+       - Kolom/field yang diperlukan (id, nama, timestamps, dll)
+       - Tipe relasi (one-to-many, many-to-many, dll)
+       - Contoh: "Buat ERD untuk sistem e-commerce" → "Buat ERD dengan tabel User (id, name, email, created_at), Product (id, name, price, stock), Order (id, user_id, total, status, created_at), OrderItem (id, order_id, product_id, quantity, price) dengan relasi User one-to-many Order, Order one-to-many OrderItem, Product one-to-many OrderItem"`
+    : `Untuk Flowchart, tambahkan detail:
+       - Langkah-langkah proses yang jelas
+       - Decision points (if/else) yang spesifik
+       - Start dan End points
+       - Contoh: "Buat flow login" → "Buat flowchart proses login dengan Start → Input Username & Password → Validasi Format → Cek Database → Decision: Valid? → Yes: Redirect Dashboard, No: Show Error → Retry atau End"`;
+
+  const systemPrompt = `Kamu adalah assistant yang membantu memperbaiki prompt untuk pembuatan diagram.
+Tugas kamu adalah memperkaya dan memperdetail prompt user agar menghasilkan diagram yang lebih baik.
+
+${diagramContext}
+
+RULES:
+1. Pertahankan intent asli user
+2. Tambahkan detail yang masuk akal
+3. Gunakan bahasa ${language === 'id' ? 'Indonesia' : 'Inggris'}
+4. Output HANYA prompt yang sudah diperbaiki, tanpa penjelasan
+5. Jangan terlalu panjang, maksimal 2-3 kalimat`;
+
+  const promptText = `Prompt asli: "${originalPrompt}"
+
+Perbaiki prompt ini untuk menghasilkan ${diagramType === 'erd' ? 'ERD' : 'Flowchart'} yang lebih detail.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemma-3-4b-it",
+      contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + promptText }] }]
+    });
+
+    const enhancedPrompt = response.text?.trim() || originalPrompt;
+
+    // Clean up any prefixes
+    let cleanedPrompt = enhancedPrompt
+      .replace(/^(Enhanced prompt|Improved prompt|Here's|Berikut|Prompt yang diperbaiki|Perbaikan)[\s:]+/i, '')
+      .replace(/^["']|["']$/g, '')
+      .trim();
+
+    if (!cleanedPrompt || cleanedPrompt.length < originalPrompt.length * 0.5) {
+      return originalPrompt;
+    }
+
+    return cleanedPrompt;
+  } catch (error) {
+    console.error("Diagram prompt enhancement error:", error);
+    return originalPrompt;
   }
 }
 
@@ -1572,8 +1638,8 @@ export {
 
 // [NEW] Separate system instructions for different modes
 function getSystemInstruction(mode: 'code' | 'finance' | 'app_builder' | 'app_builder_inspiration' | 'app_builder_inspiration_json' | 'web_planning' | 'app_builder_planning' | 'general' | 'prompt_enhancer', language: string): string {
-  const creatorAnswer = language === 'English' 
-    ? '"I was created by the Luminite team to help with coding and finance for SMEs in Indonesia."' 
+  const creatorAnswer = language === 'English'
+    ? '"I was created by the Luminite team to help with coding and finance for SMEs in Indonesia."'
     : '"Saya dibuat oleh tim Luminite untuk membantu coding dan keuangan UMKM di Indonesia."';
 
   if (mode === 'code') {
@@ -1991,16 +2057,16 @@ async function generateFinalResponse(
   planningContext?: string
 ): Promise<string> {
   console.log(`AI Step 2: Generating final response with intent: ${intent}. Images received: ${images?.length || 0}. Mode: ${mode || 'auto'}. Model: ${modelOverride || 'gemma-3-27b-it'}`);
-  
+
   // [NEW] Fetch Pexels images for app_builder mode
   let pexelsImages: string[] = [];
   let logoImages: string[] = [];
-  
+
   if (mode === 'app_builder') {
     try {
       // Detect if user is requesting a logo
       const logoKeywords = ['logo', 'brand', 'branding', 'icon app', 'app icon', 'company logo', 'business logo'];
-      const isLogoRequest = logoKeywords.some(keyword => 
+      const isLogoRequest = logoKeywords.some(keyword =>
         originalPrompt.toLowerCase().includes(keyword) ||
         originalPrompt.toLowerCase().includes(`need ${keyword}`) ||
         originalPrompt.toLowerCase().includes(`want ${keyword}`) ||
@@ -2017,7 +2083,7 @@ async function generateFinalResponse(
         // Extract business/brand context from prompt for better logo search
         const brandContext = originalPrompt.toLowerCase();
         let logoQuery = 'minimalist logo icon symbol';
-        
+
         // Try to determine the business type for more targeted logo search
         if (brandContext.includes('restaurant') || brandContext.includes('food') || brandContext.includes('cafe')) {
           logoQuery = 'restaurant food logo icon minimalist';
@@ -2040,7 +2106,7 @@ async function generateFinalResponse(
       console.error('[Pexels] Error fetching images:', error);
     }
   }
-  
+
   // [NEW] Get appropriate system instruction based on mode
   const systemInstruction = getSystemInstruction(mode || 'general', language);
 
@@ -2089,7 +2155,7 @@ async function generateFinalResponse(
   `;
 
   const fullSystemInstruction = systemInstruction + tableChartProtocol + codeBlockInstruction;
-  
+
   const historyText = history.map(msg => `${msg.role}: ${msg.content}`).join('\n');
 
   const planningContextSection = planningContext ? `
@@ -2098,10 +2164,10 @@ async function generateFinalResponse(
     ---` : '';
 
   // Build user prompt detail - different for modes that should NOT output code
-  const codeInstruction = shouldSkipCodeBlockInstruction 
-    ? '' 
+  const codeInstruction = shouldSkipCodeBlockInstruction
+    ? ''
     : `**CRITICAL: Always use \`\`\`json for JSON, \`\`\`javascript for JS, \`\`\`python for Python, etc. NEVER use plain \`\`\`.**`;
-  
+
   // Build available images info for app_builder mode
   const imagesInfo = mode === 'app_builder' && (pexelsImages.length > 0 || logoImages.length > 0) ? `
     **Available Images from Pexels:**
@@ -2137,7 +2203,7 @@ async function generateFinalResponse(
     
     Now, considering all instructions, especially the protocol for the given intent, generate a helpful and professional response in **${language}**.
   `;
-  
+
   const promptParts: Part[] = [
     { text: fullSystemInstruction },
     { text: userPromptDetail }
@@ -2145,50 +2211,50 @@ async function generateFinalResponse(
 
   if (images && images.length > 0) {
     images.forEach(image => {
-      promptParts.push({ inlineData: image }); 
+      promptParts.push({ inlineData: image });
     });
   }
 
   try {
-      const model = modelOverride || "gemma-3-27b-it";
-      const response = await ai.models.generateContent({
-          model: model,
-          contents: [{ role: 'user', parts: promptParts }]
-      });
-    
-      let finalResponse = response.text || "";
-      
-      // [NEW] For app_builder mode, inject Pexels images after code generation
-      if (mode === 'app_builder' && finalResponse) {
-        // Extract code from markdown blocks if present
-        const codeMatch = finalResponse.match(/```tsx\s*\n?([\s\S]*?)```/) || 
-                          finalResponse.match(/```ts\s*\n?([\s\S]*?)```/) ||
-                          finalResponse.match(/```jsx\s*\n?([\s\S]*?)```/);
-        
-        if (codeMatch && codeMatch[1]) {
-          const extractedCode = codeMatch[1].trim();
-          console.log('[Image Injection] Extracted code for image injection, length:', extractedCode.length);
-          
-          // Inject images into code
-          const codeWithImages = await injectPexelsImagesIntoCode(extractedCode, originalPrompt, language);
-          
-          // Replace the code in the response
-          finalResponse = finalResponse.replace(codeMatch[0], `\`\`\`tsx\n${codeWithImages}\n\`\`\``);
-          console.log('[Image Injection] Successfully injected images into code');
-        } else {
-          // No code blocks, try to inject directly
-          const codeWithImages = await injectPexelsImagesIntoCode(finalResponse, originalPrompt, language);
-          finalResponse = codeWithImages;
-        }
+    const model = modelOverride || "gemma-3-27b-it";
+    const response = await ai.models.generateContent({
+      model: model,
+      contents: [{ role: 'user', parts: promptParts }]
+    });
+
+    let finalResponse = response.text || "";
+
+    // [NEW] For app_builder mode, inject Pexels images after code generation
+    if (mode === 'app_builder' && finalResponse) {
+      // Extract code from markdown blocks if present
+      const codeMatch = finalResponse.match(/```tsx\s*\n?([\s\S]*?)```/) ||
+        finalResponse.match(/```ts\s*\n?([\s\S]*?)```/) ||
+        finalResponse.match(/```jsx\s*\n?([\s\S]*?)```/);
+
+      if (codeMatch && codeMatch[1]) {
+        const extractedCode = codeMatch[1].trim();
+        console.log('[Image Injection] Extracted code for image injection, length:', extractedCode.length);
+
+        // Inject images into code
+        const codeWithImages = await injectPexelsImagesIntoCode(extractedCode, originalPrompt, language);
+
+        // Replace the code in the response
+        finalResponse = finalResponse.replace(codeMatch[0], `\`\`\`tsx\n${codeWithImages}\n\`\`\``);
+        console.log('[Image Injection] Successfully injected images into code');
+      } else {
+        // No code blocks, try to inject directly
+        const codeWithImages = await injectPexelsImagesIntoCode(finalResponse, originalPrompt, language);
+        finalResponse = codeWithImages;
       }
-    
-      return finalResponse;
+    }
+
+    return finalResponse;
   } catch (error) {
-      console.error("Generation AI Error:", error);
-      throw new Error("Failed to generate final content from Google AI.");
+    console.error("Generation AI Error:", error);
+    throw new Error("Failed to generate final content from Google AI.");
   }
 }
-  
+
 // [MODIFIKASI] generateContent sekarang memanggil classifyAndSummarize dengan jumlah gambar
 export async function generateContent(
   prompt: string,
@@ -2273,8 +2339,8 @@ export async function generateContent(
             console.log('[SUCCESS] Chart successfully generated. Generating introductory text.');
             // Generate final text only if the chart is successful
             finalResponseText = await generateFinalResponse(
-                prompt, classificationResult.intent, classificationResult.summary,
-                classificationResult.language, fullHistory, images, requestType
+              prompt, classificationResult.intent, classificationResult.summary,
+              classificationResult.language, fullHistory, images, requestType
             );
           } else {
             console.log('[WARN] Failed to generate a chart from the data.');
@@ -2294,8 +2360,8 @@ export async function generateContent(
           if (table) {
             console.log('[SUCCESS] Table successfully generated. Generating introductory text.');
             finalResponseText = await generateFinalResponse(
-                prompt, classificationResult.intent, classificationResult.summary,
-                classificationResult.language, fullHistory, images, requestType
+              prompt, classificationResult.intent, classificationResult.summary,
+              classificationResult.language, fullHistory, images, requestType
             );
           }
         }
@@ -2322,17 +2388,17 @@ export async function generateContent(
     if (!isRegeneration) {
       console.log(`[DATA] Saving user message to history for sessionId: ${currentSessionId}`);
       await saveMessageToHistory(currentSessionId!, { role: 'user', content: prompt, /* tambahkan images jika ada */ });
-  }
-  
-  // Simpan respons model (selalu disimpan, baik baru maupun regenerasi)
-  console.log(`[DATA] Saving model response to history for sessionId: ${currentSessionId}`);
-  await saveMessageToHistory(currentSessionId!, {
-    role: 'model',
-    content: finalResponseText!,
-    chart: chart,
-    table: table,
-    thinkingResult: thinkingResult
-  });
+    }
+
+    // Simpan respons model (selalu disimpan, baik baru maupun regenerasi)
+    console.log(`[DATA] Saving model response to history for sessionId: ${currentSessionId}`);
+    await saveMessageToHistory(currentSessionId!, {
+      role: 'model',
+      content: finalResponseText!,
+      chart: chart,
+      table: table,
+      thinkingResult: thinkingResult
+    });
 
     let title;
     if (isNewChat) {
@@ -2374,15 +2440,15 @@ export async function generateContent(
  */
 export async function getTemplateExample(prompt: string): Promise<string> {
   'use server';
-  
+
   const fs = await import('fs/promises');
   const path = await import('path');
-  
+
   // Analyze prompt to determine template type
   const promptLower = prompt.toLowerCase();
-  
+
   let templateFile = 'landing-page.tsx'; // default
-  
+
   if (promptLower.includes('ecommerce') || promptLower.includes('shop') || promptLower.includes('store') || promptLower.includes('product')) {
     templateFile = 'ecommerce.tsx';
   } else if (promptLower.includes('blog') || promptLower.includes('article') || promptLower.includes('post')) {
@@ -2394,16 +2460,459 @@ export async function getTemplateExample(prompt: string): Promise<string> {
   } else if (promptLower.includes('restaurant') || promptLower.includes('food') || promptLower.includes('menu') || promptLower.includes('cafe')) {
     templateFile = 'restaurant.tsx';
   }
-  
+
   try {
     const templatePath = path.join(process.cwd(), 'lib', 'templates', templateFile);
     const templateCode = await fs.readFile(templatePath, 'utf-8');
-    
+
     console.log(`[Template] Selected ${templateFile} for prompt: "${prompt.substring(0, 50)}..."`);
-    
+
     return templateCode;
   } catch (error) {
     console.error(`[Template] Error reading template ${templateFile}:`, error);
     return ''; // Return empty if template not found
   }
 }
+
+// ============================================
+// DIAGRAM AI GENERATION
+// ============================================
+
+export type DiagramGenerationMode = 'replace' | 'add';
+
+export type DiagramNodeField = {
+  name: string;
+  type: string;
+  isPK?: boolean;
+  isFK?: boolean;
+};
+
+export type DiagramNode = {
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  data: {
+    label: string;
+    color?: string;
+    fields?: DiagramNodeField[];
+    [key: string]: unknown;
+  };
+};
+
+export type DiagramEdge = {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+  type?: string;
+  label?: string;
+  style?: Record<string, unknown>;
+};
+
+export type DiagramGenerationResult = {
+  nodes: DiagramNode[];
+  edges: DiagramEdge[];
+  summary: string;
+};
+
+/**
+ * Generate diagram nodes and edges from natural language prompt
+ */
+export async function generateDiagramFromPrompt(
+  prompt: string,
+  template: 'flowchart' | 'erd',
+  mode: DiagramGenerationMode,
+  existingNodes?: DiagramNode[],
+  existingEdges?: DiagramEdge[]
+): Promise<DiagramGenerationResult> {
+  'use server';
+
+  const isERD = template === 'erd';
+  const isAddMode = mode === 'add';
+
+  // Build context from existing diagram if in 'add' mode
+  let existingContext = '';
+  if (isAddMode && existingNodes && existingNodes.length > 0) {
+    existingContext = `
+**EXISTING DIAGRAM (you must improve and add to this, not replace):**
+Nodes: ${JSON.stringify(existingNodes.map(n => ({ id: n.id, type: n.type, label: n.data.label })), null, 2)}
+Edges: ${JSON.stringify(existingEdges?.map(e => ({ source: e.source, target: e.target, label: e.label })), null, 2)}
+
+IMPORTANT: Keep existing nodes and edges, only ADD new ones or IMPROVE existing labels/connections based on the user's request.
+`;
+  }
+
+  const systemPrompt = isERD ? `
+Kamu adalah **Lumi**, expert database architect dari Luminite AI. Generate ERD (Entity-Relationship Diagram) untuk ReactFlow canvas.
+
+## Tugasmu
+Buat database entities dengan:
+- Primary keys (isPK: true)
+- Foreign keys (isFK: true)  
+- Data types yang tepat: UUID, VARCHAR, TEXT, INT, DECIMAL, TIMESTAMP, BOOLEAN, JSON
+
+## Node Types Available
+- "entity": Database table dengan fields array
+
+## Edge Types
+- "smoothstep": Untuk relationships
+
+## Response Format (JSON ONLY)
+{
+  "nodes": [
+    {
+      "id": "unique_id",
+      "type": "entity",
+      "position": { "x": number, "y": number },
+      "data": {
+        "label": "TableName",
+        "color": "blue|purple|emerald|orange|pink|teal",
+        "fields": [
+          { "name": "id", "type": "UUID", "isPK": true },
+          { "name": "user_id", "type": "UUID", "isFK": true },
+          { "name": "created_at", "type": "TIMESTAMP" }
+        ]
+      }
+    }
+  ],
+  "edges": [...],
+  "summary": "PENTING: Tulis summary dalam format **Markdown** yang detail seperti:\n\n**Diagram Selesai!**\n\nAku sudah membuat [jumlah] tabel untuk sistem [nama]:\n\n1. **NamaTabel** - deskripsi singkat dan kegunaannya\n2. **NamaTabel2** - deskripsi singkat dan relasi nya\n\n**Relasi:**\n- User one-to-many Order\n- dll\n\nJangan gunakan emoji checkmark. Gunakan heading, numbered list, dan bold untuk nama penting."
+}
+
+## Layout Rules
+- Space entities 300px apart horizontally
+- Space entities 270px apart vertically
+- Start from position (50, 50)
+- Use grid layout for multiple tables
+${existingContext}
+` : `
+Kamu adalah **Lumi**, expert flowchart designer dari Luminite AI. Generate flowchart untuk ReactFlow canvas.
+
+## Node Types Available
+- "circle": Start/End nodes (terminal)
+- "basic": Process/Action rectangles
+- "diamond": Decision nodes (Yes/No branches)
+- "parallelogram": Input/Output nodes
+- "note": Annotation/comment nodes
+
+## Edge Types
+- "smoothstep": Curved edges (default)
+- "straight": Direct lines
+- "step": Right-angle edges
+
+## Response Format (JSON ONLY)
+{
+  "nodes": [
+    {
+      "id": "unique_id",
+      "type": "circle|basic|diamond|parallelogram|note",
+      "position": { "x": number, "y": number },
+      "data": { "label": "Node text" }
+    }
+  ],
+  "edges": [...],
+  "summary": "PENTING: Tulis summary dalam format **Markdown** yang detail seperti:\n\n**Flow Selesai!**\n\nAku sudah membuat flowchart [nama proses] dengan [jumlah] langkah:\n\n1. **Start** - titik mulai\n2. **NamaStep** - deskripsi aksi\n3. **Decision** - kondisi yang dicek\n4. **End** - hasil akhir\n\n**Highlight:**\n- Kondisi X akan mengarah ke Y\n- dll\n\nJangan gunakan emoji checkmark. Gunakan heading, numbered list, dan bold untuk nama penting."
+}
+
+## Layout Rules
+- Flow top-to-bottom, start "Start" node at (250, 50)
+- Space nodes 100px apart vertically
+- Decision branches go right for "No", down for "Yes"
+- Use sourceHandle "right" for No branch, "bottom" for Yes branch
+${existingContext}
+`;
+
+  const userPrompt = isAddMode
+    ? `Based on the existing diagram, ${prompt}`
+    : `Create a complete ${isERD ? 'ERD' : 'flowchart'} for: ${prompt}`;
+
+  try {
+    console.log(`[Diagram AI] Generating ${template} diagram (mode: ${mode})`);
+
+    const response = await ai.models.generateContent({
+      model: "gemma-3-27b-it",
+      contents: [
+        { role: 'user', parts: [{ text: systemPrompt }] },
+        { role: 'user', parts: [{ text: userPrompt }] }
+      ]
+    });
+
+    const responseText = response.text || '{}';
+    console.log('[Diagram AI] Raw response:', responseText.substring(0, 500));
+
+    // Extract JSON from response
+    let jsonString = '{}';
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch && jsonMatch[0]) {
+      jsonString = jsonMatch[0];
+    }
+
+    const parsed = JSON.parse(jsonString) as DiagramGenerationResult;
+
+    // Validate and clean up the result
+    if (!parsed.nodes || !Array.isArray(parsed.nodes)) {
+      parsed.nodes = [];
+    }
+    if (!parsed.edges || !Array.isArray(parsed.edges)) {
+      parsed.edges = [];
+    }
+    if (!parsed.summary) {
+      parsed.summary = `Generated ${parsed.nodes.length} nodes and ${parsed.edges.length} edges`;
+    }
+
+    // Add marker end to edges for arrows
+    parsed.edges = parsed.edges.map(edge => ({
+      ...edge,
+      markerEnd: { type: 'arrowclosed' },
+      style: { strokeWidth: 2, ...edge.style }
+    }));
+
+    // In add mode, merge with existing
+    if (isAddMode && existingNodes) {
+      // Filter out any nodes from AI that have same ID as existing
+      const existingIds = new Set(existingNodes.map(n => n.id));
+      const newNodes = parsed.nodes.filter(n => !existingIds.has(n.id));
+
+      // Offset new nodes to avoid overlap
+      const maxY = Math.max(0, ...existingNodes.map(n => n.position.y));
+      newNodes.forEach(node => {
+        node.position.y += maxY + 150;
+      });
+
+      parsed.nodes = [...existingNodes, ...newNodes];
+      parsed.edges = [...(existingEdges || []), ...parsed.edges];
+    }
+
+    console.log(`[Diagram AI] Generated ${parsed.nodes.length} nodes, ${parsed.edges.length} edges`);
+    return parsed;
+
+  } catch (error) {
+    console.error('[Diagram AI] Error:', error);
+    throw new Error('Failed to generate diagram. Please try again.');
+  }
+}
+
+// ============================================
+// DIAGRAM ANALYSIS (Phase 1 - Smart Detection)
+// ============================================
+
+export type DiagramIntentType = 'generate' | 'chat';
+
+export type DiagramAnalysisResult = {
+  response: string;           // AI's observation/answer
+  intent: DiagramIntentType;  // 'generate' = needs diagram generation, 'chat' = just conversation
+  suggestOptions: boolean;    // Whether to show Replace/Add options (only for 'generate')
+  recommendation: 'replace' | 'add';  // AI's recommendation (only for 'generate')
+};
+
+/**
+ * Analyze user's request to determine intent:
+ * - 'chat': Greetings, questions about diagram, explanations
+ * - 'generate': Create/modify diagram requests
+ */
+export async function analyzeDiagramContext(
+  prompt: string,
+  template: 'flowchart' | 'erd',
+  existingNodes?: DiagramNode[],
+  existingEdges?: DiagramEdge[],
+  chatHistory?: DiagramChatMessage[]
+): Promise<DiagramAnalysisResult> {
+  'use server';
+
+  const hasExistingDiagram = existingNodes && existingNodes.length > 0;
+  const isERD = template === 'erd';
+
+  // Build context from existing diagram
+  const diagramContext = hasExistingDiagram ? `
+Current ${isERD ? 'ERD' : 'Flowchart'} has ${existingNodes.length} nodes:
+${existingNodes.slice(0, 10).map(n => `- ${n.data.label} (${n.type})`).join('\n')}
+${existingNodes.length > 10 ? `... and ${existingNodes.length - 10} more` : ''}
+
+Connections: ${existingEdges?.length || 0} edges
+` : 'No existing diagram.';
+
+  // Build chat history context
+  const chatContext = chatHistory && chatHistory.length > 0
+    ? `\n\n## Recent Conversation:\n${chatHistory.slice(-6).map(m => `${m.role}: ${m.content}`).join('\n')}\n`
+    : '';
+
+  const systemPrompt = `Kamu adalah **Lumi**, AI assistant yang ramah dan cerdas untuk membantu membuat diagram. Kamu adalah bagian dari Luminite AI.
+
+## Tugasmu:
+Analisis permintaan user untuk menentukan intent mereka.
+
+## Intent Types:
+1. **chat** - User ingin:
+   - Menyapa (hi, hello, halo, hai, etc.)
+   - Bertanya tentang diagram yang ada
+   - Minta penjelasan tentang flow/struktur
+   - Percakapan umum tanpa mengubah diagram
+
+2. **generate** - User ingin:
+   - Membuat diagram baru
+   - Menambah node/table/step
+   - Memodifikasi struktur diagram
+   - Request perubahan spesifik
+
+## Response Format (JSON ONLY)
+{
+  "response": "Responsmu dalam bahasa user",
+  "intent": "chat" atau "generate",
+  "suggestOptions": true/false (hanya untuk intent generate),
+  "recommendation": "replace" atau "add" (hanya untuk intent generate)
+}
+
+## Rules untuk **chat** intent:
+- Balas dengan ramah dan detail sebagai Lumi
+- Jika user menyapa, perkenalkan diri: "Hai! Aku Lumi, assistant untuk membantu kamu membuat ${isERD ? 'ERD diagram' : 'flowchart'}. Ada yang bisa aku bantu?"
+- Jika user tanya tentang diagram, jelaskan dengan **format markdown** yang mudah dibaca:
+  - Gunakan **heading** untuk judul bagian
+  - Gunakan **numbered list** (1. 2. 3.) untuk langkah-langkah atau urutan
+  - Gunakan **bullet points** untuk komponen atau item
+  - Gunakan **bold** untuk menekankan nama penting
+  - Contoh format:
+    "Tentu! Berikut penjelasan flow ini:
+    
+    **Flow Login**
+    1. **Start** - User membuka halaman login
+    2. **Input** - User memasukkan username dan password
+    3. **Decision** - Sistem mengecek validasi
+    4. **End** - Redirect ke dashboard"
+- Sebutkan komponen yang ada dengan jelas
+- Jelaskan hubungan antar komponen
+- Berikan insight tentang struktur
+- Gunakan emoji untuk lebih friendly 😊
+
+## Rules untuk **generate** intent:
+- Akui apa yang user mau lakukan dengan singkat
+- Contoh: "Baik, aku akan menambahkan tabel Shipping ke ERD kamu."
+- **PENTING**: Jika diagram sudah ada dan request user berbeda signifikan dari struktur diagram yang ada (artinya suggestOptions akan true):
+  - Tambahkan kalimat di akhir response: "Silakan pilih salah satu opsi di bawah ini:"
+  - Ini memberi tahu user bahwa mereka perlu memilih antara opsi Replace atau Add
+  - Contoh lengkap: "Baik, aku akan membuat tabel User, Order, dan Product untukmu. Silakan pilih salah satu opsi di bawah ini:"
+
+## suggestOptions rules:
+- TRUE jika request berbeda signifikan dari diagram yang ada
+- FALSE jika request secara natural memperluas diagram
+
+${diagramContext}`;
+
+  const userPrompt = `${diagramContext}${chatContext}
+
+User's request: "${prompt}"
+
+Analyze and respond with JSON:`;
+
+  try {
+    console.log('[Diagram AI] Analyzing intent...');
+
+    const response = await ai.models.generateContent({
+      model: "gemma-3-12b-it",
+      contents: [
+        { role: 'user', parts: [{ text: systemPrompt }] },
+        { role: 'user', parts: [{ text: userPrompt }] }
+      ]
+    });
+
+    const responseText = response.text || '{}';
+    console.log('[Diagram AI] Analysis response:', responseText);
+
+    // Extract JSON from response
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch && jsonMatch[0]) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      return {
+        response: parsed.response || 'I can help with that!',
+        intent: parsed.intent === 'chat' ? 'chat' : 'generate',
+        suggestOptions: parsed.suggestOptions ?? (hasExistingDiagram && parsed.intent !== 'chat'),
+        recommendation: parsed.recommendation || 'add'
+      };
+    }
+
+    // Fallback - assume generate if no existing diagram
+    return {
+      response: hasExistingDiagram
+        ? 'I can help with your diagram. What would you like to do?'
+        : `I'll create a new ${isERD ? 'ERD' : 'flowchart'} for you.`,
+      intent: 'generate',
+      suggestOptions: hasExistingDiagram ? true : false,
+      recommendation: 'add'
+    };
+
+  } catch (error) {
+    console.error('[Diagram AI] Analysis error:', error);
+    return {
+      response: 'I can help with your diagram. How would you like to proceed?',
+      intent: 'generate',
+      suggestOptions: hasExistingDiagram ? true : false,
+      recommendation: 'add'
+    };
+  }
+}
+
+// ============================================
+// DIAGRAM CHAT STORAGE (Redis Persistence)
+// ============================================
+
+export type DiagramChatMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp?: number;
+};
+
+/**
+ * Get diagram chat history from Redis
+ */
+export async function getDiagramChatHistory(diagramId: string): Promise<DiagramChatMessage[]> {
+  'use server';
+  try {
+    const historyItems = await redis.lrange<any>(`diagram_chat:${diagramId}`, 0, -1);
+
+    const validHistory: DiagramChatMessage[] = [];
+    historyItems.forEach(item => {
+      if (typeof item === 'string') {
+        try {
+          validHistory.push(JSON.parse(item));
+        } catch (e) {
+          console.warn('[Diagram Chat] Cannot parse item:', item);
+        }
+      } else if (typeof item === 'object' && item !== null) {
+        validHistory.push(item as DiagramChatMessage);
+      }
+    });
+
+    return validHistory;
+  } catch (error) {
+    console.error('[Diagram Chat] Failed to get history:', error);
+    return [];
+  }
+}
+
+/**
+ * Save diagram chat message to Redis
+ */
+export async function saveDiagramMessage(diagramId: string, message: DiagramChatMessage) {
+  'use server';
+  try {
+    const messageWithTimestamp = { ...message, timestamp: Date.now() };
+    await redis.rpush(`diagram_chat:${diagramId}`, messageWithTimestamp);
+    // Keep only last 30 messages
+    await redis.ltrim(`diagram_chat:${diagramId}`, -30, -1);
+  } catch (error) {
+    console.error('[Diagram Chat] Failed to save message:', error);
+  }
+}
+
+/**
+ * Clear diagram chat history
+ */
+export async function clearDiagramChatHistory(diagramId: string) {
+  'use server';
+  try {
+    await redis.del(`diagram_chat:${diagramId}`);
+  } catch (error) {
+    console.error('[Diagram Chat] Failed to clear history:', error);
+  }
+}
+

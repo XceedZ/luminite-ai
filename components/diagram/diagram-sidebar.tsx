@@ -12,62 +12,65 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { useLanguage } from "@/components/language-provider";
 
 interface DiagramSidebarProps {
     template: "flowchart" | "erd";
 }
 
-const flowchartNodes = [
-    {
-        title: "Shapes",
-        items: [
-            { type: "basic", label: "Rectangle", icon: Square, description: "Process/Action" },
-            { type: "circle", label: "Circle", icon: Circle, description: "Start/End" },
-            { type: "diamond", label: "Diamond", icon: Diamond, description: "Decision" },
-            { type: "parallelogram", label: "Parallelogram", icon: Square, description: "Input/Output" },
-        ],
-    },
-    {
-        title: "Annotations",
-        items: [
-            { type: "text", label: "Text", icon: Type, description: "Text label" },
-            { type: "note", label: "Note", icon: StickyNote, description: "Sticky note" },
-        ],
-    },
-];
-
-const erdNodes = [
-    {
-        title: "Entities",
-        items: [
-            { type: "entity", label: "Entity", icon: Table2, description: "Database table" },
-            { type: "weak-entity", label: "Weak Entity", icon: Table2, description: "Dependent entity" },
-        ],
-    },
-    {
-        title: "Attributes",
-        items: [
-            { type: "attribute", label: "Attribute", icon: Circle, description: "Column/Field" },
-            { type: "primary-key", label: "Primary Key", icon: Key, description: "Unique identifier" },
-            { type: "foreign-key", label: "Foreign Key", icon: Link2, description: "Reference key" },
-        ],
-    },
-    {
-        title: "Relationships",
-        items: [
-            { type: "relationship", label: "Relationship", icon: Diamond, description: "Entity relation" },
-        ],
-    },
-    {
-        title: "Annotations",
-        items: [
-            { type: "text", label: "Text", icon: Type, description: "Text label" },
-            { type: "note", label: "Note", icon: StickyNote, description: "Sticky note" },
-        ],
-    },
-];
-
 export function DiagramSidebar({ template }: DiagramSidebarProps) {
+    const { t } = useLanguage();
+
+    const flowchartNodes = [
+        {
+            title: t("shapes"),
+            items: [
+                { type: "basic", label: t("rectangle"), icon: Square, description: t("processAction") },
+                { type: "circle", label: t("circle"), icon: Circle, description: t("startEnd") },
+                { type: "diamond", label: t("diamond"), icon: Diamond, description: t("decision") },
+                { type: "parallelogram", label: t("parallelogram"), icon: Square, description: t("inputOutput") },
+            ],
+        },
+        {
+            title: t("annotations"),
+            items: [
+                { type: "text", label: t("text"), icon: Type, description: t("textLabel") },
+                { type: "note", label: t("note"), icon: StickyNote, description: t("stickyNote") },
+            ],
+        },
+    ];
+
+    const erdNodes = [
+        {
+            title: t("entities"),
+            items: [
+                { type: "entity", label: t("entity"), icon: Table2, description: t("dbTable") },
+                { type: "weak-entity", label: t("weakEntity"), icon: Table2, description: t("dependentEntity") },
+            ],
+        },
+        {
+            title: t("attributes"),
+            items: [
+                { type: "attribute", label: t("attribute"), icon: Circle, description: t("columnField") },
+                { type: "primary-key", label: t("primaryKey"), icon: Key, description: t("uniqueId") },
+                { type: "foreign-key", label: t("foreignKey"), icon: Link2, description: t("refKey") },
+            ],
+        },
+        {
+            title: t("relationships"),
+            items: [
+                { type: "relationship", label: t("relationship"), icon: Diamond, description: t("entityRelation") },
+            ],
+        },
+        {
+            title: t("annotations"),
+            items: [
+                { type: "text", label: t("text"), icon: Type, description: t("textLabel") },
+                { type: "note", label: t("note"), icon: StickyNote, description: t("stickyNote") },
+            ],
+        },
+    ];
+
     const categories = template === "erd" ? erdNodes : flowchartNodes;
 
     const onDragStart = (event: React.DragEvent, nodeType: string, label: string) => {
@@ -80,10 +83,10 @@ export function DiagramSidebar({ template }: DiagramSidebarProps) {
         <aside className="w-64 border-r bg-background flex flex-col">
             <div className="p-4 border-b">
                 <h2 className="text-sm font-semibold text-foreground">
-                    {template === "erd" ? "ERD Elements" : "Flowchart Elements"}
+                    {template === "erd" ? t("erdElements") : t("flowchartElements")}
                 </h2>
                 <p className="text-xs text-muted-foreground mt-1">
-                    Drag elements to canvas
+                    {t("dragToCanvas")}
                 </p>
             </div>
 
@@ -119,20 +122,20 @@ export function DiagramSidebar({ template }: DiagramSidebarProps) {
                 ))}
 
                 {/* How to Connect */}
-                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                    <p className="text-xs font-medium text-foreground mb-2">How to connect:</p>
+                <div className="p-3 rounded-lg bg-muted/50 border border-dashed">
+                    <p className="text-xs font-medium text-foreground mb-2">{t("howToConnect")}</p>
                     <p className="text-xs text-muted-foreground">
-                        Click and drag from the <strong>handles</strong> (dots) on a node to another node.
+                        {t("howToConnectDesc")}
                     </p>
                 </div>
 
                 {/* Tips */}
                 <div className="p-3 rounded-lg bg-muted/50 border border-dashed">
                     <p className="text-xs text-muted-foreground">
-                        <strong>Tips:</strong>
-                        <br />• Double-click node to edit text
-                        <br />• Double-click canvas to add text
-                        <br />• Right-click entity for menu
+                        <strong>{t("tips")}</strong>
+                        <br />• {t("tipEditText")}
+                        <br />• {t("tipAddText")}
+                        <br />• {t("tipRightClick")}
                     </p>
                 </div>
             </div>

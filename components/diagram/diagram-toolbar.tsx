@@ -1,7 +1,8 @@
 "use client";
 
-import { Undo, Redo, Trash2, Download, Save, Code, Image, FileText, RotateCcw, Sparkles } from "lucide-react";
+import { Undo, Redo, Trash2, Download, Save, Code, Image, FileText, RotateCcw, Sparkles, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RainbowButton } from "@/components/ui/rainbow-button";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -11,6 +12,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { useLanguage } from "@/components/language-provider";
 
 interface DiagramToolbarProps {
     diagramName?: string;
@@ -33,11 +35,16 @@ export function DiagramToolbar({
     onToggleAI,
     showAI,
 }: DiagramToolbarProps) {
+    const { t } = useLanguage();
+
     return (
         <div className="h-12 border-b bg-background flex items-center px-4 gap-2">
             {/* Back to list */}
             <Button variant="ghost" size="sm" asChild>
-                <Link href="/diagram">← Back</Link>
+                <Link href="/diagram">
+                    <ArrowLeft className="h-4 w-4 mr-1" />
+                    {t("back")}
+                </Link>
             </Button>
 
             <Separator orientation="vertical" className="h-6" />
@@ -89,18 +96,16 @@ export function DiagramToolbar({
             <div className="flex-1" />
 
             {/* AI Toggle */}
-            <Button
-                variant={showAI ? "default" : "outline"}
+            <RainbowButton
                 size="sm"
                 onClick={onToggleAI}
-                className={cn(showAI && "bg-primary")}
             >
-                <Sparkles className="h-4 w-4 mr-2" />
-                AI Assistant
-            </Button>
+                <Sparkles className="h-4 w-4" />
+                {t("askAI")}
+            </RainbowButton>
 
             {/* Save */}
-            <Button size="sm" disabled>
+            <Button size="sm">
                 <Save className="h-4 w-4 mr-2" />
                 Save
             </Button>

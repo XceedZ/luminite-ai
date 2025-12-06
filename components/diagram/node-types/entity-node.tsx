@@ -29,6 +29,7 @@ import {
     ContextMenuTrigger,
     ContextMenuLabel,
 } from "@/components/ui/context-menu";
+import { useLanguage } from "@/components/language-provider";
 
 interface Field {
     name: string;
@@ -166,6 +167,7 @@ const colorList = Object.keys(colorConfig);
 
 export const EntityNode = memo(({ id, data, selected }: EntityNodeProps) => {
     const { setNodes } = useReactFlow();
+    const { t } = useLanguage();
     const [isEditingTitle, setIsEditingTitle] = useState(false);
     const [titleValue, setTitleValue] = useState(data?.label || "Entity");
     const [editingField, setEditingField] = useState<{ index: number; column: "name" | "type" } | null>(null);
@@ -380,40 +382,39 @@ export const EntityNode = memo(({ id, data, selected }: EntityNodeProps) => {
             {/* Field operations - only show if right-clicked on a field */}
             {fieldIndex !== undefined && (
                 <>
-                    <ContextMenuLabel>Field Actions</ContextMenuLabel>
                     <ContextMenuItem onClick={() => togglePK(fieldIndex)}>
                         <Key className="h-4 w-4 mr-2" />
-                        {fields[fieldIndex]?.isPK ? "Remove Primary Key" : "Set as Primary Key"}
+                        {fields[fieldIndex]?.isPK ? t("removePrimaryKey") : t("setAsPrimaryKey")}
                     </ContextMenuItem>
                     <ContextMenuSeparator />
                     <ContextMenuItem onClick={() => insertRowAbove(fieldIndex)}>
                         <ArrowUp className="h-4 w-4 mr-2" />
-                        Insert Row Above
+                        {t("insertRowAbove")}
                     </ContextMenuItem>
                     <ContextMenuItem onClick={() => insertRowBelow(fieldIndex)}>
                         <ArrowDown className="h-4 w-4 mr-2" />
-                        Insert Row Below
+                        {t("insertRowBelow")}
                     </ContextMenuItem>
                     <ContextMenuSeparator />
                     <ContextMenuItem onClick={() => copyRow(fieldIndex)}>
                         <Copy className="h-4 w-4 mr-2" />
-                        Copy
+                        {t("copy")}
                         <ContextMenuShortcut>⌘C</ContextMenuShortcut>
                     </ContextMenuItem>
                     <ContextMenuItem onClick={() => cutRow(fieldIndex)}>
                         <Scissors className="h-4 w-4 mr-2" />
-                        Cut
+                        {t("cut")}
                         <ContextMenuShortcut>⌘X</ContextMenuShortcut>
                     </ContextMenuItem>
                     <ContextMenuItem onClick={() => pasteRow(fieldIndex)} disabled={!clipboard}>
                         <Clipboard className="h-4 w-4 mr-2" />
-                        Paste
+                        {t("paste")}
                         <ContextMenuShortcut>⌘V</ContextMenuShortcut>
                     </ContextMenuItem>
                     <ContextMenuSeparator />
                     <ContextMenuItem variant="destructive" onClick={() => deleteRow(fieldIndex)}>
                         <Trash2 className="h-4 w-4 mr-2" />
-                        Delete Row
+                        {t("deleteRow")}
                         <ContextMenuShortcut>⌫</ContextMenuShortcut>
                     </ContextMenuItem>
                     <ContextMenuSeparator />
@@ -423,7 +424,7 @@ export const EntityNode = memo(({ id, data, selected }: EntityNodeProps) => {
             {/* Entity operations - always show */}
             <ContextMenuItem onClick={addField}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Field
+                {t("addField")}
             </ContextMenuItem>
 
             <ContextMenuSeparator />
@@ -431,7 +432,7 @@ export const EntityNode = memo(({ id, data, selected }: EntityNodeProps) => {
             <ContextMenuSub>
                 <ContextMenuSubTrigger>
                     <Palette className="h-4 w-4 mr-2" />
-                    Change Color
+                    {t("changeColor")}
                 </ContextMenuSubTrigger>
                 <ContextMenuSubContent className="w-48 grid grid-cols-4 gap-1 p-2">
                     {colorList.map((c) => (
@@ -454,20 +455,20 @@ export const EntityNode = memo(({ id, data, selected }: EntityNodeProps) => {
             <ContextMenuSub>
                 <ContextMenuSubTrigger>
                     <FileText className="h-4 w-4 mr-2" />
-                    Export
+                    {t("export")}
                 </ContextMenuSubTrigger>
                 <ContextMenuSubContent className="w-48">
                     <ContextMenuItem onClick={exportToMermaid}>
                         <FileCode className="h-4 w-4 mr-2" />
-                        Mermaid Code
+                        {t("mermaidCode")}
                     </ContextMenuItem>
                     <ContextMenuItem disabled>
                         <FileImage className="h-4 w-4 mr-2" />
-                        PNG Image
+                        {t("pngImage")}
                     </ContextMenuItem>
                     <ContextMenuItem disabled>
                         <FileText className="h-4 w-4 mr-2" />
-                        PDF Document
+                        {t("pdfDocument")}
                     </ContextMenuItem>
                 </ContextMenuSubContent>
             </ContextMenuSub>
@@ -576,7 +577,7 @@ export const EntityNode = memo(({ id, data, selected }: EntityNodeProps) => {
 
                         {fields.length === 0 && (
                             <div className="px-2 py-1 text-xs text-muted-foreground italic text-center">
-                                Right-click to add field
+                                {t("rightClickToAddField")}
                             </div>
                         )}
                     </div>
