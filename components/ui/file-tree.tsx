@@ -157,7 +157,7 @@ const Tree = forwardRef<HTMLDivElement, TreeViewProps>(
             dir={dir as Direction}
           >
             <AccordionPrimitive.Root
-              {...props}
+              {...(props as any)}
               type="multiple"
               defaultValue={expandedItems}
               value={expandedItems}

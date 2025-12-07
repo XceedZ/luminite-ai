@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import { useRouter } from "next/navigation"
-import { Globe, Loader2 } from "lucide-react"
+import Link from "next/link"
+import { Globe, Loader2, Settings } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { logoutUser } from "@/@auth"
@@ -32,12 +33,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { ReleaseNotesDialog } from "@/components/release-notes-dialog"
 import { Badge } from "@/components/ui/badge"
 import {
   SidebarMenu,
@@ -121,6 +117,23 @@ const IconHistory = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 )
 
+const IconSettings = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+)
 
 const IconLogout = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -142,23 +155,23 @@ const IconLogout = (props: React.SVGProps<SVGSVGElement>) => (
 )
 
 const IconDotsVertical = (props: React.SVGProps<SVGSVGElement>) => (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <circle cx="12" cy="12" r="1" />
-      <circle cx="12" cy="5" r="1" />
-      <circle cx="12" cy="19" r="1" />
-    </svg>
-  )
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="12" cy="5" r="1" />
+    <circle cx="12" cy="19" r="1" />
+  </svg>
+)
 
 // --- Komponen Utama ---
 
@@ -182,13 +195,13 @@ export function NavUser({
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true)
-      
+
       // Call logout API
       await logoutUser()
-      
+
       // Clear all auth data from localStorage
       clearAuthData()
-      
+
       // Redirect to auth page
       router.push('/auth')
     } catch (error) {
@@ -203,38 +216,16 @@ export function NavUser({
 
   return (
     <>
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <SidebarMenuButton
-              size="lg"
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-            >
-              <Avatar className="h-8 w-8 rounded-lg grayscale">
-                <AvatarImage src={user.avatar || undefined} alt={user.name} />
-                <AvatarFallback className="rounded-lg">
-                  {user.name ? getInitials(user.name) : "U"}
-                </AvatarFallback>
-              </Avatar>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">{user.name}</span>
-                <span className="text-muted-foreground truncate text-xs">
-                  {user.email}
-                </span>
-              </div>
-              <IconDotsVertical className="ml-auto size-4" />
-            </SidebarMenuButton>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-            side={isMobile ? "bottom" : "right"}
-            align="end"
-            sideOffset={4}
-          >
-            <DropdownMenuLabel className="p-0 font-normal">
-              <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                <Avatar className="h-8 w-8 rounded-lg">
+      <SidebarMenu>
+        <SidebarMenuItem>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <SidebarMenuButton
+                size="lg"
+                variant="plain"
+                className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              >
+                <Avatar className="h-8 w-8 rounded-lg grayscale">
                   <AvatarImage src={user.avatar || undefined} alt={user.name} />
                   <AvatarFallback className="rounded-lg">
                     {user.name ? getInitials(user.name) : "U"}
@@ -246,113 +237,89 @@ export function NavUser({
                     {user.email}
                   </span>
                 </div>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuGroup>
-              <div className="md:hidden px-1 py-1.5">
-                <Select value={lang} onValueChange={(v) => setLang(v as any)}>
-                  <SelectTrigger className="w-full">
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4" />
-                      <SelectValue placeholder="Language" />
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="en">English</SelectItem>
-                    <SelectItem value="id">Indonesia</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <DropdownMenuItem>
-                <IconUserCircle className="mr-2 h-4 w-4" />
-                <span>{t("account")}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconCreditCard className="mr-2 h-4 w-4" />
-                <span>{t("billing")}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <IconNotification className="mr-2 h-4 w-4" />
-                <span>{t("notifications")}</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => setIsChangelogOpen(true)}>
-                <IconHistory className="mr-2 h-4 w-4" />
-                <span>{t("changelog")}</span>
-              </DropdownMenuItem>
-            </DropdownMenuGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem 
-              onClick={handleLogout}
-              disabled={isLoggingOut}
+                <IconDotsVertical className="ml-auto size-4" />
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
+              side={isMobile ? "bottom" : "right"}
+              align="end"
+              sideOffset={4}
             >
-              {isLoggingOut ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <IconLogout className="mr-2 h-4 w-4" />
-              )}
-              <span>{t("logout")}</span>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </SidebarMenuItem>
-    </SidebarMenu>
-    <Dialog open={isChangelogOpen} onOpenChange={setIsChangelogOpen}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{t("changelog")}</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-8">
-          <section className="rounded-lg border p-5 bg-muted/30">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold">Version 1.3.1</h3>
-              <Badge variant="secondary">{t("latest")}</Badge>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">{t("changelog131Date")}</p>
-            <ul className="list-disc list-inside mt-4 space-y-2 text-sm">
-              <li>Added prompt enhancement feature in App Builder - improve and refine prompts with AI assistance.</li>
-              <li>Added file tree view in code tab showing imported files and components.</li>
-              <li>Improved code tab with resizable panels for better code navigation.</li>
-              <li>Added basic icon library (lucide-react) available globally in preview environment.</li>
-              <li>Enhanced icon conflict prevention - automatically removes duplicate icon declarations from generated code.</li>
-              <li>Improved error handling for HMR (Hot Module Replacement) issues.</li>
-            </ul>
-          </section>
-          <section className="rounded-lg border p-5 bg-muted/30">
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-semibold">Version 1.3.0</h3>
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">{t("changelog130Date")}</p>
-            <ul className="list-disc list-inside mt-4 space-y-2 text-sm">
-              <li>Added billing page with plan usage bars and payment method.</li>
-              <li>New pricing page with Free, Pro and Enterprise plans.</li>
-              <li>Improved tabs styling and icon support across settings.</li>
-              <li>Dynamic breadcrumbs no longer prepend Dashboard incorrectly.</li>
-            </ul>
-          </section>
-          <section className="rounded-lg border p-5 bg-muted/30">
-            <h3 className="text-lg font-semibold">Version 1.2.9</h3>
-            <p className="text-xs text-muted-foreground mt-1">{t("changelog129Date")}</p>
-            <ul className="list-disc list-inside mt-4 space-y-2 text-sm">
-              <li>Context selector added in quick create input.</li>
-              <li>File uploads now show preview with remove action.</li>
-              <li>Type safety improvements for AI icon map and messages.</li>
-              <li>Fixed build error from cookies API and model icons.</li>
-            </ul>
-          </section>
-          <section className="rounded-lg border p-5 bg-muted/30">
-            <h3 className="text-lg font-semibold">Version 1.2.8</h3>
-            <p className="text-xs text-muted-foreground mt-1">{t("changelog128Date")}</p>
-            <ul className="list-disc list-inside mt-4 space-y-2 text-sm">
-              <li>Improved scrolling and layout stability in chat pages.</li>
-              <li>Accessibility tweaks for buttons and menu items.</li>
-              <li>Minor UI polish on dropdowns and separators.</li>
-              <li>General performance and reliability fixes.</li>
-            </ul>
-          </section>
-        </div>
-      </DialogContent>
-    </Dialog>
+              <DropdownMenuLabel className="p-0 font-normal">
+                <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                  <Avatar className="h-8 w-8 rounded-lg">
+                    <AvatarImage src={user.avatar || undefined} alt={user.name} />
+                    <AvatarFallback className="rounded-lg">
+                      {user.name ? getInitials(user.name) : "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="grid flex-1 text-left text-sm leading-tight">
+                    <span className="truncate font-medium">{user.name}</span>
+                    <span className="text-muted-foreground truncate text-xs">
+                      {user.email}
+                    </span>
+                  </div>
+                </div>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <div className="md:hidden px-1 py-1.5">
+                  <Select value={lang} onValueChange={(v) => setLang(v as any)}>
+                    <SelectTrigger className="w-full">
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4" />
+                        <SelectValue placeholder="Language" />
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="id">Indonesia</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <DropdownMenuItem asChild>
+                  <Link href="/account">
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>{t("settings")}</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/billing">
+                    <IconCreditCard className="mr-2 h-4 w-4" />
+                    <span>{t("billing")}</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <IconNotification className="mr-2 h-4 w-4" />
+                  <span>{t("notifications")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setIsChangelogOpen(true)}>
+                  <IconHistory className="mr-2 h-4 w-4" />
+                  <span>{t("changelog")}</span>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+              >
+                {isLoggingOut ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <IconLogout className="mr-2 h-4 w-4" />
+                )}
+                <span>{t("logout")}</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </SidebarMenuItem>
+      </SidebarMenu>
+
+      <ReleaseNotesDialog
+        open={isChangelogOpen}
+        onOpenChange={setIsChangelogOpen}
+      />
     </>
   )
 }

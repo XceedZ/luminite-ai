@@ -26,8 +26,8 @@ import dynamic from "next/dynamic"
 // Lazy load editor components (client-side only)
 const EditorCanvas = dynamic(
   () => import("@/app/(preview)/app-builder-preview/[sessionId]/components/editor-canvas").then(mod => ({ default: mod.EditorCanvas })),
-  { 
-    ssr: false, 
+  {
+    ssr: false,
     loading: () => (
       <div className="flex items-center justify-center h-full">
         <div className="text-center">
@@ -40,14 +40,14 @@ const EditorCanvas = dynamic(
 )
 
 // Browser Header Component (reusable)
-const BrowserHeader = ({ 
-  onRefresh, 
+const BrowserHeader = ({
+  onRefresh,
   isRefreshing,
   deviceSize,
   onDeviceChange,
   sessionId,
   editMode
-}: { 
+}: {
   onRefresh?: () => void
   isRefreshing?: boolean
   deviceSize?: "desktop" | "tablet" | "phone"
@@ -119,7 +119,7 @@ const BrowserHeader = ({
           </SelectContent>
         </Select>
       </div>
-      
+
       {/* Center: Session ID only when not in edit mode */}
       {!editMode && sessionId && (
         <div className="flex items-center gap-2 px-3 py-1 rounded-md bg-background/50 border border-border/50 flex-1 max-w-md mx-4">
@@ -139,7 +139,7 @@ const BrowserHeader = ({
           </span>
         </div>
       )}
-      
+
       {/* Right: Window controls */}
       <div className="flex items-center gap-1">
         <button
@@ -230,10 +230,10 @@ interface PanelCodeProps {
   isLoading?: boolean // Is code being generated?
 }
 
-export function PanelCode({ 
-  code, 
-  isOpen = false, 
-  onClose = () => {},
+export function PanelCode({
+  code,
+  isOpen = false,
+  onClose = () => { },
   projectName = "Preview",
   sessionId,
   variant = "overlay",
@@ -262,8 +262,8 @@ export function PanelCode({
   const hasMarkdownBlocks = React.useMemo(() => {
     const result = code?.includes('```') || false
     const isReactCode = code?.includes('```tsx') || code?.includes('```ts') || code?.includes('```jsx') ||
-                       code?.includes('"use client"') || code?.includes("'use client'") ||
-                       code?.includes('export default') || code?.includes('from "@/components/ui')
+      code?.includes('"use client"') || code?.includes("'use client'") ||
+      code?.includes('export default') || code?.includes('from "@/components/ui')
     console.log('[PanelCode] hasMarkdownBlocks check:', {
       hasCode: !!code,
       codeLength: code?.length || 0,
@@ -280,18 +280,18 @@ export function PanelCode({
   // Extract file names from code (imports and related files)
   const extractFilesFromCode = React.useMemo(() => {
     if (!code) return [];
-    
+
     const mainFile: TreeViewElement = {
       id: 'main',
       name: 'Component.tsx',
       isSelectable: true
     };
-    
+
     // Extract imports from code
     const importRegex = /import\s+(?:(?:\{[^}]+\}|\*\s+as\s+\w+|\w+)\s+from\s+)?['"]([^'"]+)['"]/g;
     const imports = new Set<string>();
     let match;
-    
+
     while ((match = importRegex.exec(code)) !== null) {
       const importPath = match[1];
       // Only include local imports (starting with @/ or ./ or ../)
@@ -299,13 +299,13 @@ export function PanelCode({
         imports.add(importPath);
       }
     }
-    
+
     // Organize imports into folders
     const components: string[] = [];
     const utils: string[] = [];
     const lib: string[] = [];
     const others: string[] = [];
-    
+
     imports.forEach(imp => {
       if (imp.includes('/components/')) {
         components.push(imp);
@@ -317,9 +317,9 @@ export function PanelCode({
         others.push(imp);
       }
     });
-    
+
     const children: TreeViewElement[] = [];
-    
+
     if (components.length > 0) {
       children.push({
         id: 'components',
@@ -332,7 +332,7 @@ export function PanelCode({
         }))
       });
     }
-    
+
     if (utils.length > 0) {
       children.push({
         id: 'utils',
@@ -345,7 +345,7 @@ export function PanelCode({
         }))
       });
     }
-    
+
     if (lib.length > 0) {
       children.push({
         id: 'lib',
@@ -358,7 +358,7 @@ export function PanelCode({
         }))
       });
     }
-    
+
     if (others.length > 0) {
       children.push({
         id: 'others',
@@ -371,37 +371,37 @@ export function PanelCode({
         }))
       });
     }
-    
+
     if (children.length > 0) {
       mainFile.children = children;
     }
-    
+
     return [mainFile];
   }, [code]);
 
   // Extract React/TSX, HTML, and CSS from code blocks or use code directly
-  const tsxMatch = code?.match(/```tsx\s*\n?([\s\S]*?)```/) || 
-                   code?.match(/```ts\s*\n?([\s\S]*?)```/) ||
-                   code?.match(/```jsx\s*\n?([\s\S]*?)```/);
+  const tsxMatch = code?.match(/```tsx\s*\n?([\s\S]*?)```/) ||
+    code?.match(/```ts\s*\n?([\s\S]*?)```/) ||
+    code?.match(/```jsx\s*\n?([\s\S]*?)```/);
   const htmlMatch = code?.match(/```html\s*\n?([\s\S]*?)```/);
   const cssMatch = code?.match(/```css\s*\n?([\s\S]*?)```/);
-  
+
   // Extract code from markdown blocks if present
   let reactCode = tsxMatch ? tsxMatch[1].trim() : '';
   let htmlCode = htmlMatch ? htmlMatch[1].trim() : '';
   const cssCode = cssMatch ? cssMatch[1].trim() : '';
-  
+
   // If no markdown code blocks found, check if code is already React/TSX or HTML
   if (!reactCode && !htmlCode && !cssCode && code) {
     // Check if it's React/TSX code (contains "use client" or "export default")
-    const isReactCodeDirect = code.includes('"use client"') || 
-                              code.includes("'use client'") || 
-                              code.includes('export default') || 
-                              code.includes('import {') || 
-                              code.includes('from "@/components/ui') ||
-                              (code.includes('function ') && code.includes('return')) ||
-                              (code.includes('const ') && code.includes('return <'))
-    
+    const isReactCodeDirect = code.includes('"use client"') ||
+      code.includes("'use client'") ||
+      code.includes('export default') ||
+      code.includes('import {') ||
+      code.includes('from "@/components/ui') ||
+      (code.includes('function ') && code.includes('return')) ||
+      (code.includes('const ') && code.includes('return <'))
+
     if (isReactCodeDirect) {
       // Code is already extracted React/TSX (no markdown wrapper), use it directly
       reactCode = code.trim();
@@ -410,20 +410,20 @@ export function PanelCode({
         codePreview: reactCode.substring(0, 100)
       });
     } else if (code.includes('<!DOCTYPE') || code.includes('<html') || code.includes('<HTML')) {
-    // Check if the entire code is HTML (might be stored as plain HTML)
+      // Check if the entire code is HTML (might be stored as plain HTML)
       htmlCode = code.trim();
     } else if (code.includes('<') && code.includes('>')) {
       // Might be HTML without DOCTYPE
       htmlCode = code.trim();
     }
   }
-  
+
   // Check if HTML already contains inline CSS in <style> tag
   const hasInlineStyle = htmlCode.includes('<style>') || htmlCode.includes('<STYLE>');
-  
+
   // Check if HTML is already a complete document
   const isCompleteHtml = htmlCode.includes('<!DOCTYPE') || htmlCode.includes('<html') || htmlCode.includes('<HTML');
-  
+
   // Animate loading text
   React.useEffect(() => {
     if (isRenderingReact) {
@@ -446,14 +446,14 @@ export function PanelCode({
         reactCodeLength: reactCode.length,
         codePreview: reactCode.substring(0, 200)
       })
-      
+
       renderReactComponent(reactCode)
         .then(html => {
           console.log('[PanelCode] React component rendered successfully', {
             htmlLength: html.length,
             htmlPreview: html.substring(0, 200)
           })
-          
+
           // Use iframe with srcDoc for React component because:
           // 1. HTML contains complete document with <html>, <head>, <body> tags
           // 2. Scripts in <head> need to execute in proper document context
@@ -504,7 +504,7 @@ export function PanelCode({
       htmlCodeLength: htmlCode?.length || 0
     });
   }
-  
+
   if (!fullHtml && isCompleteHtml && hasInlineStyle) {
     // HTML is complete with inline CSS, use as-is
     fullHtml = htmlCode;
@@ -578,7 +578,7 @@ export function PanelCode({
   const handlePublishConfirm = async () => {
     if (!sessionId) return
     const newStatus = !isPublished
-    
+
     // Save code to Upstash before publishing
     if (newStatus && code) {
       const result = await saveCodeToUpstash(sessionId, code)
@@ -588,7 +588,7 @@ export function PanelCode({
         return
       }
     }
-    
+
     await togglePublishStatus(sessionId, newStatus)
     setIsPublished(newStatus)
     setIsPublishConfirmOpen(false)
@@ -687,229 +687,251 @@ export function PanelCode({
   if (variant === "full") {
     return (
       <>
-      <div className="h-full flex flex-col bg-background w-full max-w-full overflow-hidden">
-        <div className="border border-border bg-card flex flex-col h-full w-full min-w-0">
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-border px-3 sm:px-4 py-2.5 sm:py-3 flex-shrink-0 gap-1.5 flex-wrap">
-            <div className="flex items-center gap-2 min-w-0 flex-1">
-              <span className="text-sm font-semibold text-foreground truncate">{projectName || "Code Preview"}</span>
-            </div>
-            <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 flex-wrap">
-              {showActions && (
-                <>
-                  {/* Publish Button */}
-                  {sessionId && (
-                    <>
-                      <Button
-                        variant={isPublished ? "default" : "outline"}
-                        size="sm"
-                        onClick={handlePublish}
-                        className="h-7 gap-1 text-xs flex-shrink-0 px-2"
-                      >
-                        {isPublished ? (
-                          <>
-                            <Check className="h-3 w-3" />
-                            {t("unpublish")}
-                          </>
-                        ) : (
-                          <>
-                            <Globe className="h-3 w-3" />
-                            {t("publish")}
-                          </>
-                        )}
-                      </Button>
-                      {/* Share Button */}
-                      {isPublished && (
+        <div className="h-full flex flex-col bg-background w-full max-w-full overflow-hidden">
+          <div className="border border-border bg-card flex flex-col h-full w-full min-w-0">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-border px-3 sm:px-4 py-2.5 sm:py-3 flex-shrink-0 gap-1.5 flex-wrap">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="text-sm font-semibold text-foreground truncate">{projectName || "Code Preview"}</span>
+              </div>
+              <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 flex-wrap">
+                {showActions && (
+                  <>
+                    {/* Publish Button */}
+                    {sessionId && (
+                      <>
                         <Button
-                          variant="outline"
+                          variant={isPublished ? "default" : "outline"}
                           size="sm"
-                          onClick={handleShare}
+                          onClick={handlePublish}
                           className="h-7 gap-1 text-xs flex-shrink-0 px-2"
                         >
-                          {isCopied ? (
+                          {isPublished ? (
                             <>
                               <Check className="h-3 w-3" />
-                              Copied!
+                              {t("unpublish")}
                             </>
                           ) : (
                             <>
-                              <Copy className="h-3 w-3" />
-                              Share
+                              <Globe className="h-3 w-3" />
+                              {t("publish")}
                             </>
                           )}
                         </Button>
-                      )}
-                    </>
-                  )}
-                  {/* Edit Mode Toggle */}
-                  {sessionId && (reactCode || fullHtml) && (
-                    <Button
-                      variant={activeTab === "edit" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => {
-                        if (activeTab === "edit") {
-                          setActiveTab("preview")
-                          setEditMode(false)
-                        } else {
-                          setActiveTab("edit")
-                          setEditMode(true)
-                        }
-                      }}
-                      className="h-7 gap-1 text-xs flex-shrink-0 px-2"
-                    >
-                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      {activeTab === "edit" ? "Exit Edit" : "Edit"}
-                    </Button>
-                  )}
-                  {/* Close Button */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onClose}
-                    className="h-7 w-7 p-0 flex-shrink-0"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </>
-              )}
-            </div>
-          </div>
-          {/* Content - Tabs for Preview and Code */}
-          <div className="flex flex-col flex-1 min-h-0">
-            {/* Tabs */}
-            <div className="border-b border-border px-4 pt-3 flex-shrink-0">
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    setActiveTab("preview")
-                    setEditMode(false)
-                  }}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
-                    activeTab === "preview" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  Preview
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveTab("code")
-                    setEditMode(false)
-                  }}
-                  className={cn(
-                    "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
-                    activeTab === "code" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Code2 className="h-3.5 w-3.5" />
-                  Code
-                </button>
-                {sessionId && (reactCode || fullHtml) && (
-                  <button
-                    onClick={() => {
-                      setActiveTab("edit")
-                      setEditMode(true)
-                    }}
-                    className={cn(
-                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
-                      activeTab === "edit" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                        {/* Share Button */}
+                        {isPublished && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleShare}
+                            className="h-7 gap-1 text-xs flex-shrink-0 px-2"
+                          >
+                            {isCopied ? (
+                              <>
+                                <Check className="h-3 w-3" />
+                                Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3 w-3" />
+                                Share
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </>
                     )}
-                  >
-                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Edit
-                  </button>
+                    {/* Edit Mode Toggle */}
+                    {sessionId && (reactCode || fullHtml) && (
+                      <Button
+                        variant={activeTab === "edit" ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => {
+                          if (activeTab === "edit") {
+                            setActiveTab("preview")
+                            setEditMode(false)
+                          } else {
+                            setActiveTab("edit")
+                            setEditMode(true)
+                          }
+                        }}
+                        className="h-7 gap-1 text-xs flex-shrink-0 px-2"
+                      >
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        {activeTab === "edit" ? "Exit Edit" : "Edit"}
+                      </Button>
+                    )}
+                    {/* Close Button */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onClose}
+                      className="h-7 w-7 p-0 flex-shrink-0"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
-            {/* Tab Content */}
-            {activeTab === "edit" ? (
-              <div className="flex flex-1 min-h-0 border-t border-border overflow-hidden">
-                {/* Visual Editor Canvas with integrated Toolbar */}
-                {reactHtml || fullHtml ? (
-                  <div className="flex-1 flex flex-col">
-                    <div className="bg-muted/50 px-4 py-3 border-b border-border">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">Preview Content Detected</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            Switch to Preview tab to see the AI-generated content. Use Edit mode to build new components from scratch.
-                          </p>
+            {/* Content - Tabs for Preview and Code */}
+            <div className="flex flex-col flex-1 min-h-0">
+              {/* Tabs */}
+              <div className="border-b border-border px-4 pt-3 flex-shrink-0">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setActiveTab("preview")
+                      setEditMode(false)
+                    }}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
+                      activeTab === "preview" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Preview
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTab("code")
+                      setEditMode(false)
+                    }}
+                    className={cn(
+                      "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
+                      activeTab === "code" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    <Code2 className="h-3.5 w-3.5" />
+                    Code
+                  </button>
+                  {sessionId && (reactCode || fullHtml) && (
+                    <button
+                      onClick={() => {
+                        setActiveTab("edit")
+                        setEditMode(true)
+                      }}
+                      className={cn(
+                        "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
+                        activeTab === "edit" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Edit
+                    </button>
+                  )}
+                </div>
+              </div>
+              {/* Tab Content */}
+              {activeTab === "edit" ? (
+                <div className="flex flex-1 min-h-0 border-t border-border overflow-hidden">
+                  {/* Visual Editor Canvas with integrated Toolbar */}
+                  {reactHtml || fullHtml ? (
+                    <div className="flex-1 flex flex-col">
+                      <div className="bg-muted/50 px-4 py-3 border-b border-border">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-foreground">Preview Content Detected</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              Switch to Preview tab to see the AI-generated content. Use Edit mode to build new components from scratch.
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => setActiveTab("preview")}
+                            className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                          >
+                            View Preview
+                          </button>
                         </div>
-                        <button
-                          onClick={() => setActiveTab("preview")}
-                          className="px-3 py-1.5 text-xs bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-                        >
-                          View Preview
-                        </button>
                       </div>
+                      <EditorCanvas
+                        enabled={editMode}
+                        showToolbar={true}
+                        showWelcome={true}
+                        onStateChange={(state) => {
+                          console.log('[PanelCode] Editor state changed:', state)
+                        }}
+                      />
                     </div>
-                    <EditorCanvas 
-                      enabled={editMode} 
+                  ) : (
+                    <EditorCanvas
+                      enabled={editMode}
                       showToolbar={true}
                       showWelcome={true}
                       onStateChange={(state) => {
                         console.log('[PanelCode] Editor state changed:', state)
                       }}
                     />
-                  </div>
-                ) : (
-                  <EditorCanvas 
-                    enabled={editMode} 
-                    showToolbar={true}
-                    showWelcome={true}
-                    onStateChange={(state) => {
-                      console.log('[PanelCode] Editor state changed:', state)
-                    }}
+                  )}
+                </div>
+              ) : activeTab === "preview" ? (
+                <div className="flex flex-col flex-1 min-h-0 border-t border-border">
+                  <BrowserHeader
+                    onRefresh={handleRefresh}
+                    isRefreshing={isRefreshing}
+                    deviceSize={deviceSize}
+                    onDeviceChange={setDeviceSize}
+                    sessionId={sessionId}
+                    editMode={editMode}
                   />
-                )}
-              </div>
-            ) : activeTab === "preview" ? (
-              <div className="flex flex-col flex-1 min-h-0 border-t border-border">
-                <BrowserHeader 
-                  onRefresh={handleRefresh} 
-                  isRefreshing={isRefreshing}
-                  deviceSize={deviceSize}
-                  onDeviceChange={setDeviceSize}
-                  sessionId={sessionId}
-                  editMode={editMode}
-                />
-                <div className="flex-1 overflow-hidden bg-muted/20 flex items-center justify-center w-full transition-all duration-300">
-                  {reactCode ? (
-                    // React component - render directly
-                    isRenderingReact ? (
-                      <div className="flex items-center justify-center h-full w-full">
-                        <div className="text-center">
-                          <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-                          <p className="text-sm text-muted-foreground">
-                            {loadingTextIndex === 0 ? t("loadingComponent") : t("renderingComponent")}
-                          </p>
+                  <div className="flex-1 overflow-hidden bg-muted/20 flex items-center justify-center w-full transition-all duration-300">
+                    {reactCode ? (
+                      // React component - render directly
+                      isRenderingReact ? (
+                        <div className="flex items-center justify-center h-full w-full">
+                          <div className="text-center">
+                            <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                            <p className="text-sm text-muted-foreground">
+                              {loadingTextIndex === 0 ? t("loadingComponent") : t("renderingComponent")}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    ) : reactRenderError ? (
-                      <div className="flex items-center justify-center h-full w-full">
-                        <div className="text-center p-4">
-                          <p className="text-sm font-medium text-destructive mb-2">Render Error</p>
-                          <p className="text-xs text-muted-foreground">{reactRenderError}</p>
+                      ) : reactRenderError ? (
+                        <div className="flex items-center justify-center h-full w-full">
+                          <div className="text-center p-4">
+                            <p className="text-sm font-medium text-destructive mb-2">Render Error</p>
+                            <p className="text-xs text-muted-foreground">{reactRenderError}</p>
+                          </div>
                         </div>
-                      </div>
-                    ) : reactHtml ? (
-                      // Use iframe for React component to isolate scripts/styles and prevent theme interference
+                      ) : reactHtml ? (
+                        // Use iframe for React component to isolate scripts/styles and prevent theme interference
+                        <div className="h-full flex items-center justify-center w-full transition-all duration-300">
+                          <iframe
+                            key={refreshKey}
+                            srcDoc={reactHtml}
+                            className="h-full border-0 transition-all duration-300"
+                            style={{
+                              width: getIframeWidth(),
+                              maxWidth: "100%"
+                            }}
+                            title="React Component Preview"
+                            sandbox="allow-scripts allow-same-origin"
+                          />
+                        </div>
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-muted-foreground">
+                          <div className="text-center">
+                            <Code2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                            <p className="text-xs">No preview available</p>
+                          </div>
+                        </div>
+                      )
+                    ) : fullHtml ? (
+                      // HTML preview - use iframe
                       <div className="h-full flex items-center justify-center w-full transition-all duration-300">
                         <iframe
                           key={refreshKey}
-                          srcDoc={reactHtml}
+                          srcDoc={fullHtml}
                           className="h-full border-0 transition-all duration-300"
-                          style={{ 
+                          style={{
                             width: getIframeWidth(),
                             maxWidth: "100%"
                           }}
-                          title="React Component Preview"
-                          sandbox="allow-scripts allow-same-origin"
+                          title="Code Preview"
                         />
                       </div>
                     ) : (
@@ -919,376 +941,376 @@ export function PanelCode({
                           <p className="text-xs">No preview available</p>
                         </div>
                       </div>
-                    )
-                  ) : fullHtml ? (
-                    // HTML preview - use iframe
-                    <div className="h-full flex items-center justify-center w-full transition-all duration-300">
-                      <iframe
-                        key={refreshKey}
-                        srcDoc={fullHtml}
-                        className="h-full border-0 transition-all duration-300"
-                        style={{ 
-                          width: getIframeWidth(),
-                          maxWidth: "100%"
-                        }}
-                        title="Code Preview"
-                      />
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 overflow-hidden min-h-0">
+                  {isLoading ? (
+                    <div className="flex h-full items-center justify-center text-muted-foreground py-12">
+                      <div className="text-center">
+                        <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                        <p className="text-sm font-medium">{t("codeGenerating")}</p>
+                        <p className="text-xs mt-1 opacity-70">{t("codeGeneratingDesc")}</p>
+                      </div>
+                    </div>
+                  ) : !code || code.trim() === "" ? (
+                    <div className="flex h-full items-center justify-center text-muted-foreground py-12">
+                      <div className="text-center">
+                        <Code2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                        <p className="text-sm font-medium">{t("noCodeYet")}</p>
+                        <p className="text-xs mt-1 opacity-70">{t("noCodeYetDesc")}</p>
+                      </div>
                     </div>
                   ) : (
-                    <div className="flex h-full items-center justify-center text-muted-foreground">
-                      <div className="text-center">
-                        <Code2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-xs">No preview available</p>
-                      </div>
-                    </div>
+                    <ResizablePanelGroup direction="horizontal" className="h-full">
+                      {/* File Tree Sidebar - Optional, collapsible */}
+                      {extractFilesFromCode.length > 0 && (
+                        <>
+                          <ResizablePanel defaultSize={18} minSize={10} maxSize={30} className="border-r border-border">
+                            <div className="h-full overflow-y-auto p-3">
+                              <div className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                Files
+                              </div>
+                              <Tree elements={extractFilesFromCode} initialExpandedItems={['main']}>
+                                {extractFilesFromCode.map((file) => (
+                                  <Folder key={file.id} element={file.name} value={file.id}>
+                                    {file.children?.map((child) => (
+                                      <Folder key={child.id} element={child.name} value={child.id}>
+                                        {child.children?.map((grandchild) => (
+                                          <File key={grandchild.id} value={grandchild.id}>
+                                            {grandchild.name}
+                                          </File>
+                                        ))}
+                                      </Folder>
+                                    ))}
+                                  </Folder>
+                                ))}
+                              </Tree>
+                            </div>
+                          </ResizablePanel>
+                          <ResizableHandle withHandle />
+                        </>
+                      )}
+                      {/* Code Content - Always visible */}
+                      <ResizablePanel defaultSize={extractFilesFromCode.length > 0 ? 82 : 100} minSize={50}>
+                        <div className="h-full overflow-y-auto px-4 py-4">
+                          <div className="prose prose-zinc max-w-none dark:prose-invert">
+                            {(() => {
+                              console.log('[PanelCode] Rendering code tab (full variant):', {
+                                hasMarkdownBlocks,
+                                codeLength: code?.length,
+                                activeTab
+                              })
+                              return null
+                            })()}
+                            {hasMarkdownBlocks ? (
+                              <ReactMarkdown
+                                components={{
+                                  h1: (props: any) => (
+                                    <h1 {...props} className="mt-5 mb-3 text-3xl font-bold text-foreground" />
+                                  ),
+                                  h2: (props: any) => (
+                                    <h2 {...props} className="mt-4 mb-2 border-b pb-1 text-2xl font-bold text-foreground" />
+                                  ),
+                                  h3: (props: any) => (
+                                    <h3 {...props} className="mt-3 mb-1 text-xl font-semibold text-foreground" />
+                                  ),
+                                  p: (props: any) => (
+                                    <p {...props} className="mb-3 leading-relaxed text-foreground" />
+                                  ),
+                                  ul: (props: any) => (
+                                    <ul {...props} className="my-3 list-inside list-disc space-y-1 text-foreground" />
+                                  ),
+                                  ol: (props: any) => (
+                                    <ol {...props} className="my-3 list-inside list-decimal space-y-1 text-foreground" />
+                                  ),
+                                  li: (props: any) => <li {...props} className="pl-2" />,
+                                  strong: (props: any) => (
+                                    <strong {...props} className="font-semibold text-foreground" />
+                                  ),
+                                  code: ({ className, children, ...props }: any) => {
+                                    const match = /language-(\w+)/.exec(className || "")
+                                    return match ? (
+                                      <CodeBlock className={className} {...props}>
+                                        {String(children).replace(/\n$/, "")}
+                                      </CodeBlock>
+                                    ) : (
+                                      <code className="rounded-md bg-muted px-1.5 py-1 font-mono text-sm text-foreground" {...props}>
+                                        {children}
+                                      </code>
+                                    )
+                                  },
+                                  pre: () => null,
+                                }}
+                              >
+                                {code}
+                              </ReactMarkdown>
+                            ) : (
+                              <div className="relative my-4 overflow-hidden rounded-lg border border-border">
+                                <div className="flex items-center justify-between border-b border-border bg-muted px-4 py-2 text-sm text-muted-foreground">
+                                  <span className="font-medium">{reactCode ? 'TSX' : 'HTML'}</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(code);
+                                      alert('Code copied!');
+                                    }}
+                                    className="h-6 w-6 p-0 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <pre className="bg-muted p-4 text-sm text-foreground overflow-x-auto">
+                                  <code className={reactCode ? "language-tsx" : "language-html"}>{code}</code>
+                                </pre>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </ResizablePanel>
+                    </ResizablePanelGroup>
                   )}
                 </div>
-              </div>
-            ) : (
-              <div className="flex-1 overflow-hidden min-h-0">
-                {isLoading ? (
-                  <div className="flex h-full items-center justify-center text-muted-foreground py-12">
-                    <div className="text-center">
-                      <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-                      <p className="text-sm font-medium">{t("codeGenerating")}</p>
-                      <p className="text-xs mt-1 opacity-70">{t("codeGeneratingDesc")}</p>
-                    </div>
-                  </div>
-                ) : !code || code.trim() === "" ? (
-                  <div className="flex h-full items-center justify-center text-muted-foreground py-12">
-                    <div className="text-center">
-                      <Code2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                      <p className="text-sm font-medium">{t("noCodeYet")}</p>
-                      <p className="text-xs mt-1 opacity-70">{t("noCodeYetDesc")}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <ResizablePanelGroup direction="horizontal" className="h-full">
-                    {/* File Tree Sidebar - Optional, collapsible */}
-                    {extractFilesFromCode.length > 0 && (
-                      <>
-                        <ResizablePanel defaultSize={18} minSize={10} maxSize={30} className="border-r border-border">
-                          <div className="h-full overflow-y-auto p-3">
-                            <div className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                              Files
-                            </div>
-                            <Tree elements={extractFilesFromCode} initialExpandedItems={['main']}>
-                              {extractFilesFromCode.map((file) => (
-                                <Folder key={file.id} element={file.name} value={file.id}>
-                                  {file.children?.map((child) => (
-                                    <Folder key={child.id} element={child.name} value={child.id}>
-                                      {child.children?.map((grandchild) => (
-                                        <File key={grandchild.id} value={grandchild.id}>
-                                          {grandchild.name}
-                                        </File>
-                                      ))}
-                                    </Folder>
-                                  ))}
-                                </Folder>
-                              ))}
-                            </Tree>
-                          </div>
-                        </ResizablePanel>
-                        <ResizableHandle withHandle />
-                      </>
-                    )}
-                    {/* Code Content - Always visible */}
-                    <ResizablePanel defaultSize={extractFilesFromCode.length > 0 ? 82 : 100} minSize={50}>
-                      <div className="h-full overflow-y-auto px-4 py-4">
-                        <div className="prose prose-zinc max-w-none dark:prose-invert">
-                          {(() => {
-                            console.log('[PanelCode] Rendering code tab (full variant):', {
-                              hasMarkdownBlocks,
-                              codeLength: code?.length,
-                              activeTab
-                            })
-                            return null
-                          })()}
-                          {hasMarkdownBlocks ? (
-                            <ReactMarkdown
-                              components={{
-                                h1: ({ ...props }) => (
-                                  <h1 {...props} className="mt-5 mb-3 text-3xl font-bold text-foreground" />
-                                ),
-                                h2: ({ ...props }) => (
-                                  <h2 {...props} className="mt-4 mb-2 border-b pb-1 text-2xl font-bold text-foreground" />
-                                ),
-                                h3: ({ ...props }) => (
-                                  <h3 {...props} className="mt-3 mb-1 text-xl font-semibold text-foreground" />
-                                ),
-                                p: ({ ...props }) => (
-                                  <p {...props} className="mb-3 leading-relaxed text-foreground" />
-                                ),
-                                ul: ({ ...props }) => (
-                                  <ul {...props} className="my-3 list-inside list-disc space-y-1 text-foreground" />
-                                ),
-                                ol: ({ ...props }) => (
-                                  <ol {...props} className="my-3 list-inside list-decimal space-y-1 text-foreground" />
-                                ),
-                                li: ({ ...props }) => <li {...props} className="pl-2" />,
-                                strong: ({ ...props }) => (
-                                  <strong {...props} className="font-semibold text-foreground" />
-                                ),
-                                code: ({ className, children, ...props }) => {
-                                  const match = /language-(\w+)/.exec(className || "")
-                                  return match ? (
-                                    <CodeBlock className={className} {...props}>
-                                      {String(children).replace(/\n$/, "")}
-                                    </CodeBlock>
-                                  ) : (
-                                    <code className="rounded-md bg-muted px-1.5 py-1 font-mono text-sm text-foreground" {...props}>
-                                      {children}
-                                    </code>
-                                  )
-                                },
-                                pre: () => null,
-                              }}
-                            >
-                              {code}
-                            </ReactMarkdown>
-                          ) : (
-                            <div className="relative my-4 overflow-hidden rounded-lg border border-border">
-                              <div className="flex items-center justify-between border-b border-border bg-muted px-4 py-2 text-sm text-muted-foreground">
-                                <span className="font-medium">{reactCode ? 'TSX' : 'HTML'}</span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(code);
-                                    alert('Code copied!');
-                                  }}
-                                  className="h-6 w-6 p-0 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                                >
-                                  <Copy className="h-3 w-3" />
-                                </Button>
-                              </div>
-                              <pre className="bg-muted p-4 text-sm text-foreground overflow-x-auto">
-                                <code className={reactCode ? "language-tsx" : "language-html"}>{code}</code>
-                              </pre>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </ResizablePanel>
-                  </ResizablePanelGroup>
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      </div>
-      <PublishConfirmDialog />
+        <PublishConfirmDialog />
       </>
     )
   }
 
   // Inline variant - fills space like attachment
   if (variant === "inline") {
-  return (
+    return (
       <>
-      <div 
-        className="w-full max-w-full self-start animate-in fade-in-0 slide-in-from-bottom-1 duration-200 mb-3 group relative"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        {/* Clickable row - toggle expansion */}
-        <div 
-          className={cn(
-            "flex items-center gap-2.5 text-sm transition-colors group cursor-pointer hover:text-foreground"
-          )}
-          onClick={handleToggleExpand}
+        <div
+          className="w-full max-w-full self-start animate-in fade-in-0 slide-in-from-bottom-1 duration-200 mb-3 group relative"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
         >
-          {/* Icon - show Code2 by default, show ChevronDown on hover */}
-          <div className="w-4 flex-shrink-0">
-            {isHovered ? (
-              <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-all", isExpanded && "rotate-180")} />
-            ) : (
-              <Code2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-            )}
-          </div>
-          <span 
+          {/* Clickable row - toggle expansion */}
+          <div
             className={cn(
-              "transition-colors text-sm flex-1",
-              isHovered ? "text-foreground" : "text-muted-foreground"
+              "flex items-center gap-2.5 text-sm transition-colors group cursor-pointer hover:text-foreground"
             )}
+            onClick={handleToggleExpand}
           >
-            {projectName || "Created Luminite AI landing page v1"}
-          </span>
-        </div>
-        {/* Expanded content - show as divider line with content beside it */}
-        {isExpanded && (
-          <div className="mt-2 flex items-stretch gap-2.5 animate-in fade-in-0 slide-in-from-top-1 duration-200">
-            {/* Spacer untuk sejajar dengan icon (w-4 = 16px) */}
-            <div className="w-4 flex-shrink-0 flex items-center justify-center">
-              {/* Vertical divider line */}
-              <div className="w-px bg-border h-full" />
+            {/* Icon - show Code2 by default, show ChevronDown on hover */}
+            <div className="w-4 flex-shrink-0">
+              {isHovered ? (
+                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-all", isExpanded && "rotate-180")} />
+              ) : (
+                <Code2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              )}
             </div>
-            {/* Content beside the line */}
-            <div className="flex-1 min-w-0 max-w-full overflow-hidden">
-              <div className="rounded-lg border border-border bg-card min-w-0 w-full">
-                {/* Header */}
-                <div className="flex items-center justify-between border-b border-border px-3 sm:px-4 py-2.5 sm:py-3 gap-1.5 flex-wrap">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="text-sm font-semibold text-foreground truncate">{projectName || "Code Preview"}</span>
-                  </div>
-                  {showActions && (
-                    <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 flex-wrap">
-                      {/* Publish Button */}
-                      {sessionId && (
-                        <>
-                          <Button
-                            variant={isPublished ? "default" : "outline"}
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handlePublish()
-                            }}
-                            className="h-7 gap-1 text-xs flex-shrink-0 px-2"
-                          >
-                            {isPublished ? (
-                              <>
-                                <Check className="h-3 w-3" />
-                                Unpublish
-                              </>
-                            ) : (
-                              <>
-                                <Share2 className="h-3 w-3" />
-                                Publish
-                              </>
-                            )}
-                          </Button>
-                          {/* Share Button */}
-                          {isPublished && (
+            <span
+              className={cn(
+                "transition-colors text-sm flex-1",
+                isHovered ? "text-foreground" : "text-muted-foreground"
+              )}
+            >
+              {projectName || "Created Luminite AI landing page v1"}
+            </span>
+          </div>
+          {/* Expanded content - show as divider line with content beside it */}
+          {isExpanded && (
+            <div className="mt-2 flex items-stretch gap-2.5 animate-in fade-in-0 slide-in-from-top-1 duration-200">
+              {/* Spacer untuk sejajar dengan icon (w-4 = 16px) */}
+              <div className="w-4 flex-shrink-0 flex items-center justify-center">
+                {/* Vertical divider line */}
+                <div className="w-px bg-border h-full" />
+              </div>
+              {/* Content beside the line */}
+              <div className="flex-1 min-w-0 max-w-full overflow-hidden">
+                <div className="rounded-lg border border-border bg-card min-w-0 w-full">
+                  {/* Header */}
+                  <div className="flex items-center justify-between border-b border-border px-3 sm:px-4 py-2.5 sm:py-3 gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-sm font-semibold text-foreground truncate">{projectName || "Code Preview"}</span>
+                    </div>
+                    {showActions && (
+                      <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 flex-wrap">
+                        {/* Publish Button */}
+                        {sessionId && (
+                          <>
                             <Button
-                              variant="outline"
+                              variant={isPublished ? "default" : "outline"}
                               size="sm"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                handleShare()
+                                handlePublish()
                               }}
                               className="h-7 gap-1 text-xs flex-shrink-0 px-2"
                             >
-                              {isCopied ? (
+                              {isPublished ? (
                                 <>
                                   <Check className="h-3 w-3" />
-                                  Copied!
+                                  Unpublish
                                 </>
                               ) : (
                                 <>
-                                  <Copy className="h-3 w-3" />
-                                  Share
+                                  <Share2 className="h-3 w-3" />
+                                  Publish
                                 </>
                               )}
                             </Button>
-                      )}
-                    </>
-                  )}
-                  {/* Edit Button - Visual Editor */}
-                  {sessionId && (
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        window.open(`/app-builder-preview/${sessionId}`, '_blank')
-                      }}
-                      className="h-7 gap-1 text-xs flex-shrink-0 px-2 bg-primary hover:bg-primary/90"
-                    >
-                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                      Edit
-                    </Button>
-                  )}
-                  {/* Fullscreen Button */}
-                  {fullHtml && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleFullscreen()
-                      }}
-                      className="h-7 gap-1 text-xs flex-shrink-0 px-2"
-                    >
-                      <Maximize className="h-3 w-3" />
-                      Fullscreen
-                    </Button>
-                  )}
-                </div>
-                  )}
-                </div>
-                {/* Content - Tabs for Preview and Code */}
-                <div className="flex flex-col">
-                  {/* Tabs */}
-                  <div className="border-b border-border px-4 pt-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setActiveTab("preview")
-                        }}
-                        className={cn(
-                          "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
-                          activeTab === "preview" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                            {/* Share Button */}
+                            {isPublished && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleShare()
+                                }}
+                                className="h-7 gap-1 text-xs flex-shrink-0 px-2"
+                              >
+                                {isCopied ? (
+                                  <>
+                                    <Check className="h-3 w-3" />
+                                    Copied!
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="h-3 w-3" />
+                                    Share
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </>
                         )}
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                        Preview
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setActiveTab("code")
-                        }}
-                        className={cn(
-                          "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
-                          activeTab === "code" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                        {/* Edit Button - Visual Editor */}
+                        {sessionId && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.open(`/app-builder-preview/${sessionId}`, '_blank')
+                            }}
+                            className="h-7 gap-1 text-xs flex-shrink-0 px-2 bg-primary hover:bg-primary/90"
+                          >
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit
+                          </Button>
                         )}
-                      >
-                        <Code2 className="h-3.5 w-3.5" />
-                        Code
-                      </button>
-                    </div>
+                        {/* Fullscreen Button */}
+                        {fullHtml && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleFullscreen()
+                            }}
+                            className="h-7 gap-1 text-xs flex-shrink-0 px-2"
+                          >
+                            <Maximize className="h-3 w-3" />
+                            Fullscreen
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  {/* Tab Content */}
-                  {activeTab === "preview" ? (
-                    <div className="flex flex-col h-[400px] border-t border-border">
-                      <BrowserHeader 
-                        onRefresh={handleRefresh} 
-                        isRefreshing={isRefreshing}
-                        deviceSize={deviceSize}
-                        onDeviceChange={setDeviceSize}
-                        sessionId={sessionId}
-                        editMode={editMode}
-                      />
-                      <div className="flex-1 overflow-hidden bg-muted/20 flex items-center justify-center w-full transition-all duration-300">
-                        {reactCode ? (
-                          // React component - render directly
-                          isRenderingReact ? (
-                            <div className="flex items-center justify-center h-full w-full">
-                              <div className="text-center">
-                                <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-                                <p className="text-sm text-muted-foreground">Rendering component...</p>
+                  {/* Content - Tabs for Preview and Code */}
+                  <div className="flex flex-col">
+                    {/* Tabs */}
+                    <div className="border-b border-border px-4 pt-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setActiveTab("preview")
+                          }}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
+                            activeTab === "preview" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Preview
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setActiveTab("code")
+                          }}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
+                            activeTab === "code" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <Code2 className="h-3.5 w-3.5" />
+                          Code
+                        </button>
+                      </div>
+                    </div>
+                    {/* Tab Content */}
+                    {activeTab === "preview" ? (
+                      <div className="flex flex-col h-[400px] border-t border-border">
+                        <BrowserHeader
+                          onRefresh={handleRefresh}
+                          isRefreshing={isRefreshing}
+                          deviceSize={deviceSize}
+                          onDeviceChange={setDeviceSize}
+                          sessionId={sessionId}
+                          editMode={editMode}
+                        />
+                        <div className="flex-1 overflow-hidden bg-muted/20 flex items-center justify-center w-full transition-all duration-300">
+                          {reactCode ? (
+                            // React component - render directly
+                            isRenderingReact ? (
+                              <div className="flex items-center justify-center h-full w-full">
+                                <div className="text-center">
+                                  <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                                  <p className="text-sm text-muted-foreground">Rendering component...</p>
+                                </div>
                               </div>
-                            </div>
-                          ) : reactRenderError ? (
-                            <div className="flex items-center justify-center h-full w-full">
-                              <div className="text-center p-4">
-                                <p className="text-sm font-medium text-destructive mb-2">Render Error</p>
-                                <p className="text-xs text-muted-foreground">{reactRenderError}</p>
+                            ) : reactRenderError ? (
+                              <div className="flex items-center justify-center h-full w-full">
+                                <div className="text-center p-4">
+                                  <p className="text-sm font-medium text-destructive mb-2">Render Error</p>
+                                  <p className="text-xs text-muted-foreground">{reactRenderError}</p>
+                                </div>
                               </div>
+                            ) : reactHtml ? (
+                              <div
+                                className="h-full w-full"
+                                style={{
+                                  width: getIframeWidth(),
+                                  maxWidth: "100%",
+                                  overflow: 'auto'
+                                }}
+                                dangerouslySetInnerHTML={{ __html: reactHtml }}
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center text-muted-foreground">
+                                <div className="text-center">
+                                  <Code2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                  <p className="text-xs">No preview available</p>
+                                </div>
+                              </div>
+                            )
+                          ) : fullHtml ? (
+                            // HTML preview - use iframe
+                            <div className="h-full flex items-center justify-center w-full transition-all duration-300">
+                              <iframe
+                                key={refreshKey}
+                                srcDoc={fullHtml}
+                                className="h-full border-0 transition-all duration-300"
+                                style={{
+                                  width: getIframeWidth(),
+                                  maxWidth: "100%"
+                                }}
+                                title="Code Preview"
+                              />
                             </div>
-                          ) : reactHtml ? (
-                            <div 
-                              className="h-full w-full"
-                              style={{ 
-                                width: getIframeWidth(),
-                                maxWidth: "100%",
-                                overflow: 'auto'
-                              }}
-                              dangerouslySetInnerHTML={{ __html: reactHtml }}
-                            />
                           ) : (
                             <div className="flex h-full items-center justify-center text-muted-foreground">
                               <div className="text-center">
@@ -1296,117 +1318,95 @@ export function PanelCode({
                                 <p className="text-xs">No preview available</p>
                               </div>
                             </div>
-                          )
-                        ) : fullHtml ? (
-                          // HTML preview - use iframe
-                          <div className="h-full flex items-center justify-center w-full transition-all duration-300">
-                            <iframe
-                              key={refreshKey}
-                              srcDoc={fullHtml}
-                              className="h-full border-0 transition-all duration-300"
-                              style={{ 
-                                width: getIframeWidth(),
-                                maxWidth: "100%"
-                              }}
-                              title="Code Preview"
-                            />
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="max-h-[400px] overflow-y-auto px-4 py-4">
+                        {!code || code.trim() === "" ? (
+                          <div className="flex h-full items-center justify-center text-muted-foreground py-12">
+                            <div className="text-center">
+                              <Code2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                              <p className="text-sm font-medium">{t("noCodeYet")}</p>
+                              <p className="text-xs mt-1 opacity-70">{t("noCodeYetDesc")}</p>
+                            </div>
                           </div>
                         ) : (
-                          <div className="flex h-full items-center justify-center text-muted-foreground">
-                            <div className="text-center">
-                              <Code2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                              <p className="text-xs">No preview available</p>
-                            </div>
+                          <div className="prose prose-zinc max-w-none dark:prose-invert">
+                            {hasMarkdownBlocks ? (
+                              <ReactMarkdown
+                                components={{
+                                  h1: (props: any) => (
+                                    <h1 {...props} className="mt-5 mb-3 text-3xl font-bold text-foreground" />
+                                  ),
+                                  h2: (props: any) => (
+                                    <h2 {...props} className="mt-4 mb-2 border-b pb-1 text-2xl font-bold text-foreground" />
+                                  ),
+                                  h3: (props: any) => (
+                                    <h3 {...props} className="mt-3 mb-1 text-xl font-semibold text-foreground" />
+                                  ),
+                                  p: (props: any) => (
+                                    <p {...props} className="mb-3 leading-relaxed text-foreground" />
+                                  ),
+                                  ul: (props: any) => (
+                                    <ul {...props} className="my-3 list-inside list-disc space-y-1 text-foreground" />
+                                  ),
+                                  ol: (props: any) => (
+                                    <ol {...props} className="my-3 list-inside list-decimal space-y-1 text-foreground" />
+                                  ),
+                                  li: (props: any) => <li {...props} className="pl-2" />,
+                                  strong: (props: any) => (
+                                    <strong {...props} className="font-semibold text-foreground" />
+                                  ),
+                                  code: ({ className, children, ...props }: any) => {
+                                    const match = /language-(\w+)/.exec(className || "")
+                                    return match ? (
+                                      <CodeBlock className={className} {...props}>
+                                        {String(children).replace(/\n$/, "")}
+                                      </CodeBlock>
+                                    ) : (
+                                      <code className="rounded-md bg-muted px-1.5 py-1 font-mono text-sm text-foreground" {...props}>
+                                        {children}
+                                      </code>
+                                    )
+                                  },
+                                  pre: () => null,
+                                }}
+                              >
+                                {code}
+                              </ReactMarkdown>
+                            ) : (
+                              <div className="relative my-4 overflow-hidden rounded-lg border border-border">
+                                <div className="flex items-center justify-between border-b border-border bg-muted px-4 py-2 text-sm text-muted-foreground">
+                                  <span className="font-medium">HTML</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(code);
+                                      alert('Code copied!');
+                                    }}
+                                    className="h-6 w-6 p-0 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <pre className="bg-muted p-4 text-sm text-foreground overflow-x-auto">
+                                  <code className="language-html">{code}</code>
+                                </pre>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="max-h-[400px] overflow-y-auto px-4 py-4">
-                      {!code || code.trim() === "" ? (
-                        <div className="flex h-full items-center justify-center text-muted-foreground py-12">
-                          <div className="text-center">
-                            <Code2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                            <p className="text-sm font-medium">{t("noCodeYet")}</p>
-                            <p className="text-xs mt-1 opacity-70">{t("noCodeYetDesc")}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="prose prose-zinc max-w-none dark:prose-invert">
-                          {hasMarkdownBlocks ? (
-                            <ReactMarkdown
-                              components={{
-                                h1: ({ ...props }) => (
-                                  <h1 {...props} className="mt-5 mb-3 text-3xl font-bold text-foreground" />
-                                ),
-                                h2: ({ ...props }) => (
-                                  <h2 {...props} className="mt-4 mb-2 border-b pb-1 text-2xl font-bold text-foreground" />
-                                ),
-                                h3: ({ ...props }) => (
-                                  <h3 {...props} className="mt-3 mb-1 text-xl font-semibold text-foreground" />
-                                ),
-                                p: ({ ...props }) => (
-                                  <p {...props} className="mb-3 leading-relaxed text-foreground" />
-                                ),
-                                ul: ({ ...props }) => (
-                                  <ul {...props} className="my-3 list-inside list-disc space-y-1 text-foreground" />
-                                ),
-                                ol: ({ ...props }) => (
-                                  <ol {...props} className="my-3 list-inside list-decimal space-y-1 text-foreground" />
-                                ),
-                                li: ({ ...props }) => <li {...props} className="pl-2" />,
-                                strong: ({ ...props }) => (
-                                  <strong {...props} className="font-semibold text-foreground" />
-                                ),
-                                code: ({ className, children, ...props }) => {
-                                  const match = /language-(\w+)/.exec(className || "")
-                                  return match ? (
-                                    <CodeBlock className={className} {...props}>
-                                      {String(children).replace(/\n$/, "")}
-                                    </CodeBlock>
-                                  ) : (
-                                    <code className="rounded-md bg-muted px-1.5 py-1 font-mono text-sm text-foreground" {...props}>
-                                      {children}
-                                    </code>
-                                  )
-                                },
-                                pre: () => null,
-                              }}
-                            >
-                              {code}
-                            </ReactMarkdown>
-                          ) : (
-                            <div className="relative my-4 overflow-hidden rounded-lg border border-border">
-                              <div className="flex items-center justify-between border-b border-border bg-muted px-4 py-2 text-sm text-muted-foreground">
-                                <span className="font-medium">HTML</span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(code);
-                                    alert('Code copied!');
-                                  }}
-                                  className="h-6 w-6 p-0 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                                >
-                                  <Copy className="h-3 w-3" />
-                                </Button>
-                              </div>
-                              <pre className="bg-muted p-4 text-sm text-foreground overflow-x-auto">
-                                <code className="language-html">{code}</code>
-                              </pre>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
-      </div>
-      <PublishConfirmDialog />
+          )}
+        </div>
+        <PublishConfirmDialog />
       </>
     )
   }
@@ -1421,225 +1421,247 @@ export function PanelCode({
 
   return (
     <>
-    <div 
-      className="w-full max-w-full self-start animate-in fade-in-0 slide-in-from-bottom-1 duration-200 mb-3 group relative"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      {/* Clickable row - toggle expansion */}
       <div
-        className={cn(
-          "flex items-center gap-2.5 text-sm transition-colors group cursor-pointer hover:text-foreground"
-        )}
-        onClick={handleToggleExpand}
+        className="w-full max-w-full self-start animate-in fade-in-0 slide-in-from-bottom-1 duration-200 mb-3 group relative"
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Icon - show Code2 by default, show ChevronDown on hover */}
-        <div className="w-4 flex-shrink-0">
-          {isHovered ? (
-            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-all", shouldShowExpanded && "rotate-180")} />
-          ) : (
-            <Code2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          )}
-        </div>
-        <span 
+        {/* Clickable row - toggle expansion */}
+        <div
           className={cn(
-            "transition-colors text-sm flex-1",
-            isHovered ? "text-foreground" : "text-muted-foreground"
+            "flex items-center gap-2.5 text-sm transition-colors group cursor-pointer hover:text-foreground"
           )}
+          onClick={handleToggleExpand}
         >
-          {projectName || "Code Preview"}
-        </span>
-      </div>
-      {/* Expanded content - show as divider line with content beside it */}
-      {shouldShowExpanded && (
-        <div className="mt-2 flex items-stretch gap-2.5 animate-in fade-in-0 slide-in-from-top-1 duration-200">
-          {/* Spacer untuk sejajar dengan icon (w-4 = 16px) */}
-          <div className="w-4 flex-shrink-0 flex items-center justify-center">
-            {/* Vertical divider line */}
-            <div className="w-px bg-border h-full" />
+          {/* Icon - show Code2 by default, show ChevronDown on hover */}
+          <div className="w-4 flex-shrink-0">
+            {isHovered ? (
+              <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-all", shouldShowExpanded && "rotate-180")} />
+            ) : (
+              <Code2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            )}
           </div>
-          {/* Content beside the line */}
-          <div className="flex-1 min-w-0 max-h-[600px] relative max-w-full overflow-hidden">
-            {/* Gradient fade di bawah */}
-            <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none" />
-            {/* Scroll container */}
-            <div className="overflow-y-auto pr-2 h-full scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-              <div className="rounded-lg border border-border bg-card min-w-0 w-full">
-                {/* Header */}
-                <div className="flex items-center justify-between border-b border-border px-3 sm:px-4 py-2.5 sm:py-3 gap-1.5 flex-wrap">
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <span className="text-sm font-semibold text-foreground truncate">{projectName || "Code Preview"}</span>
+          <span
+            className={cn(
+              "transition-colors text-sm flex-1",
+              isHovered ? "text-foreground" : "text-muted-foreground"
+            )}
+          >
+            {projectName || "Code Preview"}
+          </span>
+        </div>
+        {/* Expanded content - show as divider line with content beside it */}
+        {shouldShowExpanded && (
+          <div className="mt-2 flex items-stretch gap-2.5 animate-in fade-in-0 slide-in-from-top-1 duration-200">
+            {/* Spacer untuk sejajar dengan icon (w-4 = 16px) */}
+            <div className="w-4 flex-shrink-0 flex items-center justify-center">
+              {/* Vertical divider line */}
+              <div className="w-px bg-border h-full" />
             </div>
-                  {showActions && (
-            <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 flex-wrap">
-                      {/* Publish Button */}
-              {sessionId && (
-                <>
-                  <Button
-                    variant={isPublished ? "default" : "outline"}
-                    size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handlePublish()
-                            }}
-                            className="h-7 gap-1 text-xs flex-shrink-0 px-2"
-                  >
-                    {isPublished ? (
-                      <>
-                                <Check className="h-3 w-3" />
-                        Unpublish
-                      </>
-                    ) : (
-                      <>
-                                <Share2 className="h-3 w-3" />
-                        Publish
-                      </>
-                    )}
-                  </Button>
-                          {/* Share Button */}
-                          {isPublished && (
-                    <Button
-                      variant="outline"
-                      size="sm"
+            {/* Content beside the line */}
+            <div className="flex-1 min-w-0 max-h-[600px] relative max-w-full overflow-hidden">
+              {/* Gradient fade di bawah */}
+              <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-background to-transparent z-10 pointer-events-none" />
+              {/* Scroll container */}
+              <div className="overflow-y-auto pr-2 h-full scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
+                <div className="rounded-lg border border-border bg-card min-w-0 w-full">
+                  {/* Header */}
+                  <div className="flex items-center justify-between border-b border-border px-3 sm:px-4 py-2.5 sm:py-3 gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-sm font-semibold text-foreground truncate">{projectName || "Code Preview"}</span>
+                    </div>
+                    {showActions && (
+                      <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0 flex-wrap">
+                        {/* Publish Button */}
+                        {sessionId && (
+                          <>
+                            <Button
+                              variant={isPublished ? "default" : "outline"}
+                              size="sm"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                handleShare()
+                                handlePublish()
                               }}
                               className="h-7 gap-1 text-xs flex-shrink-0 px-2"
-                    >
-                      {isCopied ? (
-                        <>
+                            >
+                              {isPublished ? (
+                                <>
                                   <Check className="h-3 w-3" />
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                                  <Copy className="h-3 w-3" />
-                          Share
-                        </>
-                      )}
-                    </Button>
+                                  Unpublish
+                                </>
+                              ) : (
+                                <>
+                                  <Share2 className="h-3 w-3" />
+                                  Publish
+                                </>
+                              )}
+                            </Button>
+                            {/* Share Button */}
+                            {isPublished && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleShare()
+                                }}
+                                className="h-7 gap-1 text-xs flex-shrink-0 px-2"
+                              >
+                                {isCopied ? (
+                                  <>
+                                    <Check className="h-3 w-3" />
+                                    Copied!
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="h-3 w-3" />
+                                    Share
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        {/* Edit Button - Visual Editor */}
+                        {sessionId && (
+                          <Button
+                            variant="default"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              window.open(`/app-builder-preview/${sessionId}`, '_blank')
+                            }}
+                            className="h-7 gap-1 text-xs flex-shrink-0 px-2 bg-primary hover:bg-primary/90"
+                          >
+                            <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            Edit
+                          </Button>
+                        )}
+                        {/* Fullscreen Button */}
+                        {fullHtml && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleFullscreen()
+                            }}
+                            className="h-7 gap-1 text-xs flex-shrink-0 px-2"
+                          >
+                            <Maximize className="h-3 w-3" />
+                            Fullscreen
+                          </Button>
+                        )}
+                        {/* Close Button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onClose()
+                          }}
+                          className="h-7 w-7 p-0 flex-shrink-0"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  {/* Content - Tabs for Preview and Code */}
+                  <div className="flex flex-col">
+                    {/* Tabs */}
+                    <div className="border-b border-border px-4 pt-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setActiveTab("preview")
+                          }}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
+                            activeTab === "preview" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
                           )}
-                </>
-              )}
-              {/* Edit Button - Visual Editor */}
-              {sessionId && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    window.open(`/app-builder-preview/${sessionId}`, '_blank')
-                  }}
-                  className="h-7 gap-1 text-xs flex-shrink-0 px-2 bg-primary hover:bg-primary/90"
-                >
-                  <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  Edit
-                </Button>
-              )}
-              {/* Fullscreen Button */}
-              {fullHtml && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleFullscreen()
-                  }}
-                  className="h-7 gap-1 text-xs flex-shrink-0 px-2"
-                >
-                  <Maximize className="h-3 w-3" />
-                  Fullscreen
-                </Button>
-              )}
-              {/* Close Button */}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onClose()
-                }}
-                className="h-7 w-7 p-0 flex-shrink-0"
-              >
-                <X className="h-3 w-3" />
-              </Button>
-            </div>
-                  )}
-          </div>
-                {/* Content - Tabs for Preview and Code */}
-                <div className="flex flex-col">
-                  {/* Tabs */}
-                  <div className="border-b border-border px-4 pt-3">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setActiveTab("preview")
-                        }}
-                        className={cn(
-                          "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
-                          activeTab === "preview" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        <Eye className="h-3.5 w-3.5" />
-                    Preview
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setActiveTab("code")
-                        }}
-                        className={cn(
-                          "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
-                          activeTab === "code" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
-                        )}
-                      >
-                        <Code2 className="h-3.5 w-3.5" />
-                        Code
-                      </button>
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                          Preview
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setActiveTab("code")
+                          }}
+                          className={cn(
+                            "flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors border-b-2",
+                            activeTab === "code" ? "text-foreground border-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <Code2 className="h-3.5 w-3.5" />
+                          Code
+                        </button>
+                      </div>
                     </div>
-              </div>
-                  {/* Tab Content */}
-                  {activeTab === "preview" ? (
-                    <div className="flex flex-col h-[400px] border-t border-border">
-                      <BrowserHeader 
-                        onRefresh={handleRefresh} 
-                        isRefreshing={isRefreshing}
-                        deviceSize={deviceSize}
-                        onDeviceChange={setDeviceSize}
-                        sessionId={sessionId}
-                        editMode={editMode}
-                      />
-                      <div className="flex-1 overflow-hidden bg-muted/20 flex items-center justify-center w-full transition-all duration-300">
-                        {reactCode ? (
-                          // React component - render directly
-                          isRenderingReact ? (
-                            <div className="flex items-center justify-center h-full w-full">
-                              <div className="text-center">
-                                <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-                                <p className="text-sm text-muted-foreground">Rendering component...</p>
+                    {/* Tab Content */}
+                    {activeTab === "preview" ? (
+                      <div className="flex flex-col h-[400px] border-t border-border">
+                        <BrowserHeader
+                          onRefresh={handleRefresh}
+                          isRefreshing={isRefreshing}
+                          deviceSize={deviceSize}
+                          onDeviceChange={setDeviceSize}
+                          sessionId={sessionId}
+                          editMode={editMode}
+                        />
+                        <div className="flex-1 overflow-hidden bg-muted/20 flex items-center justify-center w-full transition-all duration-300">
+                          {reactCode ? (
+                            // React component - render directly
+                            isRenderingReact ? (
+                              <div className="flex items-center justify-center h-full w-full">
+                                <div className="text-center">
+                                  <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                                  <p className="text-sm text-muted-foreground">Rendering component...</p>
+                                </div>
                               </div>
-                            </div>
-                          ) : reactRenderError ? (
-                            <div className="flex items-center justify-center h-full w-full">
-                              <div className="text-center p-4">
-                                <p className="text-sm font-medium text-destructive mb-2">Render Error</p>
-                                <p className="text-xs text-muted-foreground">{reactRenderError}</p>
+                            ) : reactRenderError ? (
+                              <div className="flex items-center justify-center h-full w-full">
+                                <div className="text-center p-4">
+                                  <p className="text-sm font-medium text-destructive mb-2">Render Error</p>
+                                  <p className="text-xs text-muted-foreground">{reactRenderError}</p>
+                                </div>
                               </div>
+                            ) : reactHtml ? (
+                              <div
+                                className="h-full w-full"
+                                style={{
+                                  width: getIframeWidth(),
+                                  maxWidth: "100%",
+                                  overflow: 'auto'
+                                }}
+                                dangerouslySetInnerHTML={{ __html: reactHtml }}
+                              />
+                            ) : (
+                              <div className="flex h-full items-center justify-center text-muted-foreground">
+                                <div className="text-center">
+                                  <Code2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                  <p className="text-xs">No preview available</p>
+                                </div>
+                              </div>
+                            )
+                          ) : fullHtml ? (
+                            // HTML preview - use iframe
+                            <div className="h-full flex items-center justify-center w-full transition-all duration-300">
+                              <iframe
+                                key={refreshKey}
+                                srcDoc={fullHtml}
+                                className="h-full border-0 transition-all duration-300"
+                                style={{
+                                  width: getIframeWidth(),
+                                  maxWidth: "100%"
+                                }}
+                                title="Code Preview"
+                              />
                             </div>
-                          ) : reactHtml ? (
-                            <div 
-                              className="h-full w-full"
-                              style={{ 
-                                width: getIframeWidth(),
-                                maxWidth: "100%",
-                                overflow: 'auto'
-                              }}
-                              dangerouslySetInnerHTML={{ __html: reactHtml }}
-                            />
                           ) : (
                             <div className="flex h-full items-center justify-center text-muted-foreground">
                               <div className="text-center">
@@ -1647,131 +1669,109 @@ export function PanelCode({
                                 <p className="text-xs">No preview available</p>
                               </div>
                             </div>
-                          )
-                        ) : fullHtml ? (
-                          // HTML preview - use iframe
-                          <div className="h-full flex items-center justify-center w-full transition-all duration-300">
-                            <iframe
-                              key={refreshKey}
-                              srcDoc={fullHtml}
-                              className="h-full border-0 transition-all duration-300"
-                              style={{ 
-                                width: getIframeWidth(),
-                                maxWidth: "100%"
-                              }}
-                              title="Code Preview"
-                            />
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="max-h-[400px] overflow-y-auto px-4 py-4">
+                        {isLoading ? (
+                          // Loading state
+                          <div className="flex h-full items-center justify-center text-muted-foreground py-12">
+                            <div className="text-center">
+                              <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                              <p className="text-sm font-medium">{t("codeGenerating")}</p>
+                              <p className="text-xs mt-1 opacity-70">{t("codeGeneratingDesc")}</p>
+                            </div>
+                          </div>
+                        ) : !code || code.trim() === "" ? (
+                          // Empty state
+                          <div className="flex h-full items-center justify-center text-muted-foreground py-12">
+                            <div className="text-center">
+                              <Code2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                              <p className="text-sm font-medium">{t("noCodeYet")}</p>
+                              <p className="text-xs mt-1 opacity-70">{t("noCodeYetDesc")}</p>
+                            </div>
                           </div>
                         ) : (
-                          <div className="flex h-full items-center justify-center text-muted-foreground">
-                            <div className="text-center">
-                              <Code2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                              <p className="text-xs">No preview available</p>
-                            </div>
+                          // Code content - Check if code contains markdown code blocks or is raw HTML
+                          <div className="prose prose-zinc max-w-none dark:prose-invert">
+                            {hasMarkdownBlocks ? (
+                              // Code has markdown blocks, use ReactMarkdown
+                              <ReactMarkdown
+                                components={{
+                                  h1: (props: any) => (
+                                    <h1 {...props} className="mt-5 mb-3 text-3xl font-bold text-foreground" />
+                                  ),
+                                  h2: (props: any) => (
+                                    <h2 {...props} className="mt-4 mb-2 border-b pb-1 text-2xl font-bold text-foreground" />
+                                  ),
+                                  h3: (props: any) => (
+                                    <h3 {...props} className="mt-3 mb-1 text-xl font-semibold text-foreground" />
+                                  ),
+                                  p: (props: any) => (
+                                    <p {...props} className="mb-3 leading-relaxed text-foreground" />
+                                  ),
+                                  ul: (props: any) => (
+                                    <ul {...props} className="my-3 list-inside list-disc space-y-1 text-foreground" />
+                                  ),
+                                  ol: (props: any) => (
+                                    <ol {...props} className="my-3 list-inside list-decimal space-y-1 text-foreground" />
+                                  ),
+                                  li: (props: any) => <li {...props} className="pl-2" />,
+                                  strong: (props: any) => (
+                                    <strong {...props} className="font-semibold text-foreground" />
+                                  ),
+                                  code: ({ className, children, ...props }: any) => {
+                                    const match = /language-(\w+)/.exec(className || "")
+                                    return match ? (
+                                      <CodeBlock className={className} {...props}>
+                                        {String(children).replace(/\n$/, "")}
+                                      </CodeBlock>
+                                    ) : (
+                                      <code className="rounded-md bg-muted px-1.5 py-1 font-mono text-sm text-foreground" {...props}>
+                                        {children}
+                                      </code>
+                                    )
+                                  },
+                                  pre: () => null,
+                                }}
+                              >
+                                {code}
+                              </ReactMarkdown>
+                            ) : (
+                              // Raw HTML code, display with syntax highlighting
+                              <div className="relative my-4 overflow-hidden rounded-lg border border-border">
+                                <div className="flex items-center justify-between border-b border-border bg-muted px-4 py-2 text-sm text-muted-foreground">
+                                  <span className="font-medium">HTML</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(code);
+                                      alert('Code copied!');
+                                    }}
+                                    className="h-6 w-6 p-0 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                                <pre className="bg-muted p-4 text-sm text-foreground overflow-x-auto">
+                                  <code className="language-html">{code}</code>
+                                </pre>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
-                    </div>
-                  ) : (
-                    <div className="max-h-[400px] overflow-y-auto px-4 py-4">
-                      {isLoading ? (
-                        // Loading state
-                        <div className="flex h-full items-center justify-center text-muted-foreground py-12">
-                          <div className="text-center">
-                            <div className="h-8 w-8 mx-auto mb-3 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-                            <p className="text-sm font-medium">{t("codeGenerating")}</p>
-                            <p className="text-xs mt-1 opacity-70">{t("codeGeneratingDesc")}</p>
-                          </div>
-                        </div>
-                      ) : !code || code.trim() === "" ? (
-                        // Empty state
-                        <div className="flex h-full items-center justify-center text-muted-foreground py-12">
-                          <div className="text-center">
-                            <Code2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                            <p className="text-sm font-medium">{t("noCodeYet")}</p>
-                            <p className="text-xs mt-1 opacity-70">{t("noCodeYetDesc")}</p>
-                          </div>
-                        </div>
-                      ) : (
-                        // Code content - Check if code contains markdown code blocks or is raw HTML
-                        <div className="prose prose-zinc max-w-none dark:prose-invert">
-                          {hasMarkdownBlocks ? (
-                            // Code has markdown blocks, use ReactMarkdown
-                            <ReactMarkdown
-                              components={{
-                                h1: ({ ...props }) => (
-                                  <h1 {...props} className="mt-5 mb-3 text-3xl font-bold text-foreground" />
-                                ),
-                                h2: ({ ...props }) => (
-                                  <h2 {...props} className="mt-4 mb-2 border-b pb-1 text-2xl font-bold text-foreground" />
-                                ),
-                                h3: ({ ...props }) => (
-                                  <h3 {...props} className="mt-3 mb-1 text-xl font-semibold text-foreground" />
-                                ),
-                                p: ({ ...props }) => (
-                                  <p {...props} className="mb-3 leading-relaxed text-foreground" />
-                                ),
-                                ul: ({ ...props }) => (
-                                  <ul {...props} className="my-3 list-inside list-disc space-y-1 text-foreground" />
-                                ),
-                                ol: ({ ...props }) => (
-                                  <ol {...props} className="my-3 list-inside list-decimal space-y-1 text-foreground" />
-                                ),
-                                li: ({ ...props }) => <li {...props} className="pl-2" />,
-                                strong: ({ ...props }) => (
-                                  <strong {...props} className="font-semibold text-foreground" />
-                                ),
-                                code: ({ className, children, ...props }) => {
-                                  const match = /language-(\w+)/.exec(className || "")
-                                  return match ? (
-                                    <CodeBlock className={className} {...props}>
-                                      {String(children).replace(/\n$/, "")}
-                                    </CodeBlock>
-                                  ) : (
-                                    <code className="rounded-md bg-muted px-1.5 py-1 font-mono text-sm text-foreground" {...props}>
-                                      {children}
-                                    </code>
-                                  )
-                                },
-                                pre: () => null,
-                              }}
-                            >
-                              {code}
-                            </ReactMarkdown>
-                          ) : (
-                            // Raw HTML code, display with syntax highlighting
-                            <div className="relative my-4 overflow-hidden rounded-lg border border-border">
-                              <div className="flex items-center justify-between border-b border-border bg-muted px-4 py-2 text-sm text-muted-foreground">
-                                <span className="font-medium">HTML</span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(code);
-                                    alert('Code copied!');
-                                  }}
-                                  className="h-6 w-6 p-0 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-                                >
-                                  <Copy className="h-3 w-3" />
-                                </Button>
-                              </div>
-                              <pre className="bg-muted p-4 text-sm text-foreground overflow-x-auto">
-                                <code className="language-html">{code}</code>
-                              </pre>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-      <PublishConfirmDialog />
-    </div>
+        )}
+        <PublishConfirmDialog />
+      </div>
     </>
   )
 }

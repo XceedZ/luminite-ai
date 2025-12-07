@@ -174,15 +174,15 @@ const MessageBubble = ({
                         <div className="prose prose-sm prose-zinc dark:prose-invert max-w-none">
                             <ReactMarkdown
                                 components={{
-                                    p: ({ children }) => <p className="text-sm text-foreground mb-2 last:mb-0">{children}</p>,
-                                    strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
-                                    h1: ({ children }) => <h1 className="text-lg font-bold mb-2">{children}</h1>,
-                                    h2: ({ children }) => <h2 className="text-base font-semibold mb-2">{children}</h2>,
-                                    h3: ({ children }) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,
-                                    ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-1">{children}</ul>,
-                                    ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-1">{children}</ol>,
-                                    li: ({ children }) => <li className="text-sm text-foreground">{children}</li>,
-                                    code: ({ children }) => <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">{children}</code>,
+                                    p: (props: any) => <p className="text-sm text-foreground mb-2 last:mb-0">{props.children}</p>,
+                                    strong: (props: any) => <strong className="font-semibold text-foreground">{props.children}</strong>,
+                                    h1: (props: any) => <h1 className="text-lg font-bold mb-2">{props.children}</h1>,
+                                    h2: (props: any) => <h2 className="text-base font-semibold mb-2">{props.children}</h2>,
+                                    h3: (props: any) => <h3 className="text-sm font-semibold mb-1">{props.children}</h3>,
+                                    ul: (props: any) => <ul className="list-disc list-inside mb-2 space-y-1">{props.children}</ul>,
+                                    ol: (props: any) => <ol className="list-decimal list-inside mb-2 space-y-1">{props.children}</ol>,
+                                    li: (props: any) => <li className="text-sm text-foreground">{props.children}</li>,
+                                    code: (props: any) => <code className="bg-muted px-1 py-0.5 rounded text-xs font-mono">{props.children}</code>,
                                 }}
                             >
                                 {content}

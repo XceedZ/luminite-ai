@@ -5,7 +5,6 @@ import {
   IconReport,
   IconBulb,
   IconBooks,
-  IconSettings,
   IconUsers,
   IconPlus,
   // Ikon yang ditambahkan
@@ -169,11 +168,4 @@ export const navHistory: NavItem[] = [
   }
 ]
 
-export const secondaryNav: NavItem[] = [
-  {
-    name: "settings",
-    title: "Settings",
-    href: "settings",
-    icon: IconSettings,
-  },
-]
+export const secondaryNav: NavItem[] = []

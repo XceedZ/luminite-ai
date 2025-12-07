@@ -125,17 +125,17 @@ const AIMessage = ({ msg }: { msg: ChatMessage }) => (
     <div className="max-w-none prose prose-zinc dark:prose-invert">
       <ReactMarkdown
         components={{
-          h1: ({ node, ref, ...props }) => <h1 {...props} className="text-3xl font-bold mt-5 mb-3 text-foreground" />,
-          h2: ({ node, ref, ...props }) => <h2 {...props} className="text-2xl font-bold mt-4 mb-2 text-foreground border-b pb-1" />,
-          h3: ({ node, ref, ...props }) => <h3 {...props} className="text-xl font-semibold mt-3 mb-1 text-foreground" />,
-          ul: ({ node, ref, ...props }) => <ul {...props} className="list-disc list-inside my-3 space-y-1" />,
-          ol: ({ node, ref, ...props }) => <ol {...props} className="list-decimal list-inside my-3 space-y-1" />,
-          li: ({ node, ref, ...props }) => <li {...props} className="pl-2" />,
-          a: ({ node, ref, ...props }) => <a {...props} className="text-primary underline hover:opacity-80" target="_blank" rel="noopener noreferrer" />,
-          strong: ({ node, ref, ...props }) => <strong {...props} className="font-semibold text-foreground" />,
-          code: ({ node, ref, ...props }) => <code {...props} className="bg-muted text-muted-foreground px-1.5 py-1 rounded-md font-mono text-sm" />,
-          pre: ({ node, ref, ...props }) => <CodeBlock {...props} />,
-          p: ({ node, ref, ...props }) => <p {...props} className="mb-3 leading-relaxed" />,
+          h1: (props: any) => <h1 {...props} className="text-3xl font-bold mt-5 mb-3 text-foreground" />,
+          h2: (props: any) => <h2 {...props} className="text-2xl font-bold mt-4 mb-2 text-foreground border-b pb-1" />,
+          h3: (props: any) => <h3 {...props} className="text-xl font-semibold mt-3 mb-1 text-foreground" />,
+          ul: (props: any) => <ul {...props} className="list-disc list-inside my-3 space-y-1" />,
+          ol: (props: any) => <ol {...props} className="list-decimal list-inside my-3 space-y-1" />,
+          li: (props: any) => <li {...props} className="pl-2" />,
+          a: (props: any) => <a {...props} className="text-primary underline hover:opacity-80" target="_blank" rel="noopener noreferrer" />,
+          strong: (props: any) => <strong {...props} className="font-semibold text-foreground" />,
+          code: (props: any) => <code {...props} className="bg-muted text-muted-foreground px-1.5 py-1 rounded-md font-mono text-sm" />,
+          pre: (props: any) => <CodeBlock {...props} />,
+          p: (props: any) => <p {...props} className="mb-3 leading-relaxed" />,
         }}
       >
         {msg.content}

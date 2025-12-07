@@ -74,17 +74,17 @@ export type ChatHistoryItem = {
 const MAX_VISIBLE_HISTORY = 5;
 
 function HistorySkeleton() {
-    return (
-        <SidebarMenu>
-            {[...Array(3)].map((_, i) => (
-                <SidebarMenuItem key={i}>
-                    <div className="flex h-8 w-full items-center rounded-lg px-2">
-                        <Skeleton className="h-4 w-full" />
-                    </div>
-                </SidebarMenuItem>
-            ))}
-        </SidebarMenu>
-    )
+  return (
+    <SidebarMenu>
+      {[...Array(3)].map((_, i) => (
+        <SidebarMenuItem key={i}>
+          <div className="flex h-8 w-full items-center rounded-lg px-2">
+            <Skeleton className="h-4 w-full" />
+          </div>
+        </SidebarMenuItem>
+      ))}
+    </SidebarMenu>
+  )
 }
 
 export function NavHistory({
@@ -100,8 +100,8 @@ export function NavHistory({
   const router = useRouter()
   const pathname = usePathname()
   const lang = pathname.split('/')[1] || 'en';
-  
-  const activeSessionId = pathname.split('/')[3]; 
+
+  const activeSessionId = pathname.split('/')[3];
   const { renameChat, deleteChat } = useAIStore()
 
   const [visibleCount, setVisibleCount] = useState(MAX_VISIBLE_HISTORY);
@@ -136,7 +136,7 @@ export function NavHistory({
       toast.success(`${t("chatRenamedSuccess")} "${newTitle.trim()}"`);
       setIsRenameDialogOpen(false);
     } else {
-        toast.error(t("renameError"));
+      toast.error(t("renameError"));
     }
   };
 
@@ -146,13 +146,13 @@ export function NavHistory({
     const { isActiveChat } = await deleteChat(actionTarget.id);
 
     toast.success(`Chat "${deletedTitle}" telah dihapus.`);
-    
+
     if (isActiveChat) {
       router.push(`/${lang}/quick-create`);
     }
     setIsDeleteDialogOpen(false);
   };
-  
+
   const handleShowMore = () => {
     setVisibleCount(prevCount => prevCount + MAX_VISIBLE_HISTORY);
   };
@@ -193,7 +193,11 @@ export function NavHistory({
               const isActive = activeSessionId === item.id;
               return (
                 <SidebarMenuItem key={item.id}>
-                  <SidebarMenuButton asChild className={cn(isActive && "bg-accent text-accent-foreground")}>
+                  <SidebarMenuButton
+                    asChild
+                    variant="plain"
+                    className={cn(isActive && "bg-accent text-accent-foreground")}
+                  >
                     <Link href={item.href} title={item.title}>
                       <span className="truncate">{item.title}</span>
                     </Link>
@@ -211,8 +215,8 @@ export function NavHistory({
                       align={isMobile ? "end" : "start"}
                     >
                       <DropdownMenuItem onSelect={() => {
-                          setActionTarget(item);
-                          setIsRenameDialogOpen(true);
+                        setActionTarget(item);
+                        setIsRenameDialogOpen(true);
                       }}>
                         <Edit className="text-muted-foreground" />
                         <span>{t("rename")}</span>
@@ -235,9 +239,9 @@ export function NavHistory({
                       <DropdownMenuItem
                         className="text-red-600 focus:text-red-600 dark:focus:text-red-500"
                         onSelect={(event) => {
-                            event.preventDefault();
-                            setActionTarget(item);
-                            setIsDeleteDialogOpen(true);
+                          event.preventDefault();
+                          setActionTarget(item);
+                          setIsDeleteDialogOpen(true);
                         }}
                       >
                         <Trash2 className="text-red-600 dark:text-red-500" />
@@ -248,10 +252,10 @@ export function NavHistory({
                 </SidebarMenuItem>
               );
             })}
-            
+
             {hasMoreHistory && (
               <SidebarMenuItem>
-                <SidebarMenuButton className="text-sidebar-foreground/70" onClick={handleShowMore}>
+                <SidebarMenuButton variant="plain" className="text-sidebar-foreground/70" onClick={handleShowMore}>
                   <MoreHorizontal />
                   <span>{t("more")}</span>
                 </SidebarMenuButton>
@@ -304,7 +308,7 @@ export function NavHistory({
       {/* Rename Dialog */}
       <Dialog open={isRenameDialogOpen} onOpenChange={setIsRenameDialogOpen}>
         {/* ... (existing rename dialog code, no changes needed) ... */}
-         <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>{t("renameChat")}</DialogTitle>
             <DialogDescription>
@@ -374,11 +378,11 @@ export function NavHistory({
                 readOnly
               />
             </div>
-            <Button 
-                type="button" 
-                size="sm" 
-                className="px-3"
-                onClick={() => handleCopyToClipboard(actionTarget ? `${window.location.origin}${actionTarget.href}` : "")}
+            <Button
+              type="button"
+              size="sm"
+              className="px-3"
+              onClick={() => handleCopyToClipboard(actionTarget ? `${window.location.origin}${actionTarget.href}` : "")}
             >
               <span className="sr-only">{t("copy")}</span>
               <Copy className="h-4 w-4" />

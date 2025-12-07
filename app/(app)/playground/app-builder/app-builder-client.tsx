@@ -131,38 +131,38 @@ const AIMessage = ({ msg, compact = false }: { msg: ChatMessage; compact?: boole
     <div className={cn("prose prose-zinc max-w-none dark:prose-invert", compact && "[&>p:first-child]:!mt-0 [&>p:last-child]:!mb-0")}>
       <ReactMarkdown
         components={{
-          h1: ({ node, ref, ...props }) => (
+          h1: (props: any) => (
             <h1
               {...props}
               className="mt-5 mb-3 text-3xl font-bold text-foreground"
             />
           ),
-          h2: ({ node, ref, ...props }) => (
+          h2: (props: any) => (
             <h2
               {...props}
               className="mt-4 mb-2 border-b pb-1 text-2xl font-bold text-foreground"
             />
           ),
-          h3: ({ node, ref, ...props }) => (
+          h3: (props: any) => (
             <h3
               {...props}
               className="mt-3 mb-1 text-xl font-semibold text-foreground"
             />
           ),
-          ul: ({ node, ref, ...props }) => (
+          ul: (props: any) => (
             <ul
               {...props}
               className="my-3 list-inside list-disc space-y-1"
             />
           ),
-          ol: ({ node, ref, ...props }) => (
+          ol: (props: any) => (
             <ol
               {...props}
               className="my-3 list-inside list-decimal space-y-1"
             />
           ),
-          li: ({ node, ref, ...props }) => <li {...props} className="pl-2" />,
-          a: ({ node, ref, ...props }) => (
+          li: (props: any) => <li {...props} className="pl-2" />,
+          a: (props: any) => (
             <a
               {...props}
               className="text-primary underline hover:opacity-80"
@@ -170,20 +170,20 @@ const AIMessage = ({ msg, compact = false }: { msg: ChatMessage; compact?: boole
               rel="noopener noreferrer"
             />
           ),
-          strong: ({ node, ref, ...props }) => (
+          strong: (props: any) => (
             <strong
               {...props}
               className="font-semibold text-foreground"
             />
           ),
-          code: ({ node, ref, ...props }) => (
+          code: (props: any) => (
             <code
               {...props}
               className="rounded-md bg-muted px-1.5 py-1 font-mono text-sm text-muted-foreground"
             />
           ),
-          pre: ({ node, ref, ...props }) => <CodeBlock {...props} />,
-          p: ({ node, ref, ...props }) => (
+          pre: (props: any) => <CodeBlock {...props} />,
+          p: (props: any) => (
             <p {...props} className={cn("mb-3 leading-relaxed", compact && "first:!mt-0 last:!mb-0")} />
           ),
         }}
@@ -637,33 +637,33 @@ const AIStepItem = ({ step, t }: {
               <div className="text-muted-foreground prose prose-zinc max-w-none dark:prose-invert prose-p:text-muted-foreground prose-headings:text-muted-foreground prose-strong:text-muted-foreground prose-code:text-muted-foreground">
                 <ReactMarkdown
                   components={{
-                    h1: ({ node, ref, ...props }) => (
+                    h1: (props: any) => (
                       <h1 {...props} className="mt-5 mb-3 text-3xl font-bold text-muted-foreground" />
                     ),
-                    h2: ({ node, ref, ...props }) => (
+                    h2: (props: any) => (
                       <h2 {...props} className="mt-4 mb-2 border-b border-border pb-1 text-2xl font-bold text-muted-foreground" />
                     ),
-                    h3: ({ node, ref, ...props }) => (
+                    h3: (props: any) => (
                       <h3 {...props} className="mt-3 mb-1 text-xl font-semibold text-muted-foreground" />
                     ),
-                    p: ({ node, ref, ...props }) => (
+                    p: (props: any) => (
                       <p {...props} className="mb-3 leading-relaxed text-muted-foreground" />
                     ),
-                    strong: ({ node, ref, ...props }) => (
+                    strong: (props: any) => (
                       <strong {...props} className="font-semibold text-muted-foreground" />
                     ),
-                    code: ({ node, ref, ...props }) => (
+                    code: (props: any) => (
                       <code {...props} className="rounded-md bg-muted px-1.5 py-1 font-mono text-sm text-muted-foreground" />
                     ),
-                    pre: ({ node, ref, ...props }) => <CodeBlock {...props} />,
-                    ul: ({ node, ref, ...props }) => (
+                    pre: (props: any) => <CodeBlock {...props} />,
+                    ul: (props: any) => (
                       <ul {...props} className="my-3 list-inside list-disc space-y-1 text-muted-foreground" />
                     ),
-                    ol: ({ node, ref, ...props }) => (
+                    ol: (props: any) => (
                       <ol {...props} className="my-3 list-inside list-decimal space-y-1 text-muted-foreground" />
                     ),
-                    li: ({ node, ref, ...props }) => <li {...props} className="pl-2 text-muted-foreground" />,
-                    a: ({ node, ref, ...props }) => (
+                    li: (props: any) => <li {...props} className="pl-2 text-muted-foreground" />,
+                    a: (props: any) => (
                       <a
                         {...props}
                         className="text-muted-foreground underline hover:opacity-80"
@@ -913,100 +913,6 @@ const ChatLimitNotification = ({
   </div>
 )
 
-// Template Card Component for community templates
-const TemplateCard = ({
-  template,
-  t,
-}: {
-  template: { id: string; name: string; author: string; avatar?: string }
-  t: (key: string) => string
-}) => (
-  <div className="group relative cursor-pointer overflow-hidden rounded-lg border bg-card transition-all duration-200 hover:shadow-lg">
-    <div className="relative aspect-[16/9] overflow-hidden">
-      <img
-        src={`https://picsum.photos/seed/${template.id}/600/338`}
-        alt={`${template.name} preview`}
-        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-      />
-      {/* Overlay yang muncul saat hover */}
-      <div className="absolute inset-0 bg-black/50 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-      {/* Button View Details yang muncul saat hover */}
-      <div className="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-        <Button
-          variant="secondary"
-          size="sm"
-          className="bg-white/90 text-black hover:bg-white"
-        >
-          {t("viewDetails") || "View Details"}
-        </Button>
-      </div>
-    </div>
-    <div className="p-4">
-      <div className="mb-2 flex items-center gap-3">
-        <Avatar className="h-8 w-8">
-          <AvatarImage
-            src={template.avatar}
-            alt={template.author}
-          />
-          <AvatarFallback>
-            <User className="h-4 w-4" />
-          </AvatarFallback>
-        </Avatar>
-        <div className="flex-1">
-          <h3 className="text-sm font-medium">{template.name}</h3>
-          <p className="text-xs text-muted-foreground">
-            by {template.author}
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-)
-
-const CommunityTemplatesSection = ({
-  t,
-}: {
-  t: (key: string) => string
-}) => {
-  const templates = [
-    { id: "1", name: "E-commerce Dashboard", author: "John Doe" },
-    { id: "2", name: "Task Management App", author: "Jane Smith" },
-    { id: "3", name: "Portfolio Website", author: "Alex Johnson" },
-    { id: "4", name: "Blog Platform", author: "Sarah Wilson" },
-    { id: "5", name: "Analytics Dashboard", author: "Mike Brown" },
-    { id: "6", name: "Social Media App", author: "Emma Davis" },
-  ]
-
-  return (
-    <div className="mx-auto mt-16 w-full max-w-6xl px-4">
-      <div className="mb-8 flex items-center justify-between">
-        <div className="text-left">
-          <h2 className="mb-2 text-2xl font-bold text-foreground">
-            {t("fromTheCommunity") || "From the Community"}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {t("exploreCommunity") ||
-              "Explore what the community is building with Luminite."}
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          className="rounded-full text-xs md:text-sm text-muted-foreground hover:text-primary hover:bg-primary/10"
-        >
-          {t("browseAll") || "Browse All"}
-          <ChevronDown className="ml-2 h-4 w-4 rotate-[-90deg]" />
-        </Button>
-      </div>
-
-      <div className="mb-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {templates.map((template) => (
-          <TemplateCard key={template.id} template={template} t={t} />
-        ))}
-      </div>
-    </div>
-  )
-}
-
 const PageLoader = () => (
   <div className="flex h-full w-full flex-col items-center justify-center">
     <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -1040,6 +946,7 @@ export default function AppBuilderClientUI() {
   const [previewWidth, setPreviewWidth] = React.useState(50) // Default 50% width (balanced for chat and preview)
   const [isResizing, setIsResizing] = React.useState(false)
   const [isMobile, setIsMobile] = React.useState(false)
+  const [heroIndex] = React.useState(() => Math.floor(Math.random() * 5))
   const resizeHandleRef = React.useRef<HTMLDivElement>(null)
 
   // Detect mobile on mount and resize
@@ -1447,17 +1354,20 @@ export default function AppBuilderClientUI() {
         {messages.length === 0 &&
           !isLoading &&
           !isHistoryLoading ? (
-          // EMPTY STATE – hero seperti v0.app
-          <div className="flex flex-col flex-grow w-full h-0 items-center overflow-y-auto">
-            <main className="flex w-full flex-col items-center justify-center px-4 pb-16 pt-20">
+          // EMPTY STATE – modern hero dengan background gradient
+          <div className="relative flex flex-col flex-grow w-full h-0 items-center justify-center overflow-y-auto">
+            {/* Modern gradient background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-secondary/10" />
+            {/* Grid pattern overlay */}
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.02)_1px,transparent_1px)] bg-[size:50px_50px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_100%)]" />
+
+            <main className="relative flex w-full flex-col items-center justify-center px-4">
               <div className="mx-auto flex w-full max-w-5xl flex-col items-center text-center">
-                <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground md:text-5xl">
-                  {t("appBuilderTitle") ||
-                    "What do you want to create?"}
+                <h1 className="mb-4 text-4xl font-bold tracking-tight text-foreground md:text-5xl lg:text-6xl">
+                  {t(`appBuilderTitle${heroIndex + 1}`) || t("appBuilderTitle") || "What do you want to create?"}
                 </h1>
-                <p className="mb-10 max-w-2xl text-lg text-muted-foreground">
-                  {t("appBuilderSubtitle") ||
-                    "Start building with a single prompt. No coding needed."}
+                <p className="mb-10 max-w-2xl text-lg text-muted-foreground md:text-xl">
+                  {t(`appBuilderSubtitle${heroIndex + 1}`) || t("appBuilderSubtitle") || "Start building with a single prompt. No coding needed."}
                 </p>
 
                 <div className="w-full max-w-2xl">
@@ -1487,21 +1397,6 @@ export default function AppBuilderClientUI() {
                 </div>
               </div>
             </main>
-
-            {/* Section "From the Community" seperti di screenshot v0 */}
-            <div className="w-full px-4 pb-16">
-              <CommunityTemplatesSection t={t} />
-
-              {/* Load More Button */}
-              <div className="mt-12 flex justify-center">
-                <Button
-                  variant="outline"
-                  className="rounded-full px-8 py-2 text-sm"
-                >
-                  {t("loadMore") || "Load More"}
-                </Button>
-              </div>
-            </div>
           </div>
         ) : (
           // CHAT STATE
