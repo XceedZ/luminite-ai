@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { ChevronRight } from "lucide-react"
-import { type Icon } from "@tabler/icons-react"
+import { ChevronRight, type LucideIcon } from "lucide-react"
+import { type Icon, type TablerIcon } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import { useState, useEffect } from "react"
 
@@ -27,7 +27,7 @@ type NavDataItem = {
   name: string
   title: string
   href: string
-  icon?: Icon  // ✅ jadi optional
+  icon?: Icon | TablerIcon | LucideIcon // Support both libraries
   items?: NavDataItem[]
 }
 
@@ -39,10 +39,10 @@ interface NavDataProps {
 
 export function NavData({ items, pathname, t }: NavDataProps) {
   const isActive = (href: string) => pathname.startsWith(href)
-  
+
   // Track open state for each collapsible to avoid hydration mismatch
   const [openStates, setOpenStates] = useState<Record<string, boolean>>({})
-  
+
   // Set initial open states based on pathname only on client side
   // This avoids hydration mismatch by setting state only after mount
   useEffect(() => {

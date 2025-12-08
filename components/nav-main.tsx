@@ -1,7 +1,7 @@
 "use client"
 
-import { ChevronRight } from "lucide-react"
-import { type Icon } from "@tabler/icons-react"
+import { ChevronRight, type LucideIcon } from "lucide-react"
+import { type Icon, type TablerIcon } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { Kbd } from "@/components/ui/kbd"
@@ -28,8 +28,8 @@ type NavMainItem = {
   name: string
   title: string
   href: string
-  icon?: Icon // <-- Ubah di sini, tambahkan '?'
-  hidden?: boolean // Pastikan tipe di sini juga diperbarui
+  icon?: Icon | TablerIcon | LucideIcon // Support both libraries
+  hidden?: boolean
   items?: NavMainItem[]
 }
 

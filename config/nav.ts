@@ -19,8 +19,10 @@ import {
   IconFileDescription,
   IconFileAi,
 } from "@tabler/icons-react"
+import { AudioLines } from "lucide-react" // Notetaker - wave audio icon
 import type { ComponentType } from "react";
-import type { IconProps, TablerIcon } from "@tabler/icons-react";
+import type { TablerIcon } from "@tabler/icons-react";
+import type { LucideIcon } from "lucide-react";
 
 // Tipe ini akan menjadi satu-satunya sumber kebenaran
 // dan akan digunakan di semua komponen navigasi.
@@ -28,7 +30,7 @@ export type NavItem = {
   name: string
   title: string
   href: string
-  icon?: TablerIcon // ✅ langsung pakai TablerIcon
+  icon?: TablerIcon | LucideIcon // ✅ Support both Tabler and Lucide icons
   hidden?: boolean // [PERUBAHAN] Tambahkan properti opsional `hidden`
   items?: NavItem[]
 }
@@ -81,23 +83,29 @@ export const mainNav: NavItem[] = [
     icon: IconFileDescription,
   },
   {
-    name: "tasks",
-    title: "Tasks",
-    href: "tasks",
-    icon: IconClipboardList,
+    name: "notetaker",
+    title: "Notetaker",
+    href: "notetaker",
+    icon: AudioLines,
   },
-  {
-    name: "analytics",
-    title: "Analytics",
-    href: "analytics",
-    icon: IconChartBar,
-  },
-  {
-    name: "team",
-    title: "Team",
-    href: "team",
-    icon: IconUsers,
-  },
+  // {
+  //   name: "tasks",
+  //   title: "Tasks",
+  //   href: "tasks",
+  //   icon: IconClipboardList,
+  // },
+  // {
+  //   name: "analytics",
+  //   title: "Analytics",
+  //   href: "analytics",
+  //   icon: IconChartBar,
+  // },
+  // {
+  //   name: "team",
+  //   title: "Team",
+  //   href: "team",
+  //   icon: IconUsers,
+  // },
 ]
 
 // Menambahkan kembali data untuk cloudNav

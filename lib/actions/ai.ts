@@ -118,6 +118,80 @@ async function fetchPexelsImages(query: string, perPage: number = 1, retries: nu
   }
 }
 
+// Helper function to download image and convert to base64
+async function downloadImageAsBase64(imageUrl: string): Promise<{ mimeType: string; data: string } | null> {
+  try {
+    const response = await fetch(imageUrl, {
+      signal: AbortSignal.timeout(15000) // 15 second timeout for image download
+    });
+
+    if (!response.ok) {
+      console.error(`[Image Download] Failed to download image: ${response.status}`);
+      return null;
+    }
+
+    const contentType = response.headers.get('content-type') || 'image/jpeg';
+    const arrayBuffer = await response.arrayBuffer();
+    const base64 = Buffer.from(arrayBuffer).toString('base64');
+
+    console.log(`[Image Download] Successfully downloaded image (${Math.round(arrayBuffer.byteLength / 1024)}KB)`);
+
+    return {
+      mimeType: contentType,
+      data: base64
+    };
+  } catch (error) {
+    console.error('[Image Download] Error downloading image:', error);
+    return null;
+  }
+}
+
+// Helper function to verify if image matches user's query using AI vision
+async function verifyPexelsImageWithAI(
+  userQuery: string,
+  imageBase64: { mimeType: string; data: string }
+): Promise<boolean> {
+  try {
+    const verificationPrompt = `You are an image relevance checker. Analyze this image and determine if it is RELEVANT to the user's request.
+
+**User's Request:** "${userQuery}"
+
+**Your Task:**
+1. Look at the image carefully
+2. Determine if the image content matches or is relevant to what the user asked for
+3. Respond with ONLY one word: "RELEVANT" or "NOT_RELEVANT"
+
+**Rules:**
+- If the image shows something related to the topic, respond "RELEVANT"
+- If the image is completely unrelated or generic stock photo that doesn't match, respond "NOT_RELEVANT"
+- Be lenient - if the image is somewhat related, consider it RELEVANT
+
+**Response (one word only):**`;
+
+    const response = await ai.models.generateContent({
+      model: "gemma-3-4b-it",
+      contents: [{
+        role: 'user',
+        parts: [
+          { text: verificationPrompt },
+          { inlineData: imageBase64 }
+        ]
+      }]
+    });
+
+    const responseText = response.text?.trim().toUpperCase() || "";
+    const isRelevant = responseText.includes("RELEVANT") && !responseText.includes("NOT_RELEVANT");
+
+    console.log(`[Image Verification] Query: "${userQuery}" | Result: ${isRelevant ? 'RELEVANT' : 'NOT_RELEVANT'}`);
+
+    return isRelevant;
+  } catch (error) {
+    console.error('[Image Verification] Error verifying image:', error);
+    // On error, assume image is relevant to avoid blocking the flow
+    return true;
+  }
+}
+
 // New function: Analyze code and determine image queries for each section
 async function analyzeCodeForImageQueries(code: string, originalPrompt: string): Promise<Array<{ section: string; query: string; placeholder: string }>> {
   try {
@@ -3145,11 +3219,12 @@ Generate the HTML content:`;
 }
 
 /**
- * Search Pexels images for document editor
+ * Search Pexels images for document editor with AI verification
  */
 export async function searchPexelsImages(
   query: string,
-  count: number = 8
+  count: number = 8,
+  maxRetries: number = 2
 ): Promise<{ url: string; alt: string; photographer: string }[]> {
   'use server';
 
@@ -3182,24 +3257,87 @@ export async function searchPexelsImages(
       console.warn('[Pexels] AI keyword extraction failed, using original query');
     }
 
-    const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(searchQuery)}&per_page=${count}&orientation=landscape`;
+    // Retry loop for finding relevant images
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      // Modify query on retry to get different results
+      const modifiedQuery = attempt === 0
+        ? searchQuery
+        : `${searchQuery} ${['professional', 'modern', 'creative'][attempt - 1] || ''}`.trim();
 
-    const response = await fetch(url, {
-      headers: { Authorization: apiKey },
-    });
+      console.log(`[Pexels] Search attempt ${attempt + 1}/${maxRetries + 1} with query: "${modifiedQuery}"`);
 
-    if (!response.ok) {
-      console.error('[Pexels] API error:', response.status);
-      return [];
+      const url = `https://api.pexels.com/v1/search?query=${encodeURIComponent(modifiedQuery)}&per_page=${count}&orientation=landscape`;
+
+      const response = await fetch(url, {
+        headers: { Authorization: apiKey },
+      });
+
+      if (!response.ok) {
+        console.error('[Pexels] API error:', response.status);
+        continue;
+      }
+
+      const data = await response.json();
+      const photos = data.photos as Array<{ src: { large: string }; alt: string; photographer: string }> | undefined;
+
+      if (!photos || photos.length === 0) {
+        console.warn(`[Pexels] No photos found for query: "${modifiedQuery}"`);
+        continue;
+      }
+
+      // Step: Verify images with AI
+      console.log(`[Pexels] Verifying ${photos.length} images with AI...`);
+      const verifiedImages: { url: string; alt: string; photographer: string }[] = [];
+
+      for (const photo of photos) {
+        // Download image for AI verification
+        const imageBase64 = await downloadImageAsBase64(photo.src.large);
+
+        if (!imageBase64) {
+          console.warn(`[Pexels] Failed to download image, skipping verification`);
+          // Include image anyway if download fails
+          verifiedImages.push({
+            url: photo.src.large,
+            alt: photo.alt || query,
+            photographer: photo.photographer
+          });
+          continue;
+        }
+
+        // Verify with AI
+        const isRelevant = await verifyPexelsImageWithAI(query, imageBase64);
+
+        if (isRelevant) {
+          verifiedImages.push({
+            url: photo.src.large,
+            alt: photo.alt || query,
+            photographer: photo.photographer
+          });
+        } else {
+          console.log(`[Pexels] Image rejected by AI verification`);
+        }
+
+        // Stop if we have enough verified images
+        if (verifiedImages.length >= count) {
+          break;
+        }
+      }
+
+      // If we have at least some verified images, return them
+      if (verifiedImages.length > 0) {
+        console.log(`[Pexels] Returning ${verifiedImages.length} verified images`);
+        return verifiedImages;
+      }
+
+      // If no images passed verification and we have retries left, try again
+      if (attempt < maxRetries) {
+        console.log(`[Pexels] No relevant images found, retrying with modified query...`);
+      }
     }
 
-    const data = await response.json();
-
-    return data.photos?.map((photo: { src: { large: string }; alt: string; photographer: string }) => ({
-      url: photo.src.large,
-      alt: photo.alt || query,
-      photographer: photo.photographer
-    })) || [];
+    // Fallback: return empty if all retries exhausted
+    console.warn(`[Pexels] All retries exhausted, no relevant images found`);
+    return [];
   } catch (error) {
     console.error('[Pexels] Search error:', error);
     return [];
